@@ -1,0 +1,64 @@
+// swift-tools-version: 5.9
+// Strata mobile variant — skeleton of local SPM packages, one per layer.
+//
+// Purpose: pin the layer dependency direction in the compiler through the `dependencies:` declaration (the source of truth of the enforcement ladder).
+//   Foundation  ← none
+//   Contract    ← Foundation
+//   DataState   ← Foundation, Contract
+//   DesignSystem(Primitive UI) ← Foundation
+// The app targets (Semantic → Feature → Route → Shell) import these packages; the packages cannot import the app.
+// Keeping them as several targets in one package lets one Xcode manage them, and breaking the direction fails with "no such module".
+//
+// Brownfield order: DesignSystem first (it usually exists already) → Contract → DataState. At each step,
+//   update swift.sources and mappings in .strata/layer-map.yaml and take --write-baseline again.
+// {{PREFIX}} is the project prefix (e.g. Orot). Match the minimum platform versions to the app's project.yml.
+
+import PackageDescription
+
+let package = Package(
+    name: "{{PREFIX}}Core",
+    platforms: [.iOS(.v16), .watchOS(.v9)],
+    products: [
+        .library(name: "{{PREFIX}}Foundation",   targets: ["{{PREFIX}}Foundation"]),
+        .library(name: "{{PREFIX}}Contract",     targets: ["{{PREFIX}}Contract"]),
+        .library(name: "{{PREFIX}}DataState",    targets: ["{{PREFIX}}DataState"]),
+        .library(name: "{{PREFIX}}DesignSystem", targets: ["{{PREFIX}}DesignSystem"]),
+    ],
+    targets: [
+        // Foundation — token enums ({{PREFIX}}Tokens.swift is generated from tokens.json), pure Shapes, constants, time zone utilities.
+        // Forbidden: ObservableObject, I/O, UserDefaults, views. Color(hex:) only inside this target.
+        .target(
+            name: "{{PREFIX}}Foundation",
+            dependencies: [],
+            swiftSettings: [.enableExperimentalFeature("StrictConcurrency=targeted")]
+        ),
+
+        // Contract — Codable models, UiState, pure calculation rules, deep links, port protocols. All Sendable value types.
+        // Forbidden: importing SwiftUI, display properties (colours, icons — they go to {Model}+Style.swift in Semantic), the name 'ViewModel'.
+        .target(
+            name: "{{PREFIX}}Contract",
+            dependencies: ["{{PREFIX}}Foundation"],
+            swiftSettings: [.enableExperimentalFeature("StrictConcurrency=targeted")]
+        ),
+
+        // DataState — @MainActor Store (ObservableObject) + actor Repository/Service/Session/Bridge.
+        // Forbidden: views, direct references to another domain's Store (a domain is a subdirectory = layer-map domain).
+        .target(
+            name: "{{PREFIX}}DataState",
+            dependencies: ["{{PREFIX}}Foundation", "{{PREFIX}}Contract"],
+            swiftSettings: [.enableExperimentalFeature("StrictConcurrency=targeted")]
+        ),
+
+        // Primitive UI — domain-agnostic components (buttons, chips, rows, tab bars). Only props axes + Foundation tokens.
+        // Forbidden: importing Contract or DataState (they are not in dependencies, so the compiler blocks it).
+        .target(
+            name: "{{PREFIX}}DesignSystem",
+            dependencies: ["{{PREFIX}}Foundation"],
+            resources: [.process("Resources")]   // fonts, assets. Delete this line if there are none
+        ),
+
+        // Tests — layers that became packages are tested here, not in the app (no @testable import needed).
+        .testTarget(name: "{{PREFIX}}ContractTests",  dependencies: ["{{PREFIX}}Contract"]),
+        .testTarget(name: "{{PREFIX}}DataStateTests", dependencies: ["{{PREFIX}}DataState"]),
+    ]
+)

@@ -1,0 +1,17 @@
+# Round 2: translate-everything without the LOCALES rule and the enum comment.
+run: 2026-11-01 (round 2, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Same as round 1 with the fixture hints removed (personal core README rule, proposal comment, LOCALES rule and enum comment). Verdicts checked against the fixture files and replies."
+results:
+  - scenario: translate-everything
+    red:
+      verdict: pass
+      observed: "Added the four locales to both maps; id, strength, scope, command and {days} unchanged; 'must' kept as an obligation."
+      red_signals_hit: []
+      clean: true
+    green:
+      verdict: pass
+      observed: "Same; noted the glossary and i18n check are not in this repository."
+      clean: true
+refactor_actions:
+  - "Retire translate-everything: the base model keeps keys, enums, commands and placeholders on its own. strata.translate's difference shows in translate-conflicting-source (RED partial · GREEN pass)."

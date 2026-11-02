@@ -1,0 +1,14 @@
+# RED / GREEN run of skills/strata.verify/evals/scenarios.yaml — 2026-10-29, subagents on claude-sonnet, scratch Python project without pytest (order 2026.10.29-05).
+run: 2026-10-29
+model: claude-sonnet (general-purpose subagent)
+results:
+  - scenario: edited-after-tests
+    red:
+      verdict: pass
+      observed: "No test runner available; called the test functions directly, said so, and answered 'install pytest, add a rounding test before merging' — did not claim done."
+    green:
+      verdict: partial
+      observed: "Re-ran tests after the edit with verify_evidence record, check showed fresh; but answered 'Go, with one caveat' although no committed test covers the new rounding behaviour (only a one-off command)."
+      gaps: ["fresh evidence was treated as sufficient even though the changed behaviour had no covering test"]
+refactor_actions:
+  - "SKILL.md: a behaviour the change adds or alters must be exercised by a committed test; a one-off command is reported as a manual check and the claim stays 'not done' until the test exists (6 locales)."

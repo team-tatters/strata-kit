@@ -1,0 +1,40 @@
+/**
+ * Strata frontend layer enforcement — dependency-cruiser configuration (web variant)
+ *
+ * Reads frontend.variants.{variant}.layers[*].can_reference from layer-rules.yaml (Core SoT) and the
+ * mappings from the project's layer-map.yaml at runtime, and generates forbidden rules from them.
+ * Do not hand-edit the rules file — layer rules come from layer-rules.yaml and path mappings from layer-map.yaml.
+ *
+ * Semantics
+ *  - layer-map is first-match-wins (substring). To reproduce that with regexes, `from` gets one rule per mapping
+ *    (from.path = that mapping, from.pathNot = every other-layer mapping that comes before it), and `to` is the union of
+ *    the banned layers' mappings minus the allowed-layer mappings that come before them. The `to` side excludes slightly too much (it may miss, but never reports falsely).
+ *  - References inside the same layer are allowed. But Feature_Block's cross_reference: false bans references between
+ *    "different domains of the same layer" (the isolation rule below, DEC-2026-11-01-19).
+ *  - zones.legacy paths are left out of `from` (they get only the diff rules). exceptions leave out (from_path → to_layer).
+ *  - Feature_Block isolation rule — references are allowed only inside the same {root}{domain}/ ($1 group match). The root is layer-map feature_root, or if absent
+ *    the part of layer-rules Feature_Block.domain_slice before (*). A domain is one directory right below the root; files outside the root are not isolated.
+ *  - A {Route}Page that assembles several Sections is Route_Surface wherever it sits — put it before the Feature_Block mappings in layer-map.
+ *
+ * Needs: dependency-cruiser, yaml or js-yaml (devDependencies)
+ * Run: depcruise --config depcruise-layers.cjs <src dirs>
+ * Environment: STRATA_KIT (location of core/rules/layer-rules.yaml, default ~/workspace/strata-kit) · STRATA_LAYER_MAP (default .strata/layer-map.yaml)
+ */
+const fs = require('node:fs');
+const path = require('node:path');
+let parseYaml;
+try { parseYaml = require('yaml').parse; } catch { parseYaml = require('js-yaml').load; }
+
+const STRATA_KIT = process.env.STRATA_KIT || path.join(require('node:os').homedir(), 'workspace', 'strata-kit');
+const LAYER_MAP = process.env.STRATA_LAYER_MAP || path.resolve(__dirname, '.strata', 'layer-map.yaml');
+const rules = parseYaml(fs.readFileSync(path.join(STRATA_KIT, 'core/rules/layer-rules.yaml'), 'utf8'));
+const layerMap = parseYaml(fs.readFileSync(LAYER_MAP, 'utf8'));
+
+module.exports = require('./depcruise-layers.core.cjs')(rules, layerMap, {
+  doNotFollow: { path: ['node_modules'] },
+  exclude: { path: ['\\.(stories|test|spec)\\.(ts|tsx)$', '/\\.next/', '/coverage/', '/e2e/', '__tests__/'] },
+  tsPreCompilationDeps: true,
+  combinedDependencies: true,
+  enhancedResolveOptions: { exportsFields: ['exports'], conditionNames: ['import', 'require', 'default', 'types'], mainFields: ['types', 'main'] },
+  reporterOptions: { text: { highlightFocused: true } },
+});

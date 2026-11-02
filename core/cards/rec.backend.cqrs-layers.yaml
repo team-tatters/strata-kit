@@ -1,0 +1,64 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.backend.cqrs-layers
+  profiles:
+  - backend.kotlin-spring-cqrs
+  title:
+    en: Backend layers with command and query separation
+    ko: 명령과 조회를 나눈 백엔드 레이어
+    ja: コマンドとクエリを分けたバックエンド層
+    zh: 命令与查询分离的后端分层
+    es: Capas de backend con separación de comandos y consultas
+    fr: Couches backend avec séparation commandes/requêtes
+  claim:
+    en: Code depends only downward through L1 → LM1 → L2 → LM2 → L3 → Route. Commands and queries are separate paths; a REST DTO never crosses into a lower layer. Same-layer references are allowed only within the declared meaning (DEC-2026-09-30-04).
+    ko: 코드는 L1 → LM1 → L2 → LM2 → L3 → Route 의 아래 방향으로만 의존한다. 명령과 조회는 별도 경로이고, REST DTO 는 아래 레이어로 내려가지 않는다. 같은 레이어 참조는 선언된 의미 안에서만 허용한다(DEC-2026-09-30-04).
+    ja: コードは L1 → LM1 → L2 → LM2 → L3 → Route の下方向にのみ依存する。コマンドとクエリは別経路。
+    zh: 代码只沿 L1 → LM1 → L2 → LM2 → L3 → Route 向下依赖；命令和查询是独立路径。
+    es: El código solo depende hacia abajo por L1 → LM1 → L2 → LM2 → L3 → Route; comandos y consultas son rutas separadas.
+    fr: Le code ne dépend que vers le bas via L1 → LM1 → L2 → LM2 → L3 → Route ; commandes et requêtes sont des chemins séparés.
+  applies_when:
+  - en: Kotlin or Java services on Spring with more than one aggregate
+    ko: 애그리거트가 둘 이상인 Kotlin·Java Spring 서비스
+    ja: 複数の集約を持つ Spring 上の Kotlin または Java サービス
+    zh: 在 Spring 上具有多个聚合的 Kotlin 或 Java 服务
+    es: Servicios Kotlin o Java sobre Spring con más de un agregado
+    fr: Services Kotlin ou Java sur Spring avec plus d'un agrégat
+  not_when:
+  - en: A single-endpoint adapter service with no domain logic
+    ko: 도메인 로직이 없는 단일 엔드포인트 어댑터 서비스
+    ja: ドメインロジックのない単一エンドポイントのアダプターサービス
+    zh: 没有领域逻辑的单端点适配器服务
+    es: Un servicio adaptador de un solo endpoint sin lógica de dominio
+    fr: Un service adaptateur à un seul endpoint sans logique métier
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-04
+    note:
+      en: Meaning of same-layer references
+      ko: 같은 레이어 참조의 의미
+      ja: 同一レイヤー参照の意味
+      zh: 同层引用的含义
+      es: Significado de las referencias en la misma capa
+      fr: Signification des références dans une même couche
+  - kind: measurement
+    ref: one-off ArchUnit measurement on a backend project, 2026-07 — not yet in CI
+    note:
+      en: A one-off ArchUnit run found 1,614 L3/Route→LM1 references and drove the remediation; the tests were never added to the repository or CI, and since the project went detached (2026-10-28) the edit hooks saw no layer map until 2026-10-29
+      ko: ArchUnit 1회 실측이 L3·Route→LM1 참조 1,614건을 찾아 상환을 이끌었다. 테스트는 저장소·CI 에 들어간 적이 없고, detached 전환(2026-10-28) 뒤 편집 훅은 2026-10-29 까지 레이어 맵을 찾지 못했다
+      ja: ArchUnit の一回限りの計測で L3・Route→LM1 参照 1,614 件が見つかり是正を導いた。テストはリポジトリにも CI にも入っておらず、detached 移行(2026-10-28)後は 2026-10-29 まで編集フックがレイヤーマップを見つけられなかった
+      zh: 一次性 ArchUnit 测量发现 1,614 处 L3/Route→LM1 引用并推动了整改；测试从未加入仓库或 CI，项目转为 detached（2026-10-28）后，编辑钩子直到 2026-10-29 都找不到层映射
+      es: Una medición única con ArchUnit encontró 1.614 referencias L3/Route→LM1 y guió la corrección; las pruebas nunca entraron en el repositorio ni en CI, y tras pasar a detached (2026-10-28) los hooks de edición no vieron el mapa de capas hasta el 2026-10-29
+      fr: Une mesure ArchUnit ponctuelle a trouvé 1 614 références L3/Route→LM1 et a guidé la correction ; les tests ne sont jamais entrés dans le dépôt ni dans la CI, et après le passage en detached (2026-10-28) les hooks d'édition n'ont pas vu la carte des couches jusqu'au 2026-10-29
+  counter_examples: []
+  verification:
+    en: ArchUnit StrataLayerRulesTest passes in CI
+    ko: CI 에서 ArchUnit StrataLayerRulesTest 통과
+    ja: CI で ArchUnit StrataLayerRulesTest が通る
+    zh: CI 中 ArchUnit StrataLayerRulesTest 通过
+    es: StrataLayerRulesTest de ArchUnit pasa en CI
+    fr: StrataLayerRulesTest ArchUnit passe en CI
+  source: core/docs/ko/architecture/backend-cqrs.md, profiles/backend.kotlin-spring-cqrs/enforcement/
+  strength: should
+  supersedes: []
+  status: active

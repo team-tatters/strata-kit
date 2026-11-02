@@ -1,0 +1,66 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.generated-views
+  strength: must
+  adoption: conditional   # DEC-2026-10-30-01
+  condition: uses_vault
+  profiles: []
+  title:
+    en: Generated views are never hand-edited
+    ko: 생성 뷰는 손으로 고치지 않는다
+    ja: 生成ビューは手で編集しない
+    zh: 生成视图绝不手工编辑
+    es: Las vistas generadas nunca se editan a mano
+    fr: Les vues générées ne sont jamais éditées à la main
+  claim:
+    en: Decision indexes, decision-note mirrors, node pages, MOCs, changelogs and search indexes are produced from their sources by a generator in the same run that changed the source. A hand edit to a generated file is overwritten and lost; if a generated view is wrong, the source or the generator is fixed.
+    ko: 결정 인덱스, DEC 노트 미러, 노드 페이지, MOC, 변경 이력, 검색 색인은 출처를 바꾼 같은 실행에서 생성기가 만든다. 생성 파일을 손으로 고치면 덮어써져 사라진다. 생성 뷰가 틀리면 출처나 생성기를 고친다.
+    ja: 決定インデックス、DEC ノートミラー、ノードページ、MOC、変更履歴、検索インデックスは、出典を変えたのと同じ実行で生成器が作る。生成ファイルを手で直すと上書きされて消える。生成ビューが誤っていれば出典か生成器を直す。
+    zh: 决策索引、决策注记镜像、节点页、MOC、变更日志和搜索索引由生成器在修改来源的同一次运行中生成。手工编辑生成文件会被覆盖丢失；生成视图有误时修正来源或生成器。
+    es: Los índices de decisiones, los espejos de notas de decisión, las páginas de nodo, los MOC, los changelogs y los índices de búsqueda los produce un generador a partir de sus fuentes en la misma ejecución que cambió la fuente. Una edición manual de un archivo generado se sobrescribe y se pierde; si una vista generada está mal, se corrige la fuente o el generador.
+    fr: Les index de décisions, miroirs de notes de décision, pages de nœud, MOC, journaux de modifications et index de recherche sont produits par un générateur à partir de leurs sources dans la même exécution qui a changé la source. Une édition manuelle d'un fichier généré est écrasée et perdue ; si une vue générée est fausse, on corrige la source ou le générateur.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "Never hand-edit generated views (indexes, DEC notes, node pages, search index); fix the source or the generator."
+    ko: "생성 뷰(인덱스·DEC 노트·노드 페이지·검색 색인)는 손으로 고치지 않는다. 틀리면 출처나 생성기를 고친다."
+    ja: "生成ビュー(インデックス・DEC ノート・ノードページ・検索索引)は手で直さない。誤りは出典か生成器を直す。"
+    zh: "生成视图（索引、DEC 笔记、节点页、检索索引）不手改；有误就改来源或生成器。"
+    es: "No edites a mano las vistas generadas (índices, notas DEC, páginas de nodo, índice de búsqueda); corrige la fuente o el generador."
+    fr: "Ne modifiez jamais à la main les vues générées (index, notes DEC, pages de nœud, index de recherche) ; corrigez la source ou le générateur."
+  applies_when:
+  - en: Every generated path listed in the share policy's generated_paths and the index manifest
+    ko: 공유 정책의 generated_paths 와 색인 manifest 에 적힌 모든 생성 경로
+    ja: 共有ポリシーの generated_paths とインデックス manifest に記された全生成パス
+    zh: 共享策略的 generated_paths 与索引清单中列出的所有生成路径
+    es: Cada ruta generada listada en generated_paths de la política de compartición y en el manifiesto del índice
+    fr: Chaque chemin généré listé dans generated_paths de la politique de partage et dans le manifeste d'index
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-08-19-05
+    note:
+      en: Records are the source; decisions.yaml is a generated index
+      ko: 레코드가 정본, decisions.yaml 은 생성 인덱스
+      ja: レコードが原本、decisions.yaml は生成インデックス
+      zh: 记录是正本；decisions.yaml 是生成索引
+      es: Los registros son la fuente; decisions.yaml es un índice generado
+      fr: Les enregistrements font foi ; decisions.yaml est un index généré
+  - kind: decision
+    ref: DEC-2026-08-21-01
+    note:
+      en: The decision-note mirror is generated in the same run as the record
+      ko: DEC 노트 미러는 레코드와 같은 실행에서 생성된다
+      ja: DEC ノートミラーはレコードと同じ実行で生成される
+      zh: 决策注记镜像与记录在同一次运行中生成
+      es: El espejo de notas se genera en la misma ejecución que el registro
+      fr: Le miroir de notes est généré dans la même exécution que l'enregistrement
+  counter_examples: []
+  verification:
+    en: Regenerating all views from sources produces a zero diff
+    ko: 출처에서 모든 뷰를 다시 생성해도 diff 가 0 이다
+    ja: 出典から全ビューを再生成しても diff がゼロ
+    zh: 从来源重新生成所有视图后 diff 为零
+    es: Regenerar todas las vistas desde las fuentes produce un diff de cero
+    fr: Régénérer toutes les vues depuis les sources produit un diff nul
+  source: core/docs/ko/knowledge-base/indexing-protocol.md, vault _meta/share.yaml conflict.generated_paths
+  supersedes: []
+  status: active

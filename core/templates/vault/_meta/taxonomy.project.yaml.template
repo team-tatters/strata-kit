@@ -1,0 +1,108 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# taxonomy.yaml — project extension of the classification scheme
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Location: vault/projects/{project-name}/_meta/taxonomy.yaml
+#
+# This file inherits the global taxonomy and adds the project's own classification.
+# The category structure, document types, tag namespaces, lifecycle
+# and validation rules defined globally are inherited as they are.
+#
+# Merge rules:
+#   - categories.{name}.children → deep merge (add only, no removal)
+#   - document_types              → may add; existing types cannot be redefined
+#   - tag_namespaces              → may add
+#   - validation                  → may override (relax or tighten per project)
+#   - other fields                → keep the global value
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+version: "1.0"
+scope: "project"
+extends: "../../_meta/taxonomy.yaml"
+project: "{project-name}"             # project identifier
+
+
+# ============================================================
+# Category extension — define domain children
+# ============================================================
+#
+# The global taxonomy leaves categories.domain.children empty,
+# so each project defines its domain topics here.
+#
+# Note: these children are the "directory axis" (where documents sit).
+# The "topic nodes" that make up the human-readable table of contents have their own source of truth, _meta/toc.yaml,
+# and do not map 1:1 to directories. You may give both the same names, but nothing enforces it.
+#
+# Structure:
+#   domain/{topic}/                  depth 2
+#   domain/{topic}/{subtopic}/       depth 3 (depth_limit: 3)
+#
+# Example (an order project):
+#
+# categories:
+#   domain:
+#     children:
+#       order:
+#         label: "Orders"
+#         order: 1
+#         children:
+#           payment:
+#             label: "Payment"
+#             order: 1
+#           refunds:
+#             label: "Refunds"
+#             order: 2
+#           reporting:
+#             label: "Reporting"
+#             order: 3
+#       organization:
+#         label: "Organization / stores"
+#         order: 2
+#         children:
+#           stores:
+#             label: "Stores"
+#             order: 1
+#           warehouses:
+#             label: "Warehouses"
+#             order: 2
+#
+#   references:
+#     children:
+#       payment-standards:
+#         label: "Payment standards"
+#         order: 1
+#       consumer-law:
+#         label: "E-commerce law"
+#         order: 2
+
+categories:
+  domain:
+    children: {}                    # TODO: define the project's domain topics
+
+
+# ============================================================
+# Project-specific tags (optional)
+# ============================================================
+#
+# Add project-specific tags here if the global namespaces are not enough.
+#
+# Example:
+# tag_namespaces:
+#   module:
+#     description: "Module within the project"
+#     pattern: "module/{name}"
+#     examples: ["module/payment", "module/report", "module/admin"]
+
+
+# ============================================================
+# Validation rule overrides (optional)
+# ============================================================
+#
+# A project may relax or tighten the global rules to fit its situation.
+#
+# Example (tightening in a settled project):
+# validation:
+#   required_fields_check:
+#     action: "block"              # tightened from warn to block
+#   category_type_check:
+#     action: "block"

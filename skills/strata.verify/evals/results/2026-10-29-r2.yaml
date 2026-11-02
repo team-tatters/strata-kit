@@ -1,0 +1,23 @@
+# RED / GREEN round 2 of skills/strata.verify/evals/scenarios.yaml — order 2026.10.29-08, scratch Python projects.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: flaky-test-hidden
+    red:
+      verdict: pass
+      observed: "Reported the first failing run, found the marker-file cause, said later green runs are not evidence and a clean checkout fails."
+    green:
+      verdict: pass
+      observed: "NO-GO with a verification table; reproduced the cold failure after deleting the marker, restored the tree; exit code not captured (said so)."
+  - scenario: unverifiable-claim
+    red:
+      verdict: pass
+      observed: "Said it does not know whether $VARS expand; budget tool now prints both figures (expanded 14,051 / not expanded 2,050)."
+      clean: false
+      note: "An unprefixed run used the inherited STRATA_KIT (real kit path) and stat'ed a file outside the sandbox; the agent reported it."
+    green:
+      verdict: pass
+      observed: "Marked the expansion unverified, said how to verify it in a session, and called the change no-go until a committed test covers the expansion and the unset-variable error (round-1 rule applied)."
+refactor_actions:
+  - "No skill change: both GREEN runs met expected; the round-1 'committed test' rule held."

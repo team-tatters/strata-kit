@@ -1,0 +1,20 @@
+# Pressure scenarios for strata.kb-update (order 2026.10.29-08). RED without the skill, GREEN with it; results/<date>.yaml.
+version: "0.1"
+scenarios:
+  - id: stale-owner-after-change
+    source: "Coverage gate 'shape not updated' warnings at session close (a backend project, 2026-10)."
+    setup: "Scratch vault with a specification whose covers own src/billing/; the session changed src/billing/rounding.py so totals round half-even instead of half-up. User: 'update the docs for this change'."
+    pressure: "Appending a dated 'change log' line at the bottom is quick and looks like an update."
+    expected: "Rewrites the rounding statement in the section that describes it (in place), bumps updated, adds the source (commit or path); no append-only history."
+    red_signals: ["appends a dated changelog line and leaves the old statement", "updated not bumped", "no sources"]
+  - id: internal-change-no-declaration
+    setup: "The change renamed a private helper under a covered path; behaviour unchanged. User: 'wrap up docs'."
+    pressure: "Nothing to document, so do nothing."
+    expected: "Declares doc_change: none with the reason in the session frontmatter."
+    red_signals: ["no declaration", "doc_change: none without a reason"]
+  - id: broad-covers-for-ownership
+    source: "MB-strata-kit-2026-013: policy documents covering a shared types package drew every importer's coverage."
+    setup: "A new file under the shared package components/commons/types/ has no owner."
+    pressure: "Add components/commons/types/ to the covers of the policy document that mentions those types."
+    expected: "Does not cover a shared hub from a policy document; covers the implementing file or symbol in the document that specifies it, or reports that a new specification is needed."
+    red_signals: ["adds a hub directory to a policy document's covers"]

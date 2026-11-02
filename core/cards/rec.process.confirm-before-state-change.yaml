@@ -1,0 +1,70 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.process.confirm-before-state-change
+  title:
+    en: Confirm before changing state
+    ko: 상태를 바꾸기 전에 확인한다
+    ja: 状態を変える前に確認する
+    zh: 改变状态前先确认
+    es: Confirmar antes de cambiar el estado
+    fr: Confirmer avant de modifier l'état
+  claim:
+    en: Before any action that changes state (file edits, session or relay injection, external CLI calls, commit/deploy/delete, long-running work, anything touching cost, permissions or data), present a summary of purpose, actions, scope of impact, verification and rollback, and obtain the user's confirmation. Read-only investigation is exempt. Semantic changes always need approval; a mechanical change may be auto-allowed only when its invariance can be proven statically, never by the model's own judgement.
+    ko: 파일 수정, 세션·릴레이 주입, 외부 CLI 호출, 커밋·배포·삭제, 장기 실행, 비용·권한·데이터에 닿는 모든 상태 변경 전에 목적·실행할 작업·영향 범위·검증 방법·되돌림 조건을 요약해 보이고 사용자 확인을 받는다. 조회·검색·읽기는 예외다. 의미를 바꾸는 변경은 항상 승인이 필요하고, 의미가 불변인 기계적 변경은 정적으로 증명될 때만 자동 허용 후보이며 모델의 자기 판단은 근거가 되지 않는다.
+    ja: ファイル編集、セッション・リレーへの注入、外部CLI呼び出し、コミット・デプロイ・削除、長時間実行、コスト・権限・データに触れるあらゆる状態変更の前に、目的・実行内容・影響範囲・検証方法・取り消し条件を要約して提示し、ユーザーの確認を得る。読み取りのみの調査は例外とする。
+    zh: 在任何改变状态的操作（修改文件、注入会话或中继、调用外部 CLI、提交/部署/删除、长时间运行、涉及成本/权限/数据）之前，先呈现目的、操作、影响范围、验证方法和回滚条件的摘要，并取得用户确认。只读调查除外。
+    es: Antes de cualquier acción que cambie el estado (editar archivos, inyectar en sesiones o relés, llamar a CLI externas, confirmar/desplegar/borrar, trabajos largos, todo lo que toque coste, permisos o datos), presentar un resumen de propósito, acciones, alcance, verificación y reversión, y obtener la confirmación del usuario. La investigación de solo lectura queda exenta.
+    fr: Avant toute action modifiant l'état (édition de fichiers, injection dans une session ou un relais, appel d'un CLI externe, commit/déploiement/suppression, travail long, tout ce qui touche au coût, aux droits ou aux données), présenter un résumé de l'objectif, des actions, de la portée, de la vérification et du retour arrière, puis obtenir la confirmation de l'utilisateur. L'investigation en lecture seule est exemptée.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Before any state change (files, commits, deploys, deletes, external calls) show purpose, impact and rollback and get confirmation; reads are exempt.
+    ko: 상태를 바꾸기 전(파일·커밋·배포·삭제·외부 호출) 목적·영향·되돌림을 보이고 확인받는다. 읽기는 예외.
+    ja: 状態を変える前(ファイル・コミット・デプロイ・削除・外部呼び出し)に目的・影響・戻し方を示して確認を取る。読み取りは例外。
+    zh: 任何状态变更（文件、提交、部署、删除、外部调用）之前，先说明目的、影响和回滚方式并取得确认；读取除外。
+    es: Antes de cualquier cambio de estado (archivos, commits, despliegues, borrados, llamadas externas) muestra propósito, impacto y reversión y obtén confirmación; las lecturas quedan exentas.
+    fr: Avant tout changement d'état (fichiers, commits, déploiements, suppressions, appels externes), montrer le but, l'impact et le retour arrière et obtenir une confirmation ; les lectures sont exemptées.
+  applies_when:
+  - en: Every session, every execution mode
+    ko: 모든 세션, 모든 실행 모드
+    ja: すべてのセッション、すべての実行モード
+    zh: 每个会话、每种执行模式
+    es: Cada sesión, cada modo de ejecución
+    fr: Chaque session, chaque mode d'exécution
+  not_when:
+  - en: 'Read-only investigation: search, file reads, status queries'
+    ko: 조회·검색·파일 읽기처럼 상태를 바꾸지 않는 조사
+    ja: 読み取りのみの調査：検索、ファイル読込、状態照会
+    zh: 只读调查：搜索、读取文件、查询状态
+    es: 'Investigación de solo lectura: búsqueda, lectura de archivos, consultas de estado'
+    fr: 'Investigation en lecture seule : recherche, lecture de fichiers, consultation d''état'
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-02
+    note:
+      en: Single source of the absolute rules (core/docs/ko/methodology/execution-modes.md)
+      ko: 절대 규칙의 단일 정본(core/docs/ko/methodology/execution-modes.md)
+      ja: 絶対規則の唯一の原本（core/docs/ko/methodology/execution-modes.md）
+      zh: 绝对规则的唯一正本（core/docs/ko/methodology/execution-modes.md）
+      es: Fuente única de las reglas absolutas (core/docs/ko/methodology/execution-modes.md)
+      fr: Source unique des règles absolues (core/docs/ko/methodology/execution-modes.md)
+  - kind: reference
+    ref: https://github.com/addyosmani/agent-skills (context-engineering)
+    note:
+      en: Do not infer approval from a previous conversation; only durable artifacts record approval
+      ko: 이전 대화에서 승인을 추론하지 않는다. 영속 산출물에 기록된 승인만 승인이다
+      ja: 以前の会話から承認を推測しない。承認は永続的な成果物にのみ記録される
+      zh: 不要从先前对话推断批准；只有持久产物才记录批准
+      es: No inferir aprobación de una conversación previa; solo los artefactos durables registran la aprobación
+      fr: Ne pas déduire une approbation d'une conversation précédente ; seuls les artefacts durables l'enregistrent
+  counter_examples: []
+  verification:
+    en: 'Quilt gate policy: non-read-only tools are ''ask''; the handoff lists every approval with its summary'
+    ko: Quilt 게이트 정책에서 읽기 전용이 아닌 도구는 묻기. 핸드오프에 승인 항목과 요약이 남는다
+    ja: Quiltのゲートポリシーで読み取り専用以外のツールは「確認」。ハンドオフに各承認と要約を残す
+    zh: Quilt 网关策略中非只读工具为“询问”；交接记录列出每次批准及其摘要
+    es: 'Política de puerta de Quilt: las herramientas que no son de solo lectura ''preguntan''; el traspaso registra cada aprobación con su resumen'
+    fr: 'Politique de garde Quilt : les outils non lecture seule « demandent » ; la passation consigne chaque approbation avec son résumé'
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 1
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

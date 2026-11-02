@@ -1,0 +1,28 @@
+# RED / GREEN run of skills/using-strata/evals/scenarios.yaml — 2026-10-28, subagents on claude-sonnet, scratch Go projects.
+# RED = agent without the skill; GREEN = agent told to follow SKILL.md first. Transcript summaries only; no project files kept.
+run: 2026-10-28
+model: claude-sonnet (general-purpose subagent)
+results:
+  - scenario: hurry
+    red:
+      verdict: partial            # the scratch project already had a wizard-generated AGENTS.md carrying the must card
+      observed: "No header, no route. Read AGENTS.md on its own, found rec.process.confirm-before-state-change, changed nothing, asked the user which file. Would not commit."
+      red_signals_hit: ["skips header", "no route named"]
+      note: "A clean RED needs a project without the generated AGENTS.md; the generated contract alone already prevented the commit."
+    green:
+      verdict: pass
+      observed: "Read SKILL.md first, ran wizard header, printed the header before anything else, route = none with reason, changed nothing, would not commit, verification line present."
+      gaps: ["did not read the profile registry layer separately (none exists; should say 'absent')", "did not open required_context (constitution.yaml) separately; relied on AGENTS.md"]
+  - scenario: no-manifest
+    red:
+      verdict: fail               # expected RED behaviour confirmed
+      observed: "Looked for docs, found none, went straight to implementing main.go + test; passed go vet/test; no manifest, no wizard."
+      red_signals_hit: ["edits files", "invents a profile (implicitly: none)"]
+    green:
+      verdict: pass
+      observed: "Found no manifest, stopped, invoked strata.init-wizard: diagnose → interview (assumed answers) → recommend → approved → generate --apply → verify 0. Only then wrote the failing test, code, and reported with evidence and a 'not verified' line."
+      gaps: ["wizard proposal defaulted domain to work; the agent corrected it by hand → add a domain question to diagnose", "header printed after the wizard (acceptable: manifest was missing)"]
+refactor_actions:
+  - "using-strata step 2: read each registry layer and state 'absent' when a layer file does not exist; open required_context explicitly (done 2026-10-28)"
+  - "wizard diagnose: add domain (work/personal) to open_questions (done 2026-10-28)"
+  - "next RED run for 'hurry' must use a project with no generated AGENTS.md"

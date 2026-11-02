@@ -1,0 +1,65 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.frontend.design-contract
+  profiles:
+  - frontend.next-web
+  - frontend.swiftui
+  title:
+    en: Design values come from tokens and variants
+    ko: 디자인 값은 토큰과 변형에서 온다
+    ja: デザイン値はトークンとバリアントから
+    zh: 设计取值来自令牌与变体
+    es: Los valores de diseño vienen de tokens y variantes
+    fr: Les valeurs de design viennent des tokens et variantes
+  claim:
+    en: Colors, type, spacing, radius and motion are referenced through design tokens; components expose named variants instead of ad-hoc props; a deterministic checker flags literal values in UI code.
+    ko: 색·타이포·간격·반경·모션은 디자인 토큰으로 참조한다. 컴포넌트는 임의의 prop 대신 이름 있는 변형을 노출한다. 결정적 검사기가 UI 코드의 리터럴 값을 표시한다.
+    ja: 色・タイポ・間隔・角丸・モーションはデザイントークンで参照する。
+    zh: 颜色、排版、间距、圆角、动效通过设计令牌引用。
+    es: Colores, tipografía, espaciado, radio y movimiento se referencian por tokens de diseño.
+    fr: Couleurs, typographie, espacements, rayons et mouvements sont référencés via des tokens de design.
+  applies_when:
+  - en: A design system or shared UI package exists
+    ko: 디자인 시스템이나 공유 UI 패키지가 있다
+    ja: デザインシステムまたは共有 UI パッケージが存在する
+    zh: 存在设计系统或共享 UI 包
+    es: Existe un sistema de diseño o un paquete de UI compartido
+    fr: Un système de design ou un paquet UI partagé existe
+  not_when:
+  - en: Throwaway prototypes
+    ko: 버릴 프로토타입
+    ja: 使い捨てのプロトタイプ
+    zh: 一次性原型
+    es: Prototipos desechables
+    fr: Prototypes jetables
+  evidence:
+  - kind: reference
+    ref: core/docs/ko/architecture/frontend-design-contract.md
+    note:
+      en: Tokens, variants, composition, design alignment
+      ko: 토큰·변형·조합·디자인 정합
+      ja: トークン、バリアント、構成、デザイン整合
+      zh: 令牌、变体、组合、设计对齐
+      es: Tokens, variantes, composición, alineación de diseño
+      fr: Tokens, variantes, composition, alignement du design
+  - kind: reference
+    ref: https://github.com/pbakaus/impeccable
+    note:
+      en: Product truth and visual direction are separated; detectors run without an LLM
+      ko: 제품 진실과 시각 방향을 분리하고 검사기는 LLM 없이 돈다
+      ja: 製品の真実と視覚的方向性を分離し、検出器は LLM なしで動く
+      zh: 产品事实与视觉方向分离；检测器无需 LLM 运行
+      es: La verdad del producto y la dirección visual se separan; los detectores corren sin LLM
+      fr: Vérité produit et direction visuelle sont séparées ; les détecteurs tournent sans LLM
+  counter_examples: []
+  verification:
+    en: Design-contract checker reports no new literal values against the baseline
+    ko: 디자인 계약 검사기가 기준선 대비 새 리터럴 값 0건
+    ja: デザイン契約チェッカーがベースライン比で新規リテラル0件
+    zh: 设计契约检查器相对基线无新增字面值
+    es: El verificador del contrato de diseño no informa literales nuevos
+    fr: Le vérificateur du contrat de design ne signale aucun littéral nouveau
+  source: core/docs/ko/architecture/frontend-design-contract.md
+  strength: should
+  supersedes: []
+  status: active

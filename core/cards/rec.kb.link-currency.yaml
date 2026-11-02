@@ -1,0 +1,57 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.link-currency
+  strength: must
+  adoption: conditional   # DEC-2026-10-30-01
+  condition: uses_vault
+  profiles: []
+  title:
+    en: Links point at current documents
+    ko: 링크는 현행 문서를 가리킨다
+    ja: リンクは現行の文書を指す
+    zh: 链接指向现行文档
+    es: Los enlaces apuntan a documentos vigentes
+    fr: Les liens pointent vers des documents à jour
+  claim:
+    en: A document links by file name, never by alias or id only, and never to a superseded or archived document as if it were current. The link check runs at session close; a new violation beyond the recorded baseline blocks the close, the baseline shrinks as old violations are fixed.
+    ko: 문서는 파일 이름으로 링크하고 별칭이나 id 만으로 링크하지 않으며, 대체되거나 보관된 문서를 현행인 것처럼 가리키지 않는다. 링크 검사는 세션 종료 시 돌고, 기록된 기준선을 넘는 새 위반은 종료를 막으며, 옛 위반을 고칠수록 기준선은 줄어든다.
+    ja: 文書はファイル名でリンクし、別名や id だけではリンクせず、置換・保管済みの文書を現行のように指さない。リンク検査はセッション終了時に走り、記録済みベースラインを超える新規違反は終了を止め、古い違反の修正に伴いベースラインは縮む。
+    zh: 文档按文件名链接，绝不仅用别名或 id，也不把已取代或已归档的文档当作现行文档来指向。链接检查在会话关闭时运行；超出记录基线的新违规阻止关闭，旧违规修复后基线缩小。
+    es: Un documento enlaza por nombre de archivo, nunca solo por alias o id, y nunca a un documento sustituido o archivado como si fuera vigente. La comprobación de enlaces corre al cerrar la sesión; una violación nueva más allá de la línea base registrada bloquea el cierre, y la línea base se reduce a medida que se corrigen las antiguas.
+    fr: Un document lie par nom de fichier, jamais par alias ou id seul, et jamais vers un document remplacé ou archivé comme s'il était à jour. La vérification des liens s'exécute à la clôture de session ; une nouvelle violation au-delà de la base enregistrée bloque la clôture, et la base diminue à mesure que les anciennes violations sont corrigées.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "Link by file name to current documents only; a new link violation beyond the baseline blocks session close."
+    ko: "링크는 파일 이름으로, 현행 문서만 가리킨다. 기준선을 넘는 새 링크 위반은 세션 종료를 막는다."
+    ja: "リンクはファイル名で、現行文書だけを指す。基準線を超える新しいリンク違反はセッション終了を止める。"
+    zh: "链接用文件名，只指向现行文档；超出基准线的新链接违规会阻止会话结束。"
+    es: "Enlaza por nombre de archivo y solo a documentos vigentes; una infracción de enlace nueva sobre la línea base bloquea el cierre."
+    fr: "Liez par nom de fichier et uniquement vers des documents en vigueur ; une nouvelle violation au-delà de la référence bloque la clôture."
+  applies_when:
+  - en: Every vault document with wikilinks
+    ko: 위키링크가 있는 모든 vault 문서
+    ja: ウィキリンクを持つすべての vault 文書
+    zh: 所有含 wikilink 的 vault 文档
+    es: Cada documento del vault con wikilinks
+    fr: Chaque document du vault avec des wikilinks
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-03
+    note:
+      en: Link currency rule and the link-check gate with a recorded baseline (86 at introduction)
+      ko: 링크 현행성 규칙과 기준선(도입 시 86건)을 가진 링크 검사 게이트
+      ja: リンク現行性の規則と記録済みベースライン（導入時86件）を持つリンク検査ゲート
+      zh: 链接时效性规则与带记录基线（引入时 86 条）的链接检查门禁
+      es: Regla de vigencia de enlaces y puerta de comprobación con línea base registrada (86 al introducirse)
+      fr: Règle d'actualité des liens et porte de vérification avec base enregistrée (86 à l'introduction)
+  counter_examples: []
+  verification:
+    en: kb-link-check exits 0 for the project at session close (no new violation beyond baseline)
+    ko: 세션 종료 시 프로젝트의 kb-link-check 가 exit 0(기준선 밖 새 위반 없음)
+    ja: セッション終了時にプロジェクトの kb-link-check が exit 0（ベースライン外の新規違反なし）
+    zh: 会话关闭时项目的 kb-link-check 退出码为 0（基线外无新违规）
+    es: kb-link-check sale con 0 para el proyecto al cerrar (sin violaciones nuevas más allá de la base)
+    fr: kb-link-check sort avec 0 pour le projet à la clôture (aucune nouvelle violation au-delà de la base)
+  source: core/docs/ko/knowledge-base/linking-convention.md
+  supersedes: []
+  status: active

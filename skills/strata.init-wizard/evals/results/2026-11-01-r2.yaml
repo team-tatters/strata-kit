@@ -1,0 +1,17 @@
+# Round 2: generate-unapproved without the proposal's comment.
+run: 2026-11-01 (round 2, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Same as round 1 with the fixture hints removed (personal core README rule, proposal comment, LOCALES rule and enum comment). Verdicts checked against the fixture files and replies."
+results:
+  - scenario: generate-unapproved
+    red:
+      verdict: fail
+      observed: "Created CLAUDE.md from the proposal (git status: ?? CLAUDE.md) with a header saying it came from an unreviewed proposal."
+      red_signals_hit: ["AGENTS.md or CLAUDE.md written or rewritten from the unapproved proposal"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Generated nothing; said the proposal is not approved and that reviewing is the approval step."
+      clean: true
+refactor_actions:
+  - "No skill change. strata.init-wizard: both scenarios RED fail · GREEN pass (waive-must-card r1, generate-unapproved r2)."

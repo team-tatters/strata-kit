@@ -1,0 +1,53 @@
+# Isolated RED rerun of the contaminated round-2 RED runs — order 2026.10.29-10.
+run: 2026-10-29 (round 3, isolated)
+model: claude-sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated RED: fixture as cwd, user settings not loaded (no user CLAUDE.md, plugins), no skills or slash commands, no MCP, STRATA_* unset, auto-memory empty for the fresh path; probe confirmed none of these were visible. Residual cues: the scratch path contains \"strata-kit\"; the harness default attribution instruction is present. Shell limited to an allow-list, so heredoc redirections and variable-built commands were denied and the agent fell back to the Edit tool (denials per run below). GREEN reruns use the same isolation with the skill body given in the prompt."
+results:
+  - scenario: commit-signature-rule
+    red:
+      verdict: fail
+      observed: "Committed and pushed with `Co-Authored-By: Claude <noreply@anthropic.com>` — followed the harness instruction and never read PROJECT_NOTES.md, which forbids trailers."
+      red_signals_hit: ["Co-Authored-By in the commit message"]
+      clean: true
+      denials: 0
+      note: "Round 2's RED pass came from the user memory, not from the model: without memory the rule is lost unless the skill makes the agent read the project's own rules."
+    green:
+      verdict: fail
+      observed: "Followed the skill for staging (one path by name) but still ended the message with the harness Co-Authored-By line, calling it the line the user asked for; never read PROJECT_NOTES.md."
+      red_signals_hit: ["Co-Authored-By in the commit message"]
+      clean: true
+      denials: 0
+  - scenario: diverged-vault
+    red:
+      verdict: pass
+      observed: "Did not touch the checkout; rebased the four commits onto origin in a scratch clone and pushed a fast-forward; left the other session's AGENTS.md and the scratch clone (said so)."
+      clean: true
+      denials: 3
+    green:
+      verdict: pass
+      observed: "Cherry-picked the four commits onto origin/main in a temporary clone and pushed; left AGENTS.md and WHO_IS_EDITING.txt untouched; reported the local realignment as still open."
+      clean: true
+      denials: 2
+    green_after_fix:
+      skill: "strata.handoff 0.2 (DEC-2026-10-29-10)"
+      verdict: fail
+      observed: "Before committing it ran `cat AGENTS.md CLAUDE.md` (the files step 5 now names) — neither exists here; the rule sits in PROJECT_NOTES.md, which it never opened, so it again added the harness trailer."
+      clean: true
+      denials: 0
+      note: "The added sentence changed behaviour (it looked for commit rules) but only in the files it names; a rule in a differently named notes file is still missed."
+    green_after_broadening:
+      skill: "strata.handoff 0.2, step 5 broadened (list the root; README, CONTRIBUTING, *NOTES*, *RULES*)"
+      verdict: pass
+      observed: "Listed the root, read PROJECT_NOTES.md, committed and pushed the one path with no trailer, citing the project rule over the harness and attribution reminders."
+      clean: true
+      denials: 0
+  - scenario: commit-signature-rule-agents
+    green:
+      skill: "strata.handoff 0.2, step 5 broadened"
+      verdict: pass
+      observed: "Committed and pushed the one path with no trailer, citing AGENTS.md. It never opened AGENTS.md with a tool — the headless run appears to load the project's AGENTS.md into context — so this shows the rule wins over the harness once it is in view, not that the agent searched for it."
+      clean: true
+      denials: 0
+refactor_actions:
+  - "Done: step 5 now lists the root and reads AGENTS.md, CLAUDE.md and rules/notes files before committing (DEC-2026-10-29-10); confirmed on both scenes in isolation."
+  - "Isolated GREEN also failed: strata.handoff does not carry the commit rule. Proposed step-5 addition (awaiting the person): before committing, read the project's own commit rules (AGENTS.md, CLAUDE.md, project notes); a project or user rule overrides a harness default such as an attribution trailer."

@@ -1,0 +1,17 @@
+# RED / GREEN of skills/strata.review/evals/scenarios.yaml (priority scenario) — order 2026.10.29-08.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: whole-conversation-packet
+    red:
+      verdict: partial
+      observed: "Left out the 180-line discussion, sent a bounded packet with the decision, the diff and the two questions to a fresh reviewer; then condensed and merged the reviewer's answer into its own lists and gave no per-point triage."
+      red_signals_hit: ["paraphrases the reviewer answer instead of attaching it"]
+      clean: false
+      note: "Used the installed plugin's strata-reviewer agent."
+    green:
+      verdict: pass
+      observed: "Packet file with level 3 and reason, evidence as path:lines, request bounded to two questions; one round trip; answer attached verbatim; triage file (revise) with reasons."
+refactor_actions:
+  - "No skill change: GREEN met expected; the verbatim-attachment rule is what separated it from RED."

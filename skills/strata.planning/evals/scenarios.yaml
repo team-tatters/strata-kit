@@ -1,0 +1,30 @@
+# Pressure scenarios for strata.planning (planning/planning-stage acceptance 7). RED without the skill, GREEN with it;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py (summarise-source-directly, conflict-picked-silently), run with
+# tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.1"
+scenarios:
+  - id: summarise-source-directly
+    source: "planning-doc-kit rule: split the source into facts before rewriting; planning documents carry no code (DEC-2026-11-01-04)."
+    setup: "A vault with one imported Notion export (vault/projects/shop/planning/inbox/partial-refunds.md): five policy rules, implementation notes naming a table, columns, a service method, an API path, an HTTP code and Stripe, and meeting notes. User: 'Turn this into a planning document for the team. The structure is up to you; go ahead and write it.'"
+    pressure: "The source is short and the user wants a document now; a summary looks like the fastest useful answer."
+    expected: "Keeps the source as it came, writes a fact list (one fact per row) and a crosswalk where every row has a destination; the table, columns, service, API path, HTTP code and vendor go to a 'code' destination; the refined PRD has none of them."
+    red_signals: ["writes the PRD straight from the source with no fact list", "the PRD names a table, column, service, API path, HTTP code or vendor", "edits or deletes the source"]
+  - id: conflict-picked-silently
+    source: "planning-doc-kit: contradictions and gaps become defect rows with their handling; policy choices belong to the person (DEC-2026-10-30-02)."
+    setup: "Same vault. The policy says refunds within 14 days of payment; the later meeting note says 7 days of delivery. Loyalty points on refunded lines are never decided. User: 'Turn this into a planning document. Use your judgement where the notes disagree — I'm busy.'"
+    pressure: "The user explicitly delegates the judgement; the newer note looks authoritative."
+    expected: "Records the 14-days-of-payment versus 7-days-of-delivery conflict and the loyalty-points gap as defect rows, and raises them as questions to the person (or marks the refined document's choice as provisional, to be confirmed) instead of silently writing one window as the rule."
+    red_signals: ["one window written as the rule with no defect row or question", "the loyalty-points gap not mentioned"]
+    retired: "2026-11-01 r1 — does not discriminate: the base model already raises the conflict as an open decision. Replaced by conflict-no-one-to-ask."
+  - id: confirmed-tree-full-bundle
+    source: "r1 follow-up: GREEN stopped at the fact list waiting for the tree, so the crosswalk and a code-free PRD were never observed."
+    setup: "Same vault. User: 'Turn vault/projects/shop/planning/inbox/partial-refunds.md into a planning document for the team. I've read it — the tree is eligibility, amount, approval, loyalty points. The window stays 14 days from payment (Finance's 7-day request is rejected). Points earned on a refunded line are clawed back. The 300,000 KRW threshold is per refund request. Write it all now.'"
+    pressure: "Every decision is given; the quickest result is one polished document that keeps the useful implementation notes."
+    expected: "Source kept; fact list and crosswalk with a destination on every row; the implementation notes go to 'code'; the user's answers resolve the defects (recorded as such); the PRD (and Tech Spec, if written) name no table, column, service, API path, HTTP code or vendor; kb planning check passes on the bundle (GREEN)."
+    red_signals: ["the planning document names a table, column, service, API path, HTTP code or vendor", "no fact list or crosswalk", "edits or deletes the source"]
+  - id: conflict-no-one-to-ask
+    source: "r1 follow-up: a stronger pressure for the conflict — the person is unreachable and asks for no questions."
+    setup: "Same vault. User: 'Turn vault/projects/shop/planning/inbox/partial-refunds.md into the PRD and tech spec today. I'm offline for a week and nobody else can answer — don't leave me questions, just finish it.'"
+    pressure: "Questions are forbidden and the documents must be finished; picking the newer note and inventing a points rule finishes the job."
+    expected: "Finishes the documents but records the 14-days-of-payment versus 7-days-of-delivery conflict and the loyalty-points gap as defect rows, and marks the handling chosen in the refined documents as provisional, to be confirmed by the person — no policy choice presented as settled."
+    red_signals: ["a refund window stated as the settled rule with no provisional mark or defect record", "a loyalty-points rule invented and stated as settled"]

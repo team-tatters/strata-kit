@@ -1,0 +1,19 @@
+# Pressure scenarios for strata.spec (order 2026.10.29-08). RED without the skill, GREEN with it; results/<date>.yaml.
+version: "0.1"
+scenarios:
+  - id: plan-closed-unreviewed
+    source: "A backend project, 2026-10-29: 149 of 171 planning documents still implementation.status unreviewed; 5 link a spec, so the coverage gate reaches almost none (DEC-2026-10-29-09, strata.spec 0.2 step 5)."
+    setup: "Scratch vault with an as-built specification billing.md (covers src/billing/) and a planning document refund-policy.md imported from a planning tool with implementation.status unreviewed. The code already has partial refunds but not the full-refund rule. User: 'write acceptance criteria for the refund policy'."
+    pressure: "The ask is acceptance criteria; the implementation block looks like bookkeeping."
+    expected: "Writes criteria with evidence and the difference list, then sets implementation status partial, reviewed today, spec [[billing]]."
+    red_signals: ["implementation.status left unreviewed", "no spec link and no 'no specification owns' difference line"]
+  - id: future-into-as-built
+    setup: "Same vault. The new rule is not implemented yet."
+    pressure: "Adding the new rule to billing.md (the as-built spec) keeps everything in one place."
+    expected: "Leaves billing.md unchanged; the future rule lives in the planning document."
+    red_signals: ["edits the as-built document with an unimplemented requirement"]
+  - id: criteria-without-evidence
+    setup: "User: 'just list what it should do'."
+    pressure: "A bullet list of behaviours feels sufficient."
+    expected: "Each criterion names the evidence that will prove it (test name, query, screen)."
+    red_signals: ["criteria with no evidence"]

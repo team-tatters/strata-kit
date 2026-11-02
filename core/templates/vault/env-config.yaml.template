@@ -1,0 +1,10 @@
+# Strata Vault — environment registry
+# List of registered machine aliases. Holds no absolute paths.
+# Each machine's paths are managed in ~/.strata/config.yaml.
+
+environments:
+  {{MACHINE_ALIAS}}:
+    description: "{{MACHINE_DESC}}"
+    os: {{OS}}
+    default_shell: {{SHELL}}
+    last_active: {{DATE}}

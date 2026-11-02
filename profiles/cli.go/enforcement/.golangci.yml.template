@@ -1,0 +1,20 @@
+# strata-kit cli.go enforcement — depguard keeps cmd/ thin and internal/ layered by package ownership.
+# Copy to the project root as .golangci.yml and adjust the package list to the project's internal/ layout.
+version: "2"
+linters:
+  enable: [depguard, govet, staticcheck]
+  settings:
+    depguard:
+      rules:
+        cmd-only-wires:
+          files: ["**/cmd/**"]
+          deny:
+            - pkg: "{{MODULE}}/internal/adapters"
+              desc: "cmd wires ports to adapters through internal/app, never adapters directly"
+        domain-has-no-adapters:
+          files: ["**/internal/domain/**"]
+          deny:
+            - pkg: "{{MODULE}}/internal/adapters"
+              desc: "domain must not depend on adapters"
+            - pkg: "{{MODULE}}/internal/app"
+              desc: "domain must not depend on app"

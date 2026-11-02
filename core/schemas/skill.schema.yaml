@@ -1,0 +1,40 @@
+# Skill standard (Layer 1). A skill is a runbook an agent follows, not a document it reads.
+# Layout:  skills/<name>/SKILL.md        English canonical (frontmatter + body)
+#          skills/<name>/i18n/<locale>.md localized body (same section order; frontmatter is not repeated)
+#          skills/<name>/evals/           pressure scenarios and RED/GREEN results
+#          skills/<name>/scripts/         bundled scripts, invoked through their interpreter
+version: "0.1"
+
+frontmatter:
+  name:        { type: string, pattern: "^[a-z][a-z0-9.-]*$" }   # flat namespace; strata.* for core skills
+  description: { type: string, max_length: 1024 }
+  # description rules: starts with "Use when"; lists triggering situations, symptoms, keywords;
+  # never summarizes the workflow (an agent that reads a summary follows it instead of the body).
+
+body_sections:               # required order. Headings are English in SKILL.md, localized in i18n/<locale>.md
+  - Overview                 # one paragraph: what this skill produces
+  - When to use              # triggers and non-triggers, concrete
+  - Process                  # numbered steps with checkpoints; each step says what evidence it leaves
+  - Rationalizations         # excuses an agent uses to skip a step, each with a rebuttal
+  - Red flags                # observable signs the skill is being skipped or misapplied
+  - Verification             # evidence required before the skill may report completion
+
+strata_block:                # a fenced yaml block right after the H1, machine-readable (carried over from strata skill-schema)
+  id:               { type: string }             # equals frontmatter name
+  version:          { type: string }
+  owner:            { enum: [builder, worker, supporter, reviewer, operator, librarian, user] }
+  triggers:         { type: list }               # same facts as description, as a list
+  inputs:           { type: list }
+  outputs:          { type: list }
+  required_context: { type: list }               # files or cards to read before step 1
+  allowed_tools:    { type: list }
+  validation:       { type: list }               # maps 1:1 to the Verification section
+  failure_modes:    { type: list }               # when to stop and report instead of continuing
+
+rules:
+  - "A skill never bypasses a must card."
+  - "A skill that creates an architecture decision records it (rec.decision.record-immediately)."
+  - "Keep SKILL.md under 300 lines; move reference material (100+ lines) to references/ and link it."
+  - "Ship one complete runnable example, not several partial ones."
+  - "Test before deploying: run the pressure scenarios in evals/ without the skill (RED), with the skill (GREEN), then close loopholes (REFACTOR). Record the result."
+  - "Prohibitions for steps agents knowingly skip; templates for omissions; conditionals for behaviour that depends on a condition. No 'unless it matters' clauses."

@@ -1,0 +1,28 @@
+# Round 1 (MB-strata-kit-2026-002).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR (tools/evals/fixtures.py), no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt. Verdicts checked against the written order and task files."
+results:
+  - scenario: lightweight-order
+    red:
+      verdict: fail
+      observed: "Two tasks as asked: task-01 'layers: [Domain, Infrastructure]', task-02 'layers: [Application, Transport]'. Verification commands and constraints were present, but each task spans two layers."
+      red_signals_hit: ["a task that spans two or more layers"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Inline-mode _order.yaml with four one-layer tasks (Domain, Infrastructure, Application, Transport), each with its registry constraint (CC-01..04), dependencies and the layer's verification command; said why four and not one or two."
+      clean: true
+      note: "Wrote vault/projects/shop/tasks/_order.yaml rather than the dated folder the README names — a placement slip, not the scenario's signal."
+  - scenario: open-question-order
+    red:
+      verdict: partial
+      observed: "Five one-layer tasks; recorded the open question in the order but wrote 'working_default: 14 days from payment' and task-03 '임시 기본값 14일' for the workers to build — provisional, not settled, so the strict signal is not hit, but the person's choice is pre-made."
+      red_signals_hit: []
+      clean: true
+    green:
+      verdict: pass
+      observed: "Five one-layer tasks; task-05 (refund window) 'status: blocked-on-open-question', 'blocked_by: OQ-1', worker instruction 'Do not choose 14 or 7 days'; tasks 01–04 ready."
+      clean: true
+refactor_actions:
+  - "No skill change. lightweight-order RED fail · GREEN pass; open-question-order RED partial · GREEN pass. If rerun, add the red signal 'a value for the open question built into a task, even as a provisional default'."

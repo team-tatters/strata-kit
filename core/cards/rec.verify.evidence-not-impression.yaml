@@ -1,0 +1,64 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.verify.evidence-not-impression
+  profiles: []
+  title:
+    en: Completion is proven by evidence, not impression
+    ko: 완료는 인상이 아니라 증거로 증명한다
+    ja: 完了は印象ではなく証拠で証明する
+    zh: 完成以证据而非印象证明
+    es: La finalización se prueba con evidencia, no con impresión
+    fr: L'achèvement se prouve par des preuves, pas par une impression
+  claim:
+    en: 'A task is reported done only with the evidence its skill requires: test output, checker exit codes, record ids, file paths. ''It seems right'' and ''it should work'' are not evidence; if the evidence cannot be produced, the report says what was not verified.'
+    ko: 태스크는 그 스킬이 요구하는 증거(테스트 출력, 검사기 종료 코드, 레코드 ID, 파일 경로)와 함께만 완료로 보고한다. '맞아 보인다', '될 것이다' 는 증거가 아니다. 증거를 낼 수 없으면 무엇을 검증하지 못했는지 적는다.
+    ja: タスクはスキルが要求する証拠とともにのみ完了と報告する。
+    zh: 任务只有附带技能所要求的证据才能报告完成。
+    es: Una tarea se reporta hecha solo con la evidencia que su skill exige.
+    fr: Une tâche n'est déclarée terminée qu'avec les preuves exigées par son skill.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Report done only with evidence (test output, exit codes, paths); state what was not verified.
+    ko: 완료는 증거(테스트 출력·종료 코드·경로)와 함께만 보고하고, 검증하지 못한 것은 적는다.
+    ja: 完了は証拠(テスト出力・終了コード・パス)と共にのみ報告し、検証できなかったことは書く。
+    zh: 只有附上证据（测试输出、退出码、路径）才报告完成；写明未能验证的内容。
+    es: Informa terminado solo con evidencia (salida de pruebas, códigos de salida, rutas); indica lo que no se verificó.
+    fr: Ne déclarer terminé qu'avec des preuves (sortie des tests, codes de sortie, chemins) ; indiquer ce qui n'a pas été vérifié.
+  applies_when:
+  - en: Every task completion report
+    ko: 모든 태스크 완료 보고
+    ja: すべてのタスク完了報告
+    zh: 每份任务完成报告
+    es: Cada informe de finalización de tarea
+    fr: Chaque rapport d'achèvement de tâche
+  not_when: []
+  evidence:
+  - kind: reference
+    ref: https://github.com/obra/superpowers (verification-before-completion)
+    note:
+      en: Evidence over claims
+      ko: 증거가 주장을 이긴다
+      ja: 主張より証拠
+      zh: 证据胜于主张
+      es: Evidencia por encima de afirmaciones
+      fr: Les preuves avant les affirmations
+  - kind: reference
+    ref: https://github.com/addyosmani/agent-skills
+    note:
+      en: Verification is non-negotiable; every skill ends with evidence requirements
+      ko: 검증은 협상 불가. 모든 스킬이 증거 요구로 끝난다
+      ja: 検証は交渉の余地がない。すべてのスキルは証拠要件で終わる
+      zh: 验证不可协商；每个技能都以证据要求结束
+      es: La verificación no es negociable; cada skill termina con requisitos de evidencia
+      fr: La vérification n'est pas négociable ; chaque skill se termine par des exigences de preuve
+  counter_examples: []
+  verification:
+    en: The completion report lists each validation item of the skill with its evidence or 'not verified'
+    ko: 완료 보고가 스킬의 validation 항목마다 증거 또는 '미검증' 을 적는다
+    ja: 完了報告がスキルの validation 項目ごとに証拠または「未検証」を記す
+    zh: 完成报告逐项列出技能的 validation 条目及证据或“未验证”
+    es: El informe lista cada validación del skill con su evidencia o 'no verificado'
+    fr: Le rapport liste chaque validation du skill avec sa preuve ou « non vérifié »
+  source: core/docs/ko/methodology/verification-tier.md
+  strength: must          # should → must 2026-10-28 (사용자 결정, 운영 중인 백엔드 프로젝트의 비협상 규칙과 정합; 헌법 1.1.0)
+  supersedes: []
+  status: active

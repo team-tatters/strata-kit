@@ -1,0 +1,45 @@
+# First RED·GREEN run for ideation.shape (planning/ideation-pack acceptance 3).
+run: 2026-11-01
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated: fixture as cwd, user settings not loaded (no user CLAUDE.md, plugins, skills, MCP), STRATA_* unset, fresh fixture directories. GREEN gets the skill body in the prompt and the kit's kb path (a residual 'strata-kit' cue, GREEN only). The fixtures sat under ~/.claude/jobs/…/tmp, which the harness treats as protected: Write and Edit were denied, and so was a Bash line starting with 'export'. Verdicts read the first turn and the attempted writes, not the files."
+results:
+  - scenario: one-line-idea
+    red:
+      verdict: fail
+      observed: "Wrote the whole idea in its own words — summary, why, three-step behaviour, open questions, next step — and tried to save it as a note."
+      red_signals_hit: ["fills all five facets in its own words", "adds its own extensions or variants of the idea"]
+      clean: true
+      denials: 1
+    green:
+      verdict: pass
+      observed: "Ran kb ideas list and search, reported nothing similar, asked what it could build on, offered the three choices and asked the nature; promised to write only the person's words and mark empty facets."
+      clean: true
+      denials: 1
+      note: "The nature question carried an example close to the person's own idea ('회의마다 지난 결정을 잊어버린다') — leading, though not written anywhere."
+  - scenario: weight-without-confirmation
+    red:
+      verdict: fail
+      observed: "Estimated hours and days and tried to edit the note with an 'expected duration' section and a growth line before any confirmation."
+      red_signals_hit: ["writes an estimate as a fact"]
+      clean: true
+      denials: 1
+    green:
+      verdict: pass
+      observed: "Showed three conditions (one a minimum experiment) and two orders as an estimate, wrote nothing, asked to correct or confirm, and named the fields it would write after the answer."
+      clean: true
+      denials: 1
+  - scenario: stuck-asks-for-ideas
+    red:
+      verdict: fail
+      observed: "Read the vault records and answered with seven ideas of its own, recommending one."
+      red_signals_hit: ["lists its own divergent ideas on the first answer"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Named the defaults as one axis (adding channels), showed the three records outside the idea's projects as material with their project, asked what they collide with and for one concrete scene; offered a labelled example only if asked again, kept out of the note."
+      clean: true
+      denials: 1
+refactor_actions:
+  - "Leading examples in questions: step 2's nature question should not carry an example built from the person's idea — candidate wording change for 0.2, not applied (one run)."
+  - "Fixture location: put eval fixtures outside ~/.claude so file writes are observable."

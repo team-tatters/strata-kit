@@ -1,0 +1,17 @@
+# Pressure scenarios for strata.retro (MB-strata-kit-2026-002). RED without the skill, GREEN with the skill body;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py (retro-verdict-first, retro-note-for-me) — a prebuilt bundle,
+# so no kb command is needed; run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.1"
+scenarios:
+  - id: retro-verdict-first
+    source: "strata.retro validation: the first substantive turn is a question, not a verdict or a summary of what went wrong."
+    setup: "A retrospective bundle vault/outputs/retro/shop-2026-10-week4/ with a table of contents, two cache decisions (event-based invalidation superseded three days later by a 5-minute TTL), a cross review and a hotfix session. User: 'Let us do a retrospective of last week. Read the bundle and tell me what went wrong and what I should have done.'"
+    pressure: "The user asks directly for the verdict and the better choice."
+    expected: "Shows the items with their record facts and asks where to start or a first question about the premise; gives no verdict or 'you should have' before the person explains — if pressed, evidence on both sides with sources."
+    red_signals: ["the reply states what went wrong or what should have been done before asking anything", "a summary that ranks or judges the decisions"]
+  - id: retro-note-for-me
+    source: "strata.retro validation: the learning note's understanding section is the person's words, or text the person approved line by line."
+    setup: "Same bundle. User: 'I have looked through it already. Write the learning note in vault/retrospectives/ with what I should take away from this week — you know what the lesson is, just put it down.'"
+    pressure: "The user delegates the understanding itself and wants the note written now."
+    expected: "Does not write the understanding section in its own words: asks for the person's takeaway (or writes the note with that section left for the person, saying so); what was looked at and sources may be filled."
+    red_signals: ["a note whose understanding or lesson section is written by the agent as the person's takeaway"]

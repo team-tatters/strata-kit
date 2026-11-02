@@ -1,0 +1,577 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# taxonomy.yaml — KB classification scheme
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Location:
+#   vault/_meta/taxonomy.yaml                      (global)
+#   vault/projects/{name}/_meta/taxonomy.yaml      (project extension)
+#   vault/projects/{name}/_meta/toc.yaml           (topic node tree — see the topic_nodes section)
+#
+# Read by:
+#   build-kb-index.py   — checks categories/types while indexing, decides sort order
+#   kb-search.py        — category filter, MOC generation
+#   validate-naming.py  — checks required frontmatter fields
+#
+# Rules:
+#   - git tracked (same sharing policy as manifest.json)
+#   - a project taxonomy inherits the global one through extends and only adds children
+#   - no NN prefixes — sorting follows the order field; sortspec.md is generated
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+version: "1.0"
+scope: "global"                     # global | project
+extends: null                       # project: "../../_meta/taxonomy.yaml"
+
+
+# ============================================================
+# Categories — the directory structure under knowledge-base/
+# ============================================================
+#
+# Directory mapping:
+#   knowledge-base/{category}/{topic}/{subtopic}/file.md
+#
+# depth_limit meaning:
+#   1 = knowledge-base/domain/file.md
+#   2 = knowledge-base/domain/order/file.md
+#   3 = knowledge-base/domain/order/payment/file.md
+#
+categories:
+  domain:
+    label: "Domain knowledge"
+    description: "Concepts, rules and flows of each business domain"
+    order: 1
+    audiences: [planner, developer]
+    depth_limit: 3
+    children: {}                    # extended by the project taxonomy
+    defaults:
+      required_docs: ["_index.md"]
+      allowed_types:
+        - overview
+        - concept
+        - specification
+        - epic
+        - flow
+        - glossary
+        - reference
+        - pattern
+
+  architecture:
+    label: "Technical architecture"
+    description: "Design decisions, API contracts, data models, infrastructure"
+    order: 2
+    audiences: [developer]
+    depth_limit: 2
+    children:
+      decisions:
+        label: "ADR"
+        order: 1
+      constraints:
+        label: "Constraint Card"
+        order: 2
+      api-contracts:
+        label: "API specifications"
+        order: 3
+      data-models:
+        label: "Data models"
+        order: 4
+      infrastructure:
+        label: "Infrastructure"
+        order: 5
+    defaults:
+      required_docs: ["_index.md"]
+      allowed_types:
+        - decision
+        - constraint
+        - specification
+        - reference
+        - overview
+
+  guides:
+    label: "Guides"
+    description: "Onboarding, processes, conventions, troubleshooting"
+    order: 3
+    audiences: [all]
+    depth_limit: 2
+    children:
+      onboarding:
+        label: "Onboarding"
+        order: 1
+      conventions:
+        label: "Conventions"
+        order: 2
+      troubleshooting:
+        label: "Troubleshooting"
+        order: 3
+    defaults:
+      required_docs: []
+      allowed_types:
+        - overview
+        - guide
+        - pattern
+        - reference
+        - runbook
+
+  references:
+    label: "References"
+    description: "External standards, specifications, third-party documents"
+    order: 4
+    audiences: [all]
+    depth_limit: 2
+    children: {}                    # free structure (one subdirectory per standard)
+    defaults:
+      required_docs: []
+      allowed_types:
+        - overview
+        - reference
+        - glossary
+
+
+# ============================================================
+# Topic nodes — the units of the human-readable table of contents (TOC)
+# ============================================================
+#
+# The categories above are the "directory axis" — where a document sits.
+# Topic nodes are a separate "topic axis" — what a document is about.
+# A node is the key that gathers the current state (specification), policy (constraints), decisions and work history on one page.
+#
+# Rules:
+#   - The source of truth for the node tree is each project's _meta/toc.yaml. This section holds only the format rules.
+#   - Node ids are a different namespace from document ids ({prefix}-{project}-{slug}).
+#       format: {segment}(.{segment})*      e.g. order.checkout-v2.collaborator
+#       each segment is kebab-case; the dot (.) separates parent from child
+#   - A document declares its nodes in frontmatter `nodes:` (more than one allowed). Moving directories does not change it.
+#   - Nodes do not create directories. Their depth_limit applies separately from the categories'.
+#   - Each node's page is generated only (Index tier) and is not edited by hand.
+#
+topic_nodes:
+  source: "_meta/toc.yaml"          # relative to projects/{name}/
+  id_pattern: "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)*$"
+  depth_limit: 4
+  page:
+    dir: "nodes"                    # projects/{name}/nodes/{node-id}.md
+    type: node
+    facets:                         # the facets the page joins, plus debts
+      - state                       # current state: specification and concept documents that point to this node through nodes (+ covers)
+      - policy                      # policy: constraints that point to this node through nodes (active and retired kept apart)
+      - decisions                   # decisions: decisions that point to this node through nodes, in supersedes-chain order
+      - planning                    # planning: planning documents (as intended) that point to this node through nodes, with an implementation.status badge (DEC-2026-09-09-01)
+      - history                     # history: sessions and tasks that point to this node through nodes, newest first
+      - debts                       # debts: covers paths changed, the current state was not updated, and no doc_change reason was given
+
+
+# ============================================================
+# Document types — values of the frontmatter type field
+# ============================================================
+#
+# Per-type attributes:
+#   required_fields  — required frontmatter fields (title, type and created are required for every type)
+#   body_template    — name of the body structure template (null = free form)
+#   body_sections    — the actual section titles of body_template (## level, fixed order).
+#                      generators (handoff skeleton, node pages, ...) build headings from this list — do not define them anywhere else
+#   max_lines        — recommended maximum line count
+#   indexed          — indexing mode: true (full text, default) | metadata (metadata + summary part — Archive) | false (excluded)
+#   generated        — true means Index tier (generated only, no hand edits)
+#
+# The value format of the node and coverage fields (nodes / covers / doc_change / supersedes) is defined by
+# the "노드·커버리지 필드" (node and coverage fields) section of core/docs/ko/knowledge-base/document-format.md.
+#
+document_types:
+  # --- original types (backward compatible) ---
+  overview:
+    label: "Overview"
+    description: "Overview of a whole project or module"
+    required_fields: [project]
+    body_template: null
+    max_lines: 500
+
+  decision:
+    label: "Architecture decision (ADR)"
+    description: "Context, choice, alternatives and consequences of a decision"
+    required_fields: [project, status, nodes]
+    body_template: "adr"
+    body_sections: ["맥락", "결정", "대안", "결과"]
+    max_lines: 200
+    # optional field: supersedes (the earlier decision this one replaces — the basis of the decision chain on node pages)
+
+  session:
+    label: "Session summary"
+    description: "Session handoff summary. Classified as an operations document"
+    required_fields: [project, machine, nodes]
+    body_template: "session"
+    body_sections: ["완료", "진행 중", "결정 사항", "판단 과정", "사실과 가설", "주의 사항"]
+    # 판단 과정 (reasoning) — what the user was asked and answered, judgements that were reversed and why (retrospective material, DEC-2026-10-30-03)
+    # 사실과 가설 (facts and hypotheses) — confirmed facts, unconfirmed assumptions, dropped hypotheses. A session that ended on a restart signal fills it (DEC-2026-10-31-11)
+    max_lines: 100
+    indexed: metadata               # index metadata and the summary part only (Archive location rule — 2026.08.19-06 B1)
+    lifecycle_override:             # five history status words (strata-kit order 2026.10.28-08, user decision 2026-10-28)
+      statuses: [open, in_progress, awaiting, handed_off, closed]
+      default: open
+    # optional field: doc_change — when code changed but the current state was not updated: none + a reason (empty not allowed)
+    # the ledger format (actor entries, next_session block) is defined by agent-operations §5.3. The sections above apply to the summary part
+
+  review:
+    label: "Review record"
+    description: "An external or cross review report and the response to it (accepted, disputed, findings the report missed, user decisions, decisions, orders). Kept in projects/<p>/reviews/. The original text is never edited (retrospective material, DEC-2026-10-30-03)"
+    required_fields: [project, review_of, received, source]
+    body_template: "review"
+    body_sections: ["대응 요약", "원문"]
+    max_lines: 2000
+    # review_of — the reviewed revision (commit or version), received — the date it arrived, source — who reviewed (external model, person, session)
+    # optional fields: decisions_made (DECs that came out of this review), orders (response orders)
+
+  signal:
+    label: "Operations signal"
+    description: "One note per indicator that got worse (a kit measurement trend or a product-flow indicator) — product incidents and feedback are the product's own job and are not taken (DEC-2026-11-01-17). projects/<p>/signals/<YYYY-MM-DD>-<slug>.md. The body is observation, evidence, destination. A person picks the destination (methodology backlog item, decision, idea note, planning, or drop) and it stays in the note. kb signals check checks format, evidence and destination; kb signals candidates proposes candidates from the measurement table (DEC-2026-11-01-14)"
+    required_fields: [project, source, observed, status]
+    body_template: null
+    body_sections: ["관찰", "근거", "행선지"]
+    max_lines: 200
+    lifecycle_override:             # open for more than 14 days shows as 'open too long' in kb signals check. Never deleted
+      statuses: [open, routed, dropped]
+      default: open
+    # source: metrics (kit measurement table) | indicator (kb indicators) · routed needs routed_to, decided_by, decided; dropped needs dropped_reason, decided_by, decided
+    # candidate: only on notes proposed from the measurement table — kind@basis (the same candidate is never written twice)
+
+  task:
+    label: "Task document"
+    description: "Builder-to-Worker task specifications, reports and design memos under tasks/ (Archive location rule). Same status words as session"
+    required_fields: []
+    body_template: "task"
+    body_sections: []
+    max_lines: 1000
+    indexed: metadata
+    lifecycle_override:
+      statuses: [open, in_progress, awaiting, handed_off, closed]
+      default: open
+
+  pattern:
+    label: "Pattern"
+    description: "A reusable solution pattern across projects"
+    required_fields: []
+    body_template: "pattern"
+    body_sections: ["문제", "해결", "적용 예시", "적용 프로젝트"]
+    max_lines: 500
+
+  reference:
+    label: "Reference"
+    description: "Summary of an external document, standard or specification"
+    required_fields: []
+    body_template: null
+    max_lines: 500
+
+  glossary:
+    label: "Glossary"
+    description: "Definitions of domain or technical terms"
+    required_fields: []
+    body_template: null
+    max_lines: 300
+
+  # --- newer types ---
+  concept:
+    label: "Concept"
+    description: "Explains a domain concept, business rule or principle"
+    required_fields: [nodes]
+    body_template: null
+    max_lines: 500
+    # optional field: covers — the code surface this document is the source of truth for (pointers to paths, symbols, endpoints, tables)
+
+  specification:
+    label: "Specification"
+    description: "Feature specification, requirements, constraints, acceptance criteria. The living document that holds a node's current state"
+    required_fields: [status, nodes]
+    body_template: null
+    max_lines: 1000
+    # recommended field: covers — the code surface the specification owns. Without it the coverage gate cannot notice code changes for this node
+
+  flow:
+    label: "Flow"
+    description: "Defines a business process, data flow or sequence"
+    required_fields: []
+    body_template: null
+    max_lines: 500
+
+  guide:
+    label: "Guide"
+    description: "Step-by-step guidance, how-to document"
+    required_fields: []
+    body_template: null
+    max_lines: 500
+
+  runbook:
+    label: "Runbook"
+    description: "Operations and incident response procedure"
+    required_fields: [status]
+    body_template: null
+    max_lines: 300
+
+  constraint:
+    label: "Constraint Card"
+    description: "A single actionable constraint extracted from an ADR. Injected into task specifications by severity + scope"
+    required_fields: [source_adr, severity, scope, rule, verification, status, nodes]
+    body_template: "constraint"
+    body_sections: ["근거", "위반 시 영향", "검증 방법"]
+    max_lines: 50
+    lifecycle_override:             # uses its own statuses instead of the default lifecycle
+      statuses: [active, superseded, retired]
+      default: active
+
+  epic:
+    label: "PRD Epic"
+    description: "A product feature unit. Its constraints links keep it in line with ADRs"
+    required_fields: [constraints, domains, layers, personas, status]
+    body_template: null
+    max_lines: 500
+
+  # --- planning documents (original text from an outside planning tool + implementation review) — user direction 2026-09-09: treat them as plans that carry decisions, not as requests (intake) ---
+  planning:
+    label: "Planning document (planning)"
+    description: "Original planning text such as a PRD, policy or Epic/Story (imported from Notion and the like). The original sections are never edited (Archive discipline); only the closing '구현 검토' (implementation review) section is updated — for each policy item it records whether it is implemented and how it differs from the plan, with evidence (code paths, specifications). Substantive policy is distilled into a specification or concept whose sources point to this document. Joined into the planning facet of node pages (the facet and discover implementation come later)"
+    required_fields: [project, status, nodes, source, implementation]
+    body_template: "planning"
+    body_sections: ["구현 검토"]     # the only section appended after the original. Table columns: 항목 | 기획 | 구현 | 차이 | 근거 (item | plan | implementation | difference | evidence)
+    max_lines: 1000
+    lifecycle_override:             # planning status — keeps the planning tool's status (the default lifecycle is for the Knowledge tier)
+      statuses: [requested, planned, in-progress, realized, on-hold, archived]
+      default: requested
+    # source: origin identifier — e.g. "notion:0123456789abcdef0123456789abcdef" or a URL. The stable id is derived from this value
+    # implementation (required): summary of the implementation review — the classification of what was reviewed
+    #   status: unreviewed | implemented | partial | diverged | not-implemented | superseded
+    #     unreviewed not reviewed yet · implemented built as planned · partial only partly built · diverged built but differs from the plan (the difference is in the '구현 검토' section)
+    #     not-implemented not built · superseded replaced by another plan or decision
+    #   reviewed: YYYY-MM-DD (omitted when unreviewed)
+    #   spec: "[[current-state document]]" (the distilled specification or concept, if any)
+    # planning bundle (strata.planning, DEC-2026-11-01-04·05): planning/<bundle>/ is a bundle when it has audit/.
+    #   source/ original text (evidence) · audit/ fact list, crosswalk, defects, quarantine (evidence) · refined documents directly under the bundle (planning_doc: prd | tech-spec | terms | tree).
+    #   category: source | audit also marks evidence. Only refined documents go into knowledge search, injection and sharing — kb planning check · boundary
+    # planning status mapping (Notion orders intake; Notion status names kept as they appear there): 검토 필요·기획 필요→requested, 기획 완료→planned, 개발 중→in-progress,
+    #                                   배포완료·개발완료→realized, 보류→on-hold, 아카이브→archived
+
+  # --- design contract documents — component contracts, alias catalogue, alignment with design artifacts (strata-kit core/docs/ko/architecture/frontend-design-contract.md) ---
+  design:
+    label: "Design contract"
+    description: "Records a UI component contract (name, variant axes, aliases, state axes) and how well it aligns with the design artifact (design_ref). The alias catalogue (generated) is also this type. The reference point for Impl-Design alignment checks"
+    required_fields: [project, status, nodes, design_ref]
+    body_template: "design"
+    body_sections: ["계약", "정합", "예외"]     # 계약 (contract): axes and alias table · 정합 (alignment): design_sync and evidence · 예외 (exceptions): token-exception list and expiry
+    max_lines: 300
+    # design_ref: { kind: figma | storybook | claude_design | none, ref, version } — same format as task-spec-schema inputs.design_ref
+    # status uses the default lifecycle. The alignment state (aligned, stale, waived) lives in the body's '정합' section and in frontmatter design_sync
+
+  # --- Index tier (generated only) ---
+  moc:
+    label: "MOC (table of contents)"
+    description: "Map of Content. _index/ and each _index.md, generated static indexes"
+    required_fields: []
+    body_template: null
+    max_lines: 300
+    generated: true
+
+  node:
+    label: "Node page"
+    description: "A page that joins the current state, policy, decisions, planning, work history and debts of one topic node. See topic_nodes.page"
+    required_fields: [project, node]
+    body_template: "node"
+    body_sections: ["최종형상", "정책", "결정", "기획", "작업이력", "부채"]
+    max_lines: 300
+    indexed: metadata               # the facets' source documents are already indexed, so only the summary part — avoids duplicate search hits
+    generated: true
+
+
+# ============================================================
+# Tag namespaces — rules for structured tags
+# ============================================================
+#
+# Rules:
+#   - every tag should use the namespace/value form
+#   - tags without a namespace are allowed but warned about
+#   - when allowed_values is present, only those values are allowed
+#   - without allowed_values any value is allowed (examples are guidance)
+#
+tag_namespaces:
+  project:
+    description: "Project scope"
+    pattern: "project/{name}"
+    examples: ["project/my-api", "project/admin-ui"]
+
+  layer:
+    description: "Strata architecture layer"
+    pattern: "layer/{layer-name}"
+    allowed_values:
+      - L1
+      - LM1
+      - L2
+      - LM2
+      - L3
+      - Route
+      - Aggregate
+      - EventStore
+      - Projection
+      - Atomic
+      - Molecule
+      - Partial
+      - Page
+      - Layout
+      - Foundation
+      - Contract
+      - DataState
+      - Primitive_UI
+      - Semantic_Component
+      - Feature_Block
+      - Route_Surface
+      - App_Shell
+
+  severity:
+    description: "Constraint enforcement level"
+    pattern: "severity/{level}"
+    allowed_values:
+      - must
+      - must-not
+      - should
+
+  domain:
+    description: "Business domain"
+    pattern: "domain/{domain}"
+    examples: ["domain/order", "domain/auth", "domain/billing"]
+
+  tech:
+    description: "Technology or framework"
+    pattern: "tech/{technology}"
+    examples: ["tech/jwt", "tech/postgresql", "tech/react"]
+
+  audience:
+    description: "Intended readers"
+    pattern: "audience/{role}"
+    allowed_values:
+      - developer
+      - planner
+      - devops
+      - all
+
+
+# ============================================================
+# Document lifecycle — status transitions and review policy
+# ============================================================
+#
+# Tied to the frontmatter status field.
+# The build script flags review candidates automatically.
+#
+
+  source:
+    label: "Origin"
+    description: "The tool an imported document came from (planning document importer — DEC-2026-09-09-01)"
+    examples: ["source/notion", "source/jira", "source/figma"]
+
+lifecycle:
+  statuses:
+    draft:
+      label: "Draft"
+      description: "Being written. Not reviewed yet"
+      transitions: [active, archived]
+
+    active:
+      label: "Active"
+      description: "A valid, current document"
+      transitions: [review-needed, superseded, archived]
+
+    review-needed:
+      label: "Review needed"
+      description: "The content may need updating"
+      transitions: [active, superseded, archived]
+
+    superseded:
+      label: "Superseded"
+      description: "Replaced by a newer document. The superseded_by field is required"
+      transitions: [archived]
+      required_fields: [superseded_by]
+
+    archived:
+      label: "Archived"
+      description: "No longer valid. Lower search weight"
+      transitions: []
+      search_weight: 0.3
+
+  review_policy:
+    default_review_days: 90         # a review candidate once 90 days have passed since updated
+    exempt_types:                   # types exempt from the review policy
+      - glossary
+      - reference
+      - moc
+      - node
+    auto_flag: true                 # at build time, candidates are written to generated files (review inbox: .kb/review-candidates.json + _index/review-needed.md).
+                                    # the source-of-truth (frontmatter) transition is made by the index builder's apply command or the session-end gate — the indexer never edits the source of truth
+    fallback_to_created: true       # without updated, judge by created — so documents missing the field are not left unwatched
+    # boundary: the review policy signals "time has passed"; coverage debt (topic_nodes.page.facets.debts)
+    # signals "the code changed but the current state did not". They are separate and neither replaces the other.
+
+
+# ============================================================
+# Validation rules — control how the build and hook scripts behave
+# ============================================================
+#
+# severity: warning | error
+# action:   warn (print a warning) | block (stop the build or commit, exit 2)
+#
+# Start everything at warn when adopting,
+# and switch the key rules to block once the team has settled.
+#
+validation:
+  category_type_check:
+    description: "Checks the types allowed in each category"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  required_fields_check:
+    description: "Checks the required frontmatter fields of each type"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  tag_namespace_check:
+    description: "Checks the tag namespace rules"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  max_lines_check:
+    description: "Checks the recommended maximum line count of documents"
+    enabled: false
+    severity: "warning"
+    action: "warn"
+
+  depth_limit_check:
+    description: "Checks the directory depth limit of each category"
+    enabled: true
+    severity: "error"
+    action: "block"
+
+  lifecycle_transition_check:
+    description: "Checks the status transition rules (stops transitions that are not allowed)"
+    enabled: true
+    severity: "error"
+    action: "warn"
+
+  # --- topic node and coverage checks (all start at warn, per the adoption rule) ---
+  node_id_check:
+    description: "Checks that nodes: values are node ids defined in toc.yaml and follow id_pattern"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  covers_path_check:
+    description: "Checks that covers.paths exist in the project repository (skipped where the repository cannot be resolved)"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  coverage_gap_check:
+    description: "At session end, if covers paths changed but the current state was not updated and no doc_change reason was given, records a node debt and warns"
+    enabled: true
+    severity: "warning"
+    action: "warn"
+
+  supersedes_symmetry_check:
+    description: "Checks that when A.supersedes = B, B.status = superseded and B.superseded_by = A"
+    enabled: true
+    severity: "warning"
+    action: "warn"

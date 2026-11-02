@@ -1,0 +1,32 @@
+# Constitution manifest — the ordered list of must cards with version and amendment rules
+constitution:
+  version: 1.2.0
+  ratified: '2026-10-28'
+  last_amended: '2026-10-29'
+  source: core/docs/ko/methodology/execution-modes.md § 절대 규칙 (DEC-2026-09-30-02)   # 원문과 근거의 출처. 정본은 이 파일과 core/cards (DEC-2026-10-29-19)
+  title:
+    en: 'strata-kit constitution: the must cards'
+    ko: 'strata-kit 헌법: must 카드 모음'
+    ja: 'strata-kit 憲章: must カード集'
+    zh: strata-kit 宪章：must 卡片集
+    es: 'Constitución de strata-kit: las tarjetas must'
+    fr: 'Constitution de strata-kit : les cartes must'
+  articles:
+  - rec.process.confirm-before-state-change
+  - rec.decision.record-immediately
+  - rec.architecture.no-layer-violation
+  - rec.naming.follow-convention
+  - rec.session.state-in-files
+  - rec.deploy.only-for-env-specific-verification
+  - rec.handoff.pending-has-blocker
+  - rec.verify.evidence-not-impression   # 1.1.0: 테스트·증거 없는 완료 선언 금지를 must 로 (2026-10-28)
+  # 1.2.0 (DEC-2026-10-29-14): rec.data.soft-delete-only · rec.workflow.worktree-only-with-consent 는 조항에서 내려
+  # 채택형(adoption: opt_in) — 마법사가 구성 질문으로 제안하고, 사용자 기본 채택 목록·프로필 cards_default 면 켠 채 제안한다.
+  # 이행: 기존 프로젝트는 recommend 를 다시 돌리면 두 카드가 사용자 목록에서 켜진 채 제안된다(이 사용자의 세 프로젝트는 계속 채택).
+  governance:
+    en: Articles are must cards and are never waived by the wizard. An amendment is a decision record that adds, supersedes or withdraws a card and bumps this version; it needs a reason, the user's approval and a migration note for affected projects.
+    ko: 조항은 must 카드이며 마법사가 해제하지 않는다. 개정은 카드를 추가·대체·철회하고 이 버전을 올리는 결정 레코드이며, 사유·사용자 승인·영향 프로젝트의 이행 메모가 필요하다.
+    ja: 条項は must カードであり、ウィザードが免除することはない。改正は、カードを追加・置換・撤回しこのバージョンを上げる決定レコードであり、理由、ユーザーの承認、影響プロジェクトへの移行メモが必要である。
+    zh: 条款即 must 卡片，向导绝不豁免。修订是添加、取代或撤回卡片并提升此版本的决策记录，需要理由、用户批准以及受影响项目的迁移说明。
+    es: Los artículos son tarjetas must y el asistente nunca las exime. Una enmienda es un registro de decisión que añade, sustituye o retira una tarjeta y sube esta versión; requiere una razón, la aprobación del usuario y una nota de migración para los proyectos afectados.
+    fr: Les articles sont des cartes must et l'assistant ne les exempte jamais. Un amendement est un enregistrement de décision qui ajoute, remplace ou retire une carte et incrémente cette version ; il exige une raison, l'approbation de l'utilisateur et une note de migration pour les projets concernés.

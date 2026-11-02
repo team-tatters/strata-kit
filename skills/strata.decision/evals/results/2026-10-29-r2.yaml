@@ -1,0 +1,33 @@
+# RED / GREEN round 2 of skills/strata.decision/evals/scenarios.yaml — order 2026.10.29-08, scratch Python project with a stub decision CLI (tools/decision.py).
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: decided-mid-implementation
+    red:
+      verdict: pass
+      observed: "Implemented option 3 with tests and recorded DEC-2026-10-29-01 with tools/decision.py; noted the 38→5 figure is the user's, not re-measured."
+      clean: false
+      note: "Rerun without the README cue as round 1 asked; still not clean — it cited 'the workspace rule is to record decisions immediately' (workspace CLAUDE.md / must cards reach the subagent)."
+  - scenario: implementation-choice-not-decision
+    red:
+      verdict: pass
+      observed: "Added hub_paths and a test; no decision record."
+    green:
+      verdict: pass
+      observed: "Same, and said explicitly that a local implementation choice is not an architecture decision, so no DEC."
+  - scenario: supersede-not-edit
+    red:
+      verdict: pass
+      observed: "New record with --supersedes DEC-2026-10-20-01, old record file untouched, index shows superseded/active."
+      clean: false
+      note: "The stub CLI's docstring and the existing record make the supersede path discoverable; workspace guidance also present."
+    green:
+      verdict: pass
+      observed: "Same; stated it wrote the record without a separate go-ahead because the user gave the rule directly."
+fixture_notes:
+  - "tests/ had no __init__.py, so the given discover command failed until the agent added one."
+  - "HUB_MIN_IN was already 30 in the fixture while the old record said 50 — both runs noticed and left the value."
+refactor_actions:
+  - "No skill change: all GREEN runs met expected."
+  - "Eval design: same clean-environment requirement as handoff; fix the fixture (tests/__init__.py, code value matching the old record)."

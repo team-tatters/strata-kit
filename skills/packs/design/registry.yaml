@@ -1,0 +1,125 @@
+# Design pack (planning/design-stage, DEC-2026-11-01-09). Installed into the user layer with
+# `python3 -m kb skills install design --apply`; never shipped in the plugin (DEC-2026-10-31-36).
+# The person's design stage, in any medium: a brief in the person's words (design.brief), and the taste and techniques it
+# leans on, kept per project or brand (design.taste, DEC-2026-11-01-10 · 11).
+# Independent of the frontend design contract; a deliverable reaches a product only through design_ref.
+version: '0.1'
+routes:
+- intent: design-brief
+  skill: design.brief
+  stage: design
+  kind: procedure
+  triggers:
+    en:
+    - design a poster
+    - design brief
+    - screen design
+    - visual for a post
+    - infographic
+    ko:
+    - 포스터 디자인
+    - 디자인 브리프
+    - 화면 디자인
+    - 포스트 이미지
+    - 인포그래픽
+    ja:
+    - ポスターのデザイン
+    - デザインブリーフ
+    - 画面デザイン
+    - 投稿用の画像
+    - インフォグラフィック
+    zh:
+    - 设计海报
+    - 设计简报
+    - 界面设计
+    - 帖子配图
+    - 信息图
+    es:
+    - diseñar un póster
+    - brief de diseño
+    - diseño de pantalla
+    - imagen para una publicación
+    - infografía
+    fr:
+    - concevoir une affiche
+    - brief de design
+    - design d'écran
+    - visuel pour une publication
+    - infographie
+  next:
+  - skill: design.taste
+    why:
+      en: the person reacted to references or rejected a look — record the signals in the project's or brand's taste note
+      ko: 사람이 참조에 반응하거나 어떤 모양을 거절했다 — 그 신호를 프로젝트·브랜드의 취향 노트에 적는다
+      ja: 本人が参照に反応したり見た目を却下したりした — その信号をプロジェクト・ブランドの好みのノートに書く
+      zh: 本人对参考有了反应或拒绝了某种样子 — 把这些信号记进项目或品牌的品味笔记
+      es: la persona reaccionó a referencias o rechazó un aspecto — registrar las señales en la nota de gusto del proyecto o la marca
+      fr: la personne a réagi à des références ou refusé un aspect — consigner les signaux dans la note de goût du projet ou de la marque
+  - skill: strata.order
+    area: planning
+    why:
+      en: the deliverable goes into a product — the order points at it with design_ref and the product's process takes over
+      ko: 결과물이 제품으로 들어간다 — 오더가 design_ref 로 가리키고 그다음은 제품의 흐름이다
+      ja: 成果物が製品に入る — オーダーが design_ref で指し、その先は製品の流れになる
+      zh: 产出物要进入产品 — order 用 design_ref 指向它,之后按产品流程走
+      es: el entregable entra en un producto — la orden lo señala con design_ref y sigue el proceso del producto
+      fr: le livrable entre dans un produit — l'ordre le désigne par design_ref et le processus du produit prend le relais
+    on_proposes:
+      en: send the brief and the deliverable to the planning owner as a proposal first
+      ko: 먼저 브리프와 결과물을 기획 owner 에게 제안으로 보낸다
+      ja: まずブリーフと成果物を企画の owner に提案として送る
+      zh: 先把简报和产出物作为提案发给规划 owner
+      es: enviar primero el brief y el entregable al owner de planificación como propuesta
+      fr: envoyer d'abord le brief et le livrable à l'owner de la planification comme proposition
+  - skill: strata.review
+    why:
+      en: an independent look at the brief and the artefact before it goes out
+      ko: 내보내기 전에 브리프와 산출물을 독립적으로 본다
+      ja: 出す前にブリーフと成果物を独立に見る
+      zh: 发布前独立检查简报和产出物
+      es: una revisión independiente del brief y del artefacto antes de publicarlo
+      fr: un regard indépendant sur le brief et l'artefact avant de le publier
+- intent: design-taste
+  skill: design.taste
+  stage: design
+  kind: procedure
+  triggers:
+    en:
+    - our design taste
+    - I like this look
+    - not this style
+    - glassmorphism
+    ko:
+    - 디자인 취향
+    - 이 느낌이 좋아
+    - 이 스타일은 아니야
+    - 글래스모피즘
+    ja:
+    - デザインの好み
+    - この感じが好き
+    - このスタイルは違う
+    - グラスモーフィズム
+    zh:
+    - 设计品味
+    - 我喜欢这种感觉
+    - 不要这种风格
+    - 玻璃拟态
+    es:
+    - nuestro gusto de diseño
+    - me gusta este estilo
+    - este estilo no
+    - glassmorphism
+    fr:
+    - notre goût en design
+    - j'aime ce style
+    - pas ce style
+    - glassmorphisme
+  next:
+  - skill: design.brief
+    why:
+      en: start a piece of work that leans on these taste lines and techniques
+      ko: 이 취향 줄과 기법에 기대는 일 하나를 시작한다
+      ja: この好みの行と技法に寄りかかる仕事を一つ始める
+      zh: 开始一项依托这些品味条目和技法的工作
+      es: empezar un trabajo que se apoye en estas líneas de gusto y técnicas
+      fr: commencer un travail qui s'appuie sur ces lignes de goût et ces techniques

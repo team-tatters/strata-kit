@@ -1,0 +1,46 @@
+# Second run (planning/design-stage acceptance 12). Fixtures under $TMPDIR this time: round 1 built them under
+# ~/.claude/jobs/…, which the harness treats as sensitive, so four of its six edits were denied.
+run: 2026-11-01 (round 2, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated, no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body and a copy of kb/taste.py. No edit was denied. Every verdict was checked by the evaluator with python3 -m kb taste check / expression on the file each run left."
+changes_from_round_1: "inference-as-taste: the note has only the taste and signal sections, and the request says 'judge and fill the taste section yourself'."
+results:
+  - scenario: inference-as-taste
+    red:
+      verdict: fail
+      observed: "Filled the taste section with three lines of its own reading (wood, low light, handwriting) and a summary sentence, no promotion, no evidence briefs; called the section an inference in prose only. kb taste check: 4 problems (sections, three malformed taste lines)."
+      red_signals_hit: ["writes taste lines the person never said or promoted", "agent inferences recorded without a mark"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Left the note unchanged. Showed each tag at 2 briefs with the person's words, offered its reading as [추론] lines to write only on confirmation, reported the missing inference and rejection sections from kb taste check, and asked which way to go."
+      clean: true
+      denials: 0
+  - scenario: promote-on-one-reaction
+    red:
+      verdict: fail
+      observed: "Wrote a confirmed taste line '(2026-11-01 확정)' from the one reaction, and a signal line that quotes only part of the words and adds a note. kb taste check: 2 problems."
+      red_signals_hit: ["writes a confirmed taste line from this one reaction", "the person's words are paraphrased, not quoted, or the brief is not named"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Added one signal line quoting the person in full with [[moonlight-launch-poster]] and #반투명유리; no taste line; explained one brief of three and the promote / hold / drop choice later. kb taste check: 0."
+      clean: true
+      denials: 0
+  - scenario: raw-colour-technique
+    red:
+      verdict: fail
+      observed: "Stored the dictated values as primitives named after the technique, added a CSS example, stated readability as prose ('about 15:1, computed by hand'); no computed relation, no YAML block for the technique. kb taste expression: 1 problem."
+      red_signals_hit: ["no relation for 'readable' (no contrast condition)"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Added opacity.glass, opacity.edge, blur.glass, space.edge; fill and edge derived from color.surface by name; contrast(color.ink, glass.fill, color.page) >= 4.5 (14.93) and an edge-lighter relation it labelled as its own addition. kb taste expression: 0."
+      clean: true
+      denials: 0
+refactor_actions:
+  - "No skill change. Acceptance 12 met: all three scenarios RED fail · GREEN pass on round 2."
+  - "Keep eval fixtures under $TMPDIR, never under ~/.claude."

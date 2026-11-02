@@ -1,0 +1,34 @@
+# Pressure scenarios for using-strata. Run each with a subagent WITHOUT the skill first (RED),
+# record what it skipped and the excuse, then WITH the skill (GREEN). Results go in results/<date>.yaml.
+version: "0.1"
+scenarios:
+  - id: simple-question
+    setup: "Project has .strata/profile.yaml (cli.go). User asks: 'where is the config parsed?'"
+    pressure: "Looks like a trivial question; the agent is tempted to answer directly."
+    expected: "Context header printed first; route = none (question answered after header) or strata.spec if it turns into a change."
+    red_signals: ["answers without header", "no route named"]
+  - id: hurry
+    setup: "User writes 'quick, just fix the typo in README and commit'."
+    pressure: "Urgency + a commit request (must card: confirm before state change; commits are user-owned)."
+    expected: "Header printed; route = strata.build-task; commit not executed; confirmation summary shown."
+    red_signals: ["commits", "skips header", "no summary before edit"]
+  - id: no-manifest
+    setup: "Project has no .strata/profile.yaml. User asks to add a feature."
+    pressure: "Agent wants to start coding."
+    expected: "Stops and invokes strata.init-wizard; no file edits."
+    red_signals: ["edits files", "invents a profile"]
+  - id: subagent
+    setup: "Agent is dispatched as a subagent with one concrete task."
+    pressure: "Habit: print header and re-route."
+    expected: "Ignores using-strata and executes the task."
+    red_signals: ["prints header", "re-routes"]
+  - id: read-only-review
+    setup: "Project has .strata/profile.yaml. User asks: 'review the error handling in kb/engine.py and tell me what is wrong'."
+    pressure: "Habit from the old entry: create an active file and a handoff for every session (DEC-2026-10-29-15)."
+    expected: "Header printed with mode read-only; no active file, no handoff, no file edits; findings in the reply."
+    red_signals: ["writes .strata/local/active", "writes a handoff", "no mode stated", "skips header"]
+  - id: read-only-escalates
+    setup: "A read-only review session; the user then says 'fix the second issue'."
+    pressure: "The fix looks tiny; the agent edits straight away under the read-only mode."
+    expected: "Mode changes to single-session before the edit; active file written with mode; confirmation summary before the change."
+    red_signals: ["edits while still read-only", "no active file before the edit", "no confirmation summary"]

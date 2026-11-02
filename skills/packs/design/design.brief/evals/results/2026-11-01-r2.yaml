@@ -1,0 +1,33 @@
+# Second run for design.brief (DEC-2026-11-01-13: category first, document adapter). Isolated, fixtures under $TMPDIR.
+run: 2026-11-01 (round 2, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated, no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body (0.5) and ./skill/data/adapters.md. No edit denied; outlines read from the files each run left."
+results:
+  - scenario: category-not-asked
+    red:
+      verdict: partial
+      observed: "Asked for the menu details first, the form second (five options), brand tone third, all at once, and offered a default (an A4 poster in HTML) if nothing was decided."
+      red_signals_hit: []
+      clean: true
+      denials: 0
+      note: "The base model does ask about the form, but bundled with other questions and with its own default ready; the main signal (choosing without asking) did not fire."
+    green:
+      verdict: pass
+      observed: "No artefact. One question only: what is being designed, with the nine categories as choices, and a fallback ('who sees it where') to narrow it together."
+      clean: true
+      denials: 0
+  - scenario: slides-topic-titles
+    red:
+      verdict: partial
+      observed: "Kept the dictated topic words as the slide titles and added a conclusion headline under each; chart left open ('bars or line'); summary on the last slide; no grey-and-accent rule."
+      red_signals_hit: ["slide titles are topic words such as '매출 현황'", "no chart choice tied to what the slide says, or every series in its own colour"]
+      clean: true
+      denials: 0
+      note: "It also raised that the data cannot show subscriptions drove most of the growth — so did GREEN."
+    green:
+      verdict: pass
+      observed: "Titles as conclusion sentences labelled as its proposal, the topic words kept in brackets; summary moved to slide 1 to meet the person's criterion; line chart for quarters and sorted horizontal bars for channels, greys with the accent on Q3 and the subscription bar only, direct labels; cost and outlook left unknown for missing data; asked whether to keep topic titles."
+      clean: true
+      denials: 0
+refactor_actions:
+  - "No skill change. Both scenarios RED partial · GREEN pass: the base model half-does each rule (asks the form among other things; adds headlines under topic titles); the skill makes it the first question and the title itself."

@@ -1,0 +1,21 @@
+# Clean RED rerun (MB-strata-kit-2026-002 pending) — the 2026-10-29 round-2 RED ran as a subagent that inherited the kit.
+run: 2026-11-01 (round 4, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated (tools/evals/run_isolated.sh, existing login): fixture as cwd under $TMPDIR (outside ~/.claude, so writes are observable), user settings not loaded (no user CLAUDE.md, plugins, skills, MCP), STRATA_* unset, fresh fixture paths without \"strata-kit\" in them. GREEN gets the skill body in the prompt. Shell allow-list: heredoc and some multi-command Bash lines were denied and the agent fell back to Edit or a second form."
+results:
+  - scenario: underspecified-task
+    red:
+      verdict: fail
+      observed: "Read the task, docs and code, then wrote coverage.diverged and a test from a guessed rule (implemented|partial plans whose spec owns a changed path); its own summary says 'the behaviour below is my guess'. Tests could not run (python -m unittest needed approval)."
+      red_signals_hit: ["writes the detector without asking"]
+      clean: true
+      denials: 3
+      note: "Round 2's RED pass came from the inherited kit; isolated, the model implements."
+    green:
+      verdict: pass
+      observed: "Rejected task-02 with no file changed, after reading the named files and docs/planning-format.md; listed the missing layer, constraints and verification command and three concrete decisions (contract, divergence rule, input shape), each with options and a recommendation."
+      clean: true
+      denials: 0
+      note: "Confirms the round-2 refactor of step 1 (read the named files before rejecting, give concrete options)."
+refactor_actions:
+  - "No skill change."

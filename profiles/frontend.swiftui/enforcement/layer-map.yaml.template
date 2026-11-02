@@ -1,0 +1,101 @@
+# .strata/layer-map.yaml — brownfield mapping template for a SwiftUI app (mobile variant)
+#
+# Semantics: profiles/frontend.swiftui/enforcement/check-swift-layers.py.template — mappings are matched as substrings
+#            from the top; the first match gives the layer. A layer starting with _ is skipped. Specific paths above, broad paths below.
+# Placement: embedded projects use the repo's .strata/, detached ones use vault projects/{n}/strata/ (strata docs/06-environment/data-placement.md §1.5 — archived)
+# Rules:     $STRATA_KIT/core/rules/layer-rules.yaml → frontend.variants.mobile · explanation: $STRATA_KIT/core/docs/en/architecture/frontend-mobile.md
+# Binding:   $STRATA_KIT/profiles/frontend.swiftui/docs/en/frontend-swiftui.md
+#
+# In Swift, import works per module, so directories cannot separate layers. Classify by the **role** of the types a file holds:
+#   tokens, pure shapes, constants                  → Foundation
+#   Codable models, UiState, pure calculation, contracts → Contract   (no 'ViewModel' name — on mobile that means a state owner)
+#   Store (main actor), Repository/Service (I/O)    → DataState  (isolated by domain)
+#   domain-agnostic views (design system package)   → Primitive_UI
+#   meaningful views that take only props/UiState  → Semantic_Component
+#   owns @StateObject/@EnvironmentObject            → Feature_Block (domain = group of screens, `/` for parent/child)
+#   TabView, NavigationStack entry points           → Route_Surface
+#   @main App, creating global Stores, injecting the environment → App_Shell
+#
+# Enforcement ladder: compiler (packages, targets) > this checker (between files inside a module) > style_rules. The more of
+# Contract and DataState moves into packages, the smaller the checker's share (profiles/frontend.swiftui/enforcement/Package.swift.template).
+
+variant: mobile
+feature_root: "App/Sources/Features/"    # Feature Block domain root. A mapping's domain: takes precedence
+
+swift:
+  sources:                            # roots to check (relative to the project). Local SPM packages included
+    - "Packages/Foundation/Sources"
+    - "Packages/Contract/Sources"
+    - "Packages/DataState/Sources"
+    - "Packages/DesignSystem/Sources"
+    - "App/Sources"
+    - "Watch/Sources"
+  style_rules:                        # regex style rules (for new code, --style)
+    - id: "no-color-hex-in-view"
+      pattern: 'Color\(hex:'
+      exclude_layers: ["Foundation"]
+      message: "Color(hex:) is for use inside token files only — use an alias token (core/docs/en/architecture/frontend-design-contract.md)"
+    - id: "no-raw-hex-literal"
+      pattern: '"#?[0-9A-Fa-f]{6}"'
+      exclude_layers: ["Foundation"]
+      message: "hex literals are forbidden outside Foundation (tokens) — add them through tokens.json → {Name}Tokens.swift"
+    - id: "no-system-font"
+      pattern: '\.font\(\.system'
+      exclude_layers: ["Foundation", "_test"]
+      message: "do not set system fonts directly — use typography tokens (icon sizes use the icon.* axis, the watch uses the watch scale)"
+
+zones:
+  target:
+    - "App/"
+    - "Packages/"
+    - "Watch/"
+
+mappings:
+  # ── Foundation ──
+  - { path: "Packages/Foundation/Sources/",                       layer: "Foundation" }
+  # ── Contract ──
+  - { path: "Packages/Contract/Sources/",                         layer: "Contract" }
+  - { path: "App/Sources/Contracts/",                             layer: "Contract" }     # temporary, until packaged
+  # ── DataState (isolated by domain) ──
+  - { path: "Packages/DataState/Sources/DataState/Records/",      layer: "DataState", domain: "records" }
+  - { path: "Packages/DataState/Sources/DataState/Health/",       layer: "DataState", domain: "health" }
+  - { path: "App/Sources/Stores/",                                layer: "DataState", domain: "records" }
+  # ── Primitive UI ──
+  - { path: "Packages/DesignSystem/Sources/",                     layer: "Primitive_UI" }
+  # ── Semantic Component ──
+  - { path: "App/Sources/Components/",                            layer: "Semantic_Component" }
+  - { path: "+Style.swift",                                       layer: "Semantic_Component" }   # display-property extensions of Contract models
+  # ── Feature Block — domain = the segment after feature_root. State parent/child explicitly, e.g. domain: "today/mood" ──
+  - { path: "App/Sources/Features/Today/Mood/",                   layer: "Feature_Block", domain: "today/mood" }
+  - { path: "App/Sources/Features/",                              layer: "Feature_Block" }
+  - { path: "Watch/Sources/Pages/",                               layer: "Feature_Block", domain: "watch" }
+  # ── Route Surface ──
+  - { path: "App/Sources/Routes/",                                layer: "Route_Surface", domain: "main" }
+  - { path: "Watch/Sources/WatchRootView.swift",                  layer: "Route_Surface", domain: "watch" }
+  # ── App Shell — @main + Store creation and the environmentObject chain ──
+  - { path: "App/Sources/Shell/",                                 layer: "App_Shell" }
+  - { path: "App/Sources/App.swift",                              layer: "App_Shell" }
+  - { path: "Watch/Sources/WatchApp.swift",                       layer: "App_Shell" }
+  # ── Not checked ──
+  - { path: "/Tests/",                                            layer: "_test" }
+
+# Sharing between targets — the source of truth is each target's sources in project.yml. No copies, only add the file to the target.
+# targets rules of variant mobile: Foundation, Contract, Primitive_UI, Semantic_Component share freely;
+# DataState needs stateful: true and documentation that each target has its own instance. Feature/Route/Shell must not be shared.
+targets:
+  shared:
+    - { path: "Packages/Contract/Sources/Contract/Health/StateEngine.swift", targets: ["App", "Watch"] }
+    - { path: "Packages/DataState/Sources/DataState/Health/HealthStore.swift", targets: ["App", "Watch"], stateful: true }
+
+# naming is not enforced by the checker — convention: file name = top-level type name (profiles/frontend.swiftui/docs/en/frontend-swiftui.md, naming section). Reference only.
+naming:
+  files:
+    "App/": "PascalCase"
+
+exceptions: []
+#  - id: "EX-2026-01-01-01"
+#    decision: "DEC-2026-01-01-01"
+#    from_path: "App/Sources/Stores/TodoStore.swift"
+#    to_layer: "Foundation"
+#    reason: "until the display properties are moved"
+#    status: "active"

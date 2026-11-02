@@ -1,0 +1,23 @@
+{
+  "_comment": "Strata — settings for the swift-format built into Xcode 16+. Copy to the project root as .swift-format. Run: swift format --in-place --recursive Sources (find the path with xcrun --find swift-format)",
+  "version": 1,
+  "indentation": { "spaces": 4 },
+  "lineLength": 140,
+  "maximumBlankLines": 1,
+  "respectsExistingLineBreaks": true,
+  "lineBreakBeforeControlFlowKeywords": false,
+  "lineBreakBeforeEachArgument": false,
+  "prioritizeKeepingFunctionOutputTogether": true,
+  "indentConditionalCompilationBlocks": false,
+  "rules": {
+    "AlwaysUseLowerCamelCase": true,
+    "DontRepeatTypeInStaticProperties": true,
+    "NeverForceUnwrap": false,
+    "NeverUseImplicitlyUnwrappedOptionals": true,
+    "NoLeadingUnderscores": false,
+    "OrderedImports": true,
+    "UseEarlyExits": true,
+    "UseShorthandTypeNames": true,
+    "ValidateDocumentationComments": false
+  }
+}

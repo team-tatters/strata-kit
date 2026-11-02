@@ -1,0 +1,14 @@
+# Tier L — 머신·세션별 상태
+.strata/local/
+.strata/cowork/
+# 시험 산출물
+evals/**/out/
+# OS
+.DS_Store
+# generated adapters
+dist/
+__pycache__/
+# Obsidian (user-local workspace state)
+.obsidian/
+# python env (uv)
+.venv/

@@ -1,0 +1,61 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.naming.follow-convention
+  title:
+    en: Follow the naming convention
+    ko: 네이밍 컨벤션을 지킨다
+    ja: 命名規約に従う
+    zh: 遵循命名约定
+    es: Seguir la convención de nombres
+    fr: Respecter la convention de nommage
+  claim:
+    en: Names follow the profile's naming convention; the hook warns on each write and the review rejects unexplained deviations.
+    ko: 이름은 프로필의 네이밍 컨벤션을 따른다. 훅이 쓰기마다 경고하고, 설명 없는 일탈은 리뷰에서 반려한다.
+    ja: 名前はプロファイルの命名規約に従う。フックが書き込みごとに警告し、説明のない逸脱はレビューで差し戻す。
+    zh: 名称遵循配置文件的命名约定；钩子在每次写入时警告，无说明的偏离在评审中驳回。
+    es: Los nombres siguen la convención del perfil; el hook avisa en cada escritura y la revisión rechaza desviaciones sin explicación.
+    fr: Les noms suivent la convention du profil ; le hook avertit à chaque écriture et la revue rejette les écarts non justifiés.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Follow the profile's naming convention; explain any deviation.
+    ko: 이름은 프로필 네이밍 컨벤션을 따른다. 일탈은 이유를 적는다.
+    ja: 名前はプロファイルの命名規約に従う。逸脱には理由を書く。
+    zh: 命名遵循配置文件的命名规范；任何偏离都要写明理由。
+    es: Sigue la convención de nombres del perfil; explica cualquier desviación.
+    fr: Suivre la convention de nommage du profil ; expliquer tout écart.
+  applies_when:
+  - en: The profile ships a naming-convention file
+    ko: 프로필에 naming-convention 파일이 있다
+    ja: プロファイルに命名規約ファイルが含まれる
+    zh: 配置文件附带命名约定文件
+    es: El perfil incluye un archivo de convención de nombres
+    fr: Le profil fournit un fichier de convention de nommage
+  not_when:
+  - en: Generated code and vendored third-party code
+    ko: 생성 코드와 벤더링된 외부 코드
+    ja: 生成コードとベンダリングされたサードパーティコード
+    zh: 生成代码和内置的第三方代码
+    es: Código generado y código de terceros incorporado
+    fr: Code généré et code tiers embarqué
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-02
+    note:
+      en: Absolute rule 4
+      ko: 절대 규칙 4
+      ja: 絶対規則4
+      zh: 绝对规则 4
+      es: Regla absoluta 4
+      fr: Règle absolue 4
+  counter_examples: []
+  verification:
+    en: kb validate-naming reports no new warnings against the baseline
+    ko: kb validate-naming 가 기준선 대비 새 경고 0건
+    ja: kb validate-naming がベースライン比で新規警告0件
+    zh: kb validate-naming 相对基线无新增警告
+    es: kb validate-naming no informa avisos nuevos frente a la línea base
+    fr: kb validate-naming ne signale aucun nouvel avertissement par rapport à la base
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 4
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

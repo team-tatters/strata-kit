@@ -1,0 +1,17 @@
+# Round 2: distill-copy-as-is without the README's identifier rule.
+run: 2026-11-01 (round 2, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Same as round 1 with the fixture hints removed (personal core README rule, proposal comment, LOCALES rule and enum comment). Verdicts checked against the fixture files and replies."
+results:
+  - scenario: distill-copy-as-is
+    red:
+      verdict: pass
+      observed: "Wrote a general pattern without the identifiers on its own, with no README rule to cite. It wrote no candidate record (source revision, target id) — a skill validation item, but not this scenario's signal."
+      red_signals_hit: []
+      clean: true
+    green:
+      verdict: pass
+      observed: "General pattern without identifiers, plus distill-candidates.md with source revision, target id and the cycle-code lesson as not distilled."
+      clean: true
+refactor_actions:
+  - "Retire distill-copy-as-is: the base model already strips company identifiers when copying to a personal core. What the skill adds is the candidate record; a future scenario should press on that (re-running the same candidate must update, not duplicate)."

@@ -1,0 +1,31 @@
+# Profile manifest — detection, default cards, enforcement. Schema: core/schemas/profile.schema.yaml
+profile:
+  id: service.rust
+  title:
+    en: Service or native shell in Rust
+    ko: Rust 서비스·네이티브 셸
+    ja: Rust のサービス・ネイティブシェル
+    zh: Rust 服务或原生外壳
+    es: Servicio o shell nativo en Rust
+    fr: Service ou shell natif en Rust
+  status: draft
+  detect:
+    any_files:
+    - Cargo.toml
+    languages:
+    - rust
+  layers: Cargo workspace crates — kit (L1), domain (L1 domain + ports), infra (LM1 + L2 data access), app (L2 services, LM2, L3), api (Route); app must not depend on infra
+  enforcement:
+  - cargo fmt --check
+  - cargo clippy -D warnings
+  - cargo test
+  cards_default: []
+  cards_excluded: []
+  source: profiles/service.rust/docs/ko/backend-rust.md (DEC-2026-10-22-01), profiles/service.rust/docs/ko/backend-rust-layers.md (DEC-2026-10-29-06)
+  note:
+    en: should cards for this profile are written after the must cards; layers listed here become should cards
+    ko: 이 프로필의 should 카드는 must 카드 다음에 쓴다. 위 레이어 목록이 should 카드가 된다
+    ja: このプロファイルの should カードは must カードの後に書く。ここに挙げたレイヤーが should カードになる
+    zh: 此配置文件的 should 卡片在 must 卡片之后编写；此处列出的层将成为 should 卡片
+    es: Las tarjetas should de este perfil se escriben después de las must; las capas listadas aquí se vuelven tarjetas should
+    fr: Les cartes should de ce profil s'écrivent après les cartes must ; les couches listées ici deviennent des cartes should

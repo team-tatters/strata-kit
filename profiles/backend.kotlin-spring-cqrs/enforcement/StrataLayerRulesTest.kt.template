@@ -1,0 +1,64 @@
+package {{BASE_PACKAGE}}.architecture
+
+import com.tngtech.archunit.base.DescribedPredicate
+import com.tngtech.archunit.core.domain.JavaCall
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import com.tngtech.archunit.library.Architectures.layeredArchitecture
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
+import org.junit.jupiter.api.Test
+
+/**
+ * Strata layer rule enforcement test (the CI source of truth).
+ * The rules themselves live in layer-rules.yaml (SoT); this test only reads and enforces them.
+ * Do not hard-code rules here — that is where drift starts.
+ */
+class StrataLayerRulesTest {
+
+    companion object {
+        private val rules: List<StrataLayer> = StrataRules.load()
+        private val classes: JavaClasses = ClassFileImporter()
+            .withImportOption(ImportOption.DoNotIncludeTests())
+            .importPackages("{{BASE_PACKAGE}}")
+    }
+
+    @Test
+    fun `layer dependency direction - no can_reference violations`() {
+        var arch = layeredArchitecture()
+            .consideringOnlyDependenciesInLayers()
+        rules.forEach { arch = arch.layer(it.name).definedBy(it.packageIdentifier) }
+        rules.forEach { layer ->
+            arch = if (layer.canReference.isEmpty()) {
+                arch.whereLayer(layer.name).mayNotAccessAnyLayer()
+            } else {
+                arch.whereLayer(layer.name).mayOnlyAccessLayers(*layer.canReference.toTypedArray())
+            }
+        }
+        arch.check(classes)
+    }
+
+    @Test
+    fun `domain slice isolation - no cross-domain references in cross_reference false layers`() {
+        rules.filter { !it.crossReference && it.domainSlice != null }
+            .forEach { layer ->
+                slices().matching(layer.domainSlice)
+                    .should().notDependOnEachOther()
+                    .`as`("${layer.name}: no cross-domain references (layer-rules.yaml cross_reference: false)")
+                    .check(classes)
+            }
+    }
+
+    @Test
+    fun `no bean lookup by string name - blocks bypassing static layer checks`() {
+        val getBeanByName = object : DescribedPredicate<JavaCall<*>>("BeanFactory.getBean(name) call") {
+            override fun test(call: JavaCall<*>): Boolean =
+                call.target.name == "getBean" &&
+                    call.targetOwner.isAssignableTo("org.springframework.beans.factory.BeanFactory")
+        }
+        noClasses().should().callMethodWhere(getBeanByName)
+            .because("looking a bean up by string name leaves no type reference, so it bypasses the layer checks")
+            .check(classes)
+    }
+}

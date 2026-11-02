@@ -1,0 +1,87 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.placement.minimal-strata-in-code-repo
+  strength: must
+  adoption: opt_in   # DEC-2026-10-30-01
+  default_when: domain_work
+  profiles: []
+  title:
+    en: The code repository holds only what the team runs
+    ko: 코드 저장소에는 팀이 실행하는 것만 둔다
+    ja: コードリポジトリにはチームが実行するものだけを置く
+    zh: 代码仓库只保留团队运行的内容
+    es: El repositorio de código solo contiene lo que el equipo ejecuta
+    fr: Le dépôt de code ne contient que ce que l'équipe exécute
+  claim:
+    en: 'Inside a code repository, Strata leaves at most: the enforcement configs and tests that CI runs, and a manifest pointer (.strata/profile.yaml with project id and placement). Agent instructions (AGENTS.md, CLAUDE.md), hooks, skills, decision records, handoffs and generated adapters are kept outside the repository (vault, detached Tier P, or gitignored local paths) unless the whole team has adopted the kit and recorded that decision. Personal guidance never enters another person''s pull request.'
+    ko: 코드 저장소 안에 Strata 가 남기는 것은 최대 두 가지다. CI 가 실행하는 집행 설정과 테스트, 그리고 매니페스트 포인터(.strata/profile.yaml 의 프로젝트 id 와 배치). 에이전트 지침(AGENTS.md, CLAUDE.md), 훅, 스킬, 결정 레코드, 핸드오프, 생성된 어댑터는 팀 전체가 kit 을 채택하고 그 결정을 기록하지 않는 한 저장소 밖(vault, detached Tier P, gitignore 된 로컬 경로)에 둔다. 개인의 지침이 남의 PR 에 들어가지 않는다.
+    ja: コードリポジトリの中に Strata が残すのは最大二つ。CI が実行する強制設定とテスト、そしてマニフェストポインタ（.strata/profile.yaml のプロジェクト id と配置）。エージェント指針、フック、スキル、決定レコード、ハンドオフ、生成アダプターは、チーム全体が kit を採用しその決定を記録しない限り、リポジトリ外に置く。個人の指針が他人の PR に入ることはない。
+    zh: 在代码仓库中，Strata 最多留下两样：CI 运行的执行配置与测试，以及清单指针（.strata/profile.yaml 中的项目 id 与放置方式）。代理指令、钩子、技能、决策记录、交接和生成的适配器都放在仓库之外，除非整个团队采用了 kit 并记录了该决策。个人指引绝不进入他人的 PR。
+    es: 'Dentro de un repositorio de código, Strata deja como máximo: las configuraciones de aplicación y pruebas que ejecuta CI, y un puntero de manifiesto (.strata/profile.yaml con id de proyecto y ubicación). Instrucciones de agente, hooks, skills, registros de decisión, traspasos y adaptadores generados se mantienen fuera del repositorio salvo que todo el equipo haya adoptado el kit y registrado esa decisión. La guía personal nunca entra en el pull request de otra persona.'
+    fr: 'Dans un dépôt de code, Strata ne laisse au plus que : les configurations d''application et tests exécutés par la CI, et un pointeur de manifeste (.strata/profile.yaml avec l''id du projet et le placement). Instructions d''agent, hooks, skills, enregistrements de décision, passations et adaptateurs générés restent hors du dépôt sauf si toute l''équipe a adopté le kit et enregistré cette décision. Les consignes personnelles n''entrent jamais dans la pull request d''autrui.'
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "A code repository holds only CI-run enforcement and the .strata/profile.yaml pointer; guidance, hooks and records stay outside unless the team adopted the kit."
+    ko: "코드 저장소에는 CI 가 돌리는 집행 설정과 .strata/profile.yaml 포인터만 둔다. 지침·훅·기록은 팀이 kit 을 채택하지 않았으면 밖에 둔다."
+    ja: "コードリポジトリには CI が実行する強制設定と .strata/profile.yaml ポインタだけを置く。指針・フック・記録はチームが kit を採用していなければ外に置く。"
+    zh: "代码仓库只放 CI 执行的约束配置和 .strata/profile.yaml 指针；团队未采用 kit 时，指南、钩子和记录都放在仓库外。"
+    es: "Un repositorio de código solo guarda la aplicación que ejecuta la CI y el puntero .strata/profile.yaml; guías, hooks y registros quedan fuera salvo que el equipo adopte el kit."
+    fr: "Un dépôt de code ne contient que l'application exécutée par la CI et le pointeur .strata/profile.yaml ; consignes, hooks et enregistrements restent dehors sauf adoption du kit par l'équipe."
+  applies_when:
+  - en: Shared code repositories (work domain), and any repository another person commits to
+    ko: 공유 코드 저장소(업무 영역)와 다른 사람이 커밋하는 모든 저장소
+    ja: 共有コードリポジトリ（業務領域）と他人がコミットするすべてのリポジトリ
+    zh: 共享代码仓库（工作领域）以及任何有他人提交的仓库
+    es: Repositorios de código compartidos (dominio de trabajo) y cualquier repositorio al que otra persona haga commit
+    fr: Dépôts de code partagés (domaine travail) et tout dépôt où une autre personne committe
+  not_when:
+  - en: 'Personal single-author repositories: embedded placement is allowed and generated files may be committed'
+    ko: 개인 단독 저장소. embedded 배치가 허용되고 생성 파일을 커밋해도 된다
+    ja: 個人の単独リポジトリ。埋め込み配置が許され、生成ファイルをコミットしてよい
+    zh: 个人单作者仓库：允许嵌入式放置，生成文件可提交
+    es: 'Repositorios personales de un solo autor: se permite la ubicación embebida y pueden confirmarse los archivos generados'
+    fr: 'Dépôts personnels à auteur unique : le placement embarqué est permis et les fichiers générés peuvent être committés'
+  evidence:
+  - kind: measurement
+    ref: a backend project, 2026-10-20/21
+    note:
+      en: Methodology files untracked from the company repository; a branch switch then wiped the local records and a backup restored them
+      ko: 회사 저장소에서 방법론 파일을 추적 해제한 뒤 브랜치 전환이 로컬 레코드를 지웠고 백업으로 복원했다
+      ja: 会社リポジトリから方法論ファイルを追跡解除した後、ブランチ切替がローカルレコードを消し、バックアップで復元した
+      zh: 从公司仓库取消跟踪方法论文件后，切换分支清除了本地记录，靠备份恢复
+      es: Tras dejar de rastrear los archivos de metodología en el repositorio de la empresa, un cambio de rama borró los registros locales y una copia de seguridad los restauró
+      fr: Après avoir cessé de suivre les fichiers de méthodologie dans le dépôt de l'entreprise, un changement de branche a effacé les enregistrements locaux, restaurés depuis une sauvegarde
+  - kind: decision
+    ref: DEC-2026-08-19-01 (strata)
+    note:
+      en: 'Placement profile: embedded or detached, manifest is the source'
+      ko: '배치 프로필: embedded 또는 detached, 매니페스트가 정본'
+      ja: '配置プロファイル: 埋め込みまたは分離、マニフェストが原本'
+      zh: 放置配置：嵌入式或分离式，清单为正本
+      es: 'Perfil de ubicación: embebido o separado, el manifiesto es la fuente'
+      fr: 'Profil de placement : embarqué ou détaché, le manifeste fait foi'
+  - kind: reference
+    ref: https://github.com/affaan-m/ECC
+    note:
+      en: Agent configuration is an attack surface; another person's agent reads what is committed
+      ko: 에이전트 설정은 공격 표면이다. 커밋된 것은 다른 사람의 에이전트가 읽는다
+      ja: エージェント設定は攻撃面である。コミットされたものは他人のエージェントが読む
+      zh: 代理配置是攻击面；提交的内容会被他人的代理读取
+      es: La configuración del agente es una superficie de ataque; lo que se confirma lo lee el agente de otra persona
+      fr: La configuration d'agent est une surface d'attaque ; ce qui est committé est lu par l'agent d'autrui
+  counter_examples:
+  - en: superpowers and ECC install instructions into the repository root for every contributor; here the default is the opposite because contributors did not opt in
+    ko: superpowers 와 ECC 는 모든 기여자를 위해 저장소 루트에 지침을 설치한다. 여기서는 기여자가 동의하지 않았으므로 기본이 반대다
+    ja: superpowers と ECC は全貢献者のためにリポジトリルートへ指針をインストールする。ここでは貢献者が同意していないため既定は逆
+    zh: superpowers 与 ECC 为所有贡献者在仓库根目录安装指令；此处因贡献者未同意，默认相反
+    es: superpowers y ECC instalan instrucciones en la raíz del repositorio para todos los colaboradores; aquí el valor por defecto es el contrario porque los colaboradores no lo aceptaron
+    fr: superpowers et ECC installent des instructions à la racine du dépôt pour tous les contributeurs ; ici le défaut est inverse car les contributeurs n'ont pas consenti
+  verification:
+    en: git ls-files of a shared repository contains only enforcement configs, tests and .strata/profile.yaml from the kit; the wizard writes adapters to gitignored paths when domain is work
+    ko: 공유 저장소의 git ls-files 에 kit 산출물로는 집행 설정·테스트·.strata/profile.yaml 만 있고, 영역이 work 면 마법사는 어댑터를 gitignore 된 경로에 쓴다
+    ja: 共有リポジトリの git ls-files に kit 由来のものは強制設定・テスト・.strata/profile.yaml のみで、領域が work ならウィザードはアダプターを gitignore 済みパスに書く
+    zh: 共享仓库的 git ls-files 中来自 kit 的只有执行配置、测试和 .strata/profile.yaml；领域为 work 时向导将适配器写入已 gitignore 的路径
+    es: git ls-files de un repositorio compartido solo contiene del kit configuraciones de aplicación, pruebas y .strata/profile.yaml; con dominio work el asistente escribe adaptadores en rutas ignoradas por git
+    fr: git ls-files d'un dépôt partagé ne contient du kit que les configurations d'application, les tests et .strata/profile.yaml ; en domaine work l'assistant écrit les adaptateurs dans des chemins ignorés par git
+  source: 사용자 원칙 2026-10-28, core/docs/ko/environment/data-placement.md
+  supersedes: []
+  status: active

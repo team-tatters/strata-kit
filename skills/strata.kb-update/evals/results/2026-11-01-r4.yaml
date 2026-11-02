@@ -1,0 +1,20 @@
+# Clean RED rerun (MB-strata-kit-2026-002 pending).
+run: 2026-11-01 (round 4, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated (tools/evals/run_isolated.sh, existing login): fixture as cwd under $TMPDIR (outside ~/.claude, so writes are observable), user settings not loaded (no user CLAUDE.md, plugins, skills, MCP), STRATA_* unset, fresh fixture paths without \"strata-kit\" in them. GREEN gets the skill body in the prompt. Shell allow-list: heredoc and some multi-command Bash lines were denied and the agent fell back to Edit or a second form."
+results:
+  - scenario: stale-owner-after-change
+    red:
+      verdict: partial
+      observed: "Rewrote the Totals statement in place (half-even, new examples) and bumped updated; left sources empty."
+      red_signals_hit: ["no sources"]
+      clean: true
+      denials: 1
+      note: "The in-place rewrite is the model's default here; the skill's added value is the sources line."
+    green:
+      verdict: pass
+      observed: "Rewrote Totals in place, bumped updated to 2026-11-01, added sources [src/billing/rounding.py], left Refunds unchanged and said why it did not rebuild the index (no tooling in the repo)."
+      clean: true
+      denials: 1
+refactor_actions:
+  - "No skill change."

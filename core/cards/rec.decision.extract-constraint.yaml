@@ -1,0 +1,63 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.decision.extract-constraint
+  strength: should
+  profiles: []
+  title:
+    en: A decision that constrains code becomes a constraint card in the same session
+    ko: 코드를 제약하는 결정은 같은 세션에 제약 카드로 뽑는다
+    ja: コードを制約する決定は同じセッションで制約カードにする
+    zh: 约束代码的决策在同一会话中提取为约束卡片
+    es: Una decisión que restringe el código se convierte en tarjeta de restricción en la misma sesión
+    fr: Une décision qui contraint le code devient une carte de contrainte dans la même session
+  claim:
+    en: When a recorded decision adds a rule that code must follow (a forbidden call, a required pattern, a layer boundary), the same session extracts it into the project's constraint registry with the decision id as its source, so the rule reaches task specifications and reviews instead of staying inside the decision text.
+    ko: 기록된 결정이 코드가 따라야 할 규칙(금지 호출·필수 패턴·레이어 경계)을 낳으면, 같은 세션에서 그 규칙을 프로젝트 constraint-registry 에 결정 id 를 source 로 적어 뽑는다. 그래야 규칙이 결정 본문 안에 머물지 않고 태스크 명세와 리뷰에 닿는다.
+    ja: 記録した決定がコードが従うべき規則（禁止呼び出し・必須パターン・レイヤー境界）を生むなら、同じセッションでその規則を決定 id を source にしてプロジェクトの constraint-registry に抽出する。規則が決定本文の中に留まらず、タスク仕様とレビューに届くためである。
+    zh: 当记录的决策产生代码必须遵守的规则（禁止调用、必需模式、层边界）时，同一会话将其提取到项目的 constraint-registry，并以决策 id 作为 source，使规则到达任务规格和评审，而不是留在决策正文里。
+    es: Cuando una decisión registrada añade una regla que el código debe seguir (una llamada prohibida, un patrón obligatorio, un límite de capa), la misma sesión la extrae al constraint-registry del proyecto con el id de la decisión como fuente, para que la regla llegue a las especificaciones de tareas y a las revisiones en vez de quedarse en el texto de la decisión.
+    fr: Quand une décision enregistrée ajoute une règle que le code doit suivre (appel interdit, motif obligatoire, frontière de couche), la même session l'extrait dans le constraint-registry du projet avec l'id de la décision comme source, pour que la règle atteigne les spécifications de tâches et les revues au lieu de rester dans le texte de la décision.
+  applies_when:
+  - en: A decision record whose decision text names a rule for code
+    ko: 결정 본문이 코드 규칙을 담은 결정 레코드
+    ja: 決定本文がコード規則を含む決定レコード
+    zh: 决策正文包含代码规则的决策记录
+    es: Un registro de decisión cuyo texto nombra una regla para el código
+    fr: Un enregistrement de décision dont le texte nomme une règle pour le code
+  not_when:
+  - en: Decisions about process, placement or tooling that no checker or reviewer applies to code
+    ko: 검사기·리뷰어가 코드에 적용하지 않는 절차·배치·도구 결정
+    ja: 検査器やレビュアがコードに適用しない手順・配置・ツールの決定
+    zh: 检查器或评审者不会应用于代码的流程、放置或工具决策
+    es: Decisiones de proceso, ubicación o herramientas que ningún verificador o revisor aplica al código
+    fr: Décisions de processus, de placement ou d'outillage qu'aucun vérificateur ni relecteur n'applique au code
+  evidence:
+  - kind: reference
+    ref: AGENTS.md rule of a backend project (constraint-registry entries, each citing its source decision)
+    note:
+      en: The operating project kept the rule as non-negotiable; its registry entries cite the decision that created each constraint
+      ko: 운영 프로젝트가 비협상 규칙으로 지켜 온 규칙이며, 레지스트리 항목마다 제약을 낳은 결정을 source 로 적고 있다
+      ja: 運用プロジェクトが非交渉規則として守ってきた規則で、レジストリ項目ごとに制約を生んだ決定を source として記す
+      zh: 运行项目一直将其作为不可协商的规则；注册表每个条目都以产生该约束的决策为 source
+      es: El proyecto en operación la mantuvo como regla no negociable; cada entrada del registro cita la decisión que creó la restricción
+      fr: Le projet en exploitation l'a gardée comme règle non négociable ; chaque entrée du registre cite la décision qui a créé la contrainte
+  - kind: decision
+    ref: DEC-2026-08-19-05
+    note:
+      en: Records are the source of truth; the registry is the layered-detail summary that task specs inject
+      ko: 레코드가 정본이고 레지스트리는 태스크 명세가 주입하는 계층화 요약이다
+      ja: レコードが原本で、レジストリはタスク仕様が注入する階層化された要約である
+      zh: 记录是正本；注册表是任务规格注入的分层摘要
+      es: Los registros son la fuente de verdad; el registro de restricciones es el resumen por capas que inyectan las especificaciones
+      fr: Les enregistrements font foi ; le registre est le résumé en couches que les spécifications injectent
+  counter_examples: []
+  verification:
+    en: Every must-level entry in the constraint registry cites a decision id as source, and the handoff of the session that accepted the decision lists the registry under kb_updates
+    ko: constraint-registry 의 must 급 항목이 모두 결정 id 를 source 로 가리키고, 그 결정을 받아들인 세션의 핸드오프 kb_updates 에 레지스트리 갱신이 있다
+    ja: constraint-registry の must 級項目がすべて決定 id を source に持ち、その決定を受け入れたセッションのハンドオフ kb_updates にレジストリ更新がある
+    zh: constraint-registry 中每个 must 级条目都以决策 id 为 source，且接受该决策的会话交接在 kb_updates 中列出注册表更新
+    es: Toda entrada de nivel must del constraint-registry cita un id de decisión como fuente, y el traspaso de la sesión que aceptó la decisión lista el registro en kb_updates
+    fr: Chaque entrée de niveau must du constraint-registry cite un id de décision comme source, et la passation de la session qui a accepté la décision liste le registre sous kb_updates
+  source: 백엔드 프로젝트의 AGENTS.md 규칙 (2026-10-28 마법사 검증에서 카드 격차로 발견)
+  supersedes: []
+  status: active

@@ -1,0 +1,36 @@
+# Profile manifest — detection, default cards, enforcement. Schema: core/schemas/profile.schema.yaml
+profile:
+  id: frontend.swiftui
+  title:
+    en: 'Frontend: SwiftUI app'
+    ko: '프론트엔드: SwiftUI 앱'
+    ja: 'フロントエンド: SwiftUI アプリ'
+    zh: 前端：SwiftUI 应用
+    es: 'Frontend: aplicación SwiftUI'
+    fr: 'Frontend : application SwiftUI'
+  status: draft
+  detect:
+    any_files:
+    - Package.swift
+    any_glob:
+    - '*.xcodeproj'
+    - '*.xcworkspace'
+    languages:
+    - swift
+  layers: Foundation → Contract → DataState → Primitive UI → Semantic Component → Feature Block → Route Surface → App Shell
+  enforcement:
+  - swift-format
+  - swiftlint
+  - check-swift-layers
+  cards_default:
+  - rec.frontend.layered-surfaces
+  - rec.frontend.design-contract
+  cards_excluded: []
+  source: core/docs/ko/architecture/frontend-mobile.md, profiles/frontend.swiftui/docs/ko/frontend-swiftui.md
+  note:
+    en: should cards for this profile are written after the must cards; layers listed here become should cards
+    ko: 이 프로필의 should 카드는 must 카드 다음에 쓴다. 위 레이어 목록이 should 카드가 된다
+    ja: このプロファイルの should カードは must カードの後に書く。ここに挙げたレイヤーが should カードになる
+    zh: 此配置文件的 should 卡片在 must 卡片之后编写；此处列出的层将成为 should 卡片
+    es: Las tarjetas should de este perfil se escriben después de las must; las capas listadas aquí se vuelven tarjetas should
+    fr: Les cartes should de ce profil s'écrivent après les cartes must ; les couches listées ici deviennent des cartes should

@@ -1,0 +1,376 @@
+# Skill registry — the routing table `using-strata` reads (DEC-2026-10-28-03 in strata).
+# Layering: this core registry is read first, then profiles/<id>/skills/registry.yaml,
+# then the project's .strata/kit/registry.yaml (generated) and Tier P skills/registry.yaml (skill packs).
+# What may follow each skill (next:) lives beside this file in next.yaml (DEC-2026-11-01-15): routing reads only this
+# file at session start, `kb skills next` reads both.
+# Later layers may add routes and
+# override earlier ones by `skill` name. `using-strata` itself never changes.
+version: '0.1'
+locale_fallback:
+- en
+- ko
+routes:
+- intent: start-session
+  skill: using-strata
+  triggers:
+    en:
+    - any new session
+    - before the first action
+    ko:
+    - 새 세션
+    - 첫 행동 전
+    ja:
+    - 新しいセッション
+    - 最初の行動の前
+    zh:
+    - 新会话
+    - 第一个动作之前
+    es:
+    - sesión nueva
+    - antes de la primera acción
+    fr:
+    - nouvelle session
+    - avant la première action
+- intent: set-up-project
+  skill: strata.init-wizard
+  triggers:
+    en:
+    - set up guidance
+    - init project
+    - which profile
+    ko:
+    - 지침 만들기
+    - 프로젝트 초기화
+    - 프로필 고르기
+    ja:
+    - ガイダンスを設定
+    - プロジェクト初期化
+    - どのプロファイル
+    zh:
+    - 设置指引
+    - 初始化项目
+    - 哪个配置文件
+    es:
+    - configurar la guía
+    - inicializar proyecto
+    - qué perfil
+    fr:
+    - configurer le guidage
+    - initialiser le projet
+    - quel profil
+- intent: shape-planning
+  skill: strata.planning
+  triggers:
+    en:
+    - turn this into a plan
+    - organise the planning
+    - PRD
+    - fact list
+    ko:
+    - 기획 문서로 정리
+    - 기획 정리
+    - PRD
+    - 사실 목록
+    ja:
+    - 企画文書に整理
+    - 企画の整理
+    - PRD
+    - 事実リスト
+    zh:
+    - 整理成规划文档
+    - 整理规划
+    - PRD
+    - 事实清单
+    es:
+    - convertir en documento de planificación
+    - organizar la planificación
+    - PRD
+    - lista de hechos
+    fr:
+    - en faire un document de planification
+    - organiser la planification
+    - PRD
+    - liste de faits
+- intent: write-spec
+  skill: strata.spec
+  triggers:
+    en:
+    - requirements
+    - acceptance criteria
+    - what to build
+    ko:
+    - 요구사항
+    - 인수 기준
+    - 무엇을 만들지
+    ja:
+    - 要件
+    - 受け入れ基準
+    - 何を作るか
+    zh:
+    - 需求
+    - 验收标准
+    - 要构建什么
+    es:
+    - requisitos
+    - criterios de aceptación
+    - qué construir
+    fr:
+    - exigences
+    - critères d'acceptation
+    - quoi construire
+- intent: plan-work
+  skill: strata.order
+  triggers:
+    en:
+    - plan
+    - break into tasks
+    - order
+    ko:
+    - 계획
+    - 태스크로 나누기
+    - 오더
+    ja:
+    - 計画
+    - タスクに分ける
+    - オーダー
+    zh:
+    - 计划
+    - 拆分任务
+    - 订单
+    es:
+    - plan
+    - dividir en tareas
+    - orden
+    fr:
+    - plan
+    - découper en tâches
+    - ordre
+- intent: implement-task
+  skill: strata.build-task
+  triggers:
+    en:
+    - implement
+    - build task
+    ko:
+    - 구현
+    - 태스크 실행
+    ja:
+    - 実装
+    - タスク実行
+    zh:
+    - 实现
+    - 执行任务
+    es:
+    - implementar
+    - ejecutar tarea
+    fr:
+    - implémenter
+    - exécuter la tâche
+- intent: verify-before-done
+  skill: strata.verify
+  triggers:
+    en:
+    - is it done
+    - verify
+    - seems right
+    ko:
+    - 끝났나
+    - 검증
+    - 맞아 보인다
+    ja:
+    - 終わったか
+    - 検証
+    - 正しそう
+    zh:
+    - 完成了吗
+    - 验证
+    - 看起来对
+    es:
+    - está terminado
+    - verificar
+    - parece correcto
+    fr:
+    - est-ce terminé
+    - vérifier
+    - semble correct
+- intent: record-decision
+  skill: strata.decision
+  triggers:
+    en:
+    - we decided
+    - architecture decision
+    ko:
+    - 결정했다
+    - 아키텍처 결정
+    ja:
+    - 決めた
+    - 設計判断
+    zh:
+    - 我们决定了
+    - 架构决策
+    es:
+    - decidimos
+    - decisión de arquitectura
+    fr:
+    - nous avons décidé
+    - décision d'architecture
+- intent: close-session
+  skill: strata.handoff
+  triggers:
+    en:
+    - handoff
+    - wrap up
+    - end session
+    ko:
+    - 핸드오프
+    - 마무리
+    - 세션 종료
+    ja:
+    - ハンドオフ
+    - まとめ
+    - セッション終了
+    zh:
+    - 交接
+    - 收尾
+    - 结束会话
+    es:
+    - traspaso
+    - cerrar
+    - fin de sesión
+    fr:
+    - passation
+    - conclure
+    - fin de session
+- intent: update-knowledge
+  skill: strata.kb-update
+  triggers:
+    en:
+    - update the spec
+    - doc change
+    ko:
+    - 명세 갱신
+    - 형상 갱신
+    ja:
+    - 仕様を更新
+    - 文書変更
+    zh:
+    - 更新规格
+    - 文档变更
+    es:
+    - actualizar la especificación
+    - cambio de documentación
+    fr:
+    - mettre à jour la spécification
+    - changement de documentation
+- intent: distill-knowledge
+  skill: strata.distill
+  triggers:
+    en:
+    - pattern
+    - reusable lesson
+    ko:
+    - 패턴
+    - 재사용 학습
+    ja:
+    - パターン
+    - 再利用できる教訓
+    zh:
+    - 模式
+    - 可复用的经验
+    es:
+    - patrón
+    - lección reutilizable
+    fr:
+    - motif
+    - leçon réutilisable
+- intent: retrospective
+  skill: strata.retro
+  triggers:
+    en:
+    - retrospective
+    - look back on past decisions
+    ko:
+    - 회고
+    - 지난 결정 돌아보기
+    ja:
+    - 振り返り
+    - 過去の決定を振り返る
+    zh:
+    - 回顾
+    - 回顾过去的决策
+    es:
+    - retrospectiva
+    - revisar decisiones pasadas
+    fr:
+    - rétrospective
+    - revenir sur les décisions passées
+- intent: operations-signal
+  skill: strata.signal
+  triggers:
+    en:
+    - operations signal
+    - indicator got worse
+    - metrics got worse
+    ko:
+    - 운영 신호
+    - 지표가 나빠졌다
+    - 측정이 나빠졌다
+    ja:
+    - 運用シグナル
+    - 指標が悪化した
+    - 計測が悪化した
+    zh:
+    - 运营信号
+    - 指标恶化了
+    - 指标变差了
+    es:
+    - señal de operación
+    - un indicador empeoró
+    - las métricas empeoraron
+    fr:
+    - signal d'exploitation
+    - un indicateur s'est dégradé
+    - les mesures se sont dégradées
+- intent: cross-review
+  skill: strata.review
+  triggers:
+    en:
+    - review packet
+    - second opinion
+    ko:
+    - 교차 검토
+    - 리뷰 패킷
+    ja:
+    - レビューパケット
+    - セカンドオピニオン
+    zh:
+    - 评审包
+    - 第二意见
+    es:
+    - paquete de revisión
+    - segunda opinión
+    fr:
+    - paquet de revue
+    - second avis
+- intent: translate
+  skill: strata.translate
+  triggers:
+    en:
+    - translate
+    - locale
+    ko:
+    - 번역
+    - 다국어
+    ja:
+    - 翻訳
+    - ロケール
+    zh:
+    - 翻译
+    - 区域语言
+    es:
+    - traducir
+    - configuración regional
+    fr:
+    - traduire
+    - paramètres régionaux
+# packs: (없음) — qa 팩은 2026-10-28 그 팩이 묶인 웹 프로젝트의 Tier P(vault/projects/<p>/strata/skills)로 이관 (DEC-2026-10-28-06 대체)

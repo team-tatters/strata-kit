@@ -1,0 +1,61 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.deploy.only-for-env-specific-verification
+  title:
+    en: Deploy only to verify what only that environment can reproduce
+    ko: 배포는 그 환경에서만 재현되는 것을 확인할 때만
+    ja: デプロイはその環境でしか再現できないことの確認に限る
+    zh: 仅为验证只能在该环境复现的问题而部署
+    es: Desplegar solo para verificar lo que únicamente ese entorno reproduce
+    fr: Déployer uniquement pour vérifier ce que seul cet environnement reproduit
+  claim:
+    en: Hypotheses that code reading, logs, unit tests or a local run can confirm are not confirmed by deploying. A shared environment is used only for phenomena that exist only there (infrastructure, routing, other services, real data). Before deploying, report what will be checked, what is fact versus assumption, and how to roll back; changes affecting other users' flows (auth, routing, sessions) are measured on those flows first.
+    ko: 코드 읽기·로그·단위 테스트·로컬 실행으로 확인할 수 있는 추정은 배포로 확인하지 않는다. 공유 환경은 그 환경에서만 재현되는 현상(인프라·라우팅·다른 서비스·실데이터)을 볼 때만 쓴다. 배포 전에 무엇을 확인하는지, 확정 사실과 추정, 되돌리는 방법을 보고하고, 다른 사용자 흐름에 닿는 변경(인증·라우팅·세션)은 그 흐름으로 먼저 실측한다.
+    ja: コードリーディング・ログ・単体テスト・ローカル実行で確認できる仮説はデプロイで確認しない。共有環境はそこでしか再現しない事象に限って使う。
+    zh: 能通过读代码、日志、单元测试或本地运行确认的假设不通过部署来确认。共享环境只用于只能在那里复现的现象。
+    es: Las hipótesis que se confirman leyendo código, logs, pruebas unitarias o ejecución local no se confirman desplegando. Un entorno compartido se usa solo para fenómenos que solo existen allí.
+    fr: Les hypothèses vérifiables par lecture du code, logs, tests unitaires ou exécution locale ne se vérifient pas par déploiement. Un environnement partagé ne sert qu'aux phénomènes qui n'existent que là.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Never deploy to check what a local run can check; before deploying, report purpose, facts vs assumptions and rollback.
+    ko: 로컬로 확인할 수 있는 것은 배포로 확인하지 않는다. 배포 전 목적·사실과 추정·되돌림을 보고한다.
+    ja: ローカルで確認できることはデプロイで確認しない。デプロイ前に目的・事実と推定・戻し方を報告する。
+    zh: 本地能确认的事不靠部署确认；部署前报告目的、事实与推测、回滚方式。
+    es: Nunca despliegues para comprobar lo que una ejecución local puede comprobar; antes de desplegar informa propósito, hechos frente a suposiciones y reversión.
+    fr: Ne jamais déployer pour vérifier ce qu'une exécution locale peut vérifier ; avant de déployer, signaler le but, les faits et hypothèses, et le retour arrière.
+  applies_when:
+  - en: 'Shared environments: dev, stage, prod'
+    ko: 공유 환경 dev·stage·prod
+    ja: 共有環境：dev、stage、prod
+    zh: 共享环境：dev、stage、prod
+    es: 'Entornos compartidos: dev, stage, prod'
+    fr: 'Environnements partagés : dev, stage, prod'
+  not_when:
+  - en: Local or disposable environments
+    ko: 로컬이나 일회용 환경
+    ja: ローカルまたは使い捨ての環境
+    zh: 本地或一次性环境
+    es: Entornos locales o desechables
+    fr: Environnements locaux ou jetables
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-18-01
+    note:
+      en: A route promoted on assumption broke 2.0 login on stage; repeated same-day redeploys blocked others
+      ko: 추정만으로 승격한 라우트가 stage 의 2.0 로그인을 깨뜨렸고 하루 여러 번의 재배포가 다른 사람을 막았다
+      ja: 推測だけで昇格したルートが stage の 2.0 ログインを壊し、同日の再デプロイの繰り返しが他者を妨げた
+      zh: 仅凭推测升级的路由破坏了 stage 的 2.0 登录；同日反复重新部署阻碍了他人
+      es: Una ruta promovida por suposición rompió el login 2.0 en stage; redespliegues repetidos el mismo día bloquearon a otros
+      fr: Une route promue sur supposition a cassé la connexion 2.0 en stage ; des redéploiements répétés le même jour ont bloqué les autres
+  counter_examples: []
+  verification:
+    en: Every deploy has a pre-deploy note with fact/assumption split and rollback; operator role gate requires it
+    ko: 모든 배포에 사실·추정 구분과 되돌림이 적힌 사전 보고가 있다. operator 역할 게이트가 이를 요구한다
+    ja: すべてのデプロイに事実と仮説の区別と取り消し方法を記した事前報告がある
+    zh: 每次部署都有区分事实/假设并含回滚方法的事前报告
+    es: Cada despliegue tiene una nota previa con hechos/suposiciones y reversión
+    fr: Chaque déploiement a une note préalable distinguant faits/hypothèses et retour arrière
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 8
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

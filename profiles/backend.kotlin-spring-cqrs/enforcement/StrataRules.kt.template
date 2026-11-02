@@ -1,0 +1,79 @@
+package {{BASE_PACKAGE}}.architecture
+
+import org.yaml.snakeyaml.Yaml
+import java.io.File
+
+/**
+ * Loader that reads layer-rules.yaml (the Strata Core SoT) at runtime.
+ * It consumes the SoT directly with no code generation, so a rule change needs no edit to this file.
+ *
+ * Resolution order:
+ *   1. -Dstrata.layerRules=<path>
+ *   2. {projectRoot}/.strata/layer-rules.yaml
+ *   3. $STRATA_KIT/core/rules/layer-rules.yaml (the strata-kit source of truth)
+ */
+data class StrataLayer(
+    val name: String,
+    val level: Double,
+    val packageIdentifier: String,
+    val canReference: List<String>,
+    val crossReference: Boolean,
+    val domainSlice: String?,
+)
+
+object StrataRules {
+
+    fun load(): List<StrataLayer> {
+        val file = resolveRulesFile()
+        @Suppress("UNCHECKED_CAST")
+        val root = Yaml().load<Map<String, Any>>(file.readText())
+            ?: error("failed to parse layer-rules.yaml: $file")
+
+        val backend = root["backend"] as? Map<String, Any>
+            ?: error("layer-rules.yaml has no backend section: $file")
+        val order = (backend["layer_order"] as? List<String>).orEmpty()
+        val layers = backend["layers"] as? Map<String, Map<String, Any>>
+            ?: error("no backend.layers section: $file")
+
+        return order.mapNotNull { name ->
+            val layer = layers[name] ?: return@mapNotNull null
+            val naming = layer["naming"] as? Map<String, Any>
+            val patterns = naming?.get("language_patterns") as? Map<String, Any>
+            val kotlin = patterns?.get("kotlin") as? Map<String, Any>
+            // a layer without a kotlin package_identifier is not checked on the JVM
+            val pkg = kotlin?.get("package_identifier") as? String ?: return@mapNotNull null
+
+            StrataLayer(
+                name = name,
+                level = (layer["level"] as Number).toDouble(),
+                packageIdentifier = pkg,
+                canReference = (layer["can_reference"] as? List<String>).orEmpty(),
+                crossReference = layer["cross_reference"] as? Boolean ?: false,
+                domainSlice = kotlin["domain_slice"] as? String,
+            )
+        }
+    }
+
+    private fun resolveRulesFile(): File {
+        System.getProperty("strata.layerRules")?.let { path ->
+            val f = File(path)
+            require(f.isFile) { "no file at the -Dstrata.layerRules path: $path" }
+            return f
+        }
+
+        val projectLocal = generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+            .map { File(it, ".strata/layer-rules.yaml") }
+            .firstOrNull { it.isFile }
+        if (projectLocal != null) return projectLocal
+
+        System.getenv("STRATA_KIT")?.let { kitPath ->
+            val f = File(kitPath, "core/rules/layer-rules.yaml")
+            if (f.isFile) return f
+        }
+
+        error(
+            "layer-rules.yaml not found. One of these is needed:\n" +
+                "  -Dstrata.layerRules=<path> / .strata/layer-rules.yaml / \$STRATA_KIT"
+        )
+    }
+}

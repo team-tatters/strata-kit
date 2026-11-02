@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""
+Strata Swift layer enforcement — a check based on type references (mobile variant).
+
+Why it exists separately
+  Swift's `import` works per module (SwiftUI, Foundation, packages), so a reference from one file to another
+  inside the same target never shows up on an import line. Core's check-layer-violation.py reads imports, so
+  for Swift it cannot see layer violations between files. This script looks at **type references** instead:
+  it builds a symbol table from each file's top-level type declarations, treats any use of one of those
+  symbols in another file as a "reference", and compares it with can_reference / cross_reference /
+  composition in layer-rules.yaml.
+
+  Enforcement ladder (frontend-swiftui.md, enforcement section): the compiler (SPM packages, targets) is the
+  source of truth; this checker is a helper that watches direction between files **inside one module**. Once
+  Contract and DataState become packages, those boundaries show up as imports and the Core hook takes them
+  over, so this checker's share shrinks to the inside of the app target.
+
+Sources of truth
+  Rules:    $STRATA_KIT/core/rules/layer-rules.yaml (frontend.variants.{variant})
+  Mapping:  {project}/.strata/layer-map.yaml (first match in mappings wins; layers starting with `_` are skipped)
+  This script does not copy the rules — it reads both files at run time (One Fact in One File).
+
+Usage
+  python3 check-swift-layers.py --project-root . --all                # everything (CI)
+  python3 check-swift-layers.py --project-root . --file path/X.swift  # one file
+  python3 check-swift-layers.py --project-root . --changed            # only .swift files changed in the git working tree (edit hook)
+  python3 check-swift-layers.py --project-root . --all --write-baseline .strata/known-violations.json
+  python3 check-swift-layers.py --project-root . --all --ignore-known .strata/known-violations.json
+  python3 check-swift-layers.py --project-root . --all --style        # also run the style rules (raw values, system fonts, etc.)
+  python3 check-swift-layers.py --project-root . --all --json
+  echo '{"tool_name":"Edit","tool_input":{"file_path":"…/X.swift"}}' | python3 check-swift-layers.py --project-root .
+  echo '{"tool_name":"Bash","tool_input":{"command":"sed …"}}'      | python3 check-swift-layers.py --project-root .
+      # Claude Code hook (stdin): Write/Edit checks the one file in file_path, Bash falls back to --changed —
+      # so edits made with sed or a heredoc cannot bypass the hook (set the PostToolUse matcher to Write|Edit|Bash)
+
+Exit codes: 0 pass · 2 violations · 1 run error.  Same as the hook contract (after.file.change).
+
+Swift extension keys in layer-map.yaml
+  variant: mobile
+  swift:
+    sources: ["App/Sources", "Packages/DesignSystem/Sources", ...]   # roots to check (relative to the project)
+    style_rules: [...]                                                # optional — regex style rules (see README)
+  mappings[].domain: "today" | "today/mood"   # domain key for layers with cross_reference: false. `/` builds a parent/child tree.
+                                              # layers with composition: parent_child allow parent → child references; siblings and the reverse direction are forbidden
+  targets:                                    # files shared between targets (no copies; add the file to the target). Compared with the variant's targets rules
+    shared:
+      - { path: "App/Sources/Health/StateEngine.swift", targets: ["App", "Watch"] }
+      - { path: "App/Sources/Health/HealthStore.swift", targets: ["App", "Watch"], stateful: true }  # DataState — state that instances are separate
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write("⚠ PyYAML is not installed, skipping the check (python3 -m pip install pyyaml)\n")
+    sys.exit(0)
+
+DECL_RE = re.compile(
+    r"^(?:@\w+(?:\([^)]*\))?[ \t]*)*"
+    r"(?:(?:public|private|fileprivate|internal|open|final|indirect)[ \t]+)*"
+    r"(struct|class|enum|protocol|actor|typealias)[ \t]+([A-Z][A-Za-z0-9_]*)",
+    re.M,
+)
+IDENT_RE = re.compile(r"(?<![@.\w])([A-Z][A-Za-z0-9_]*)\b")
+LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+STRING_RE = re.compile(r'"(?:\\.|[^"\\\n])*"')
+
+
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def strip_noise(src):
+    """Replace comments and strings with spaces of the same length so line numbers are kept."""
+    def blank(m):
+        return re.sub(r"[^\n]", " ", m.group(0))
+    src = BLOCK_COMMENT_RE.sub(blank, src)
+    src = LINE_COMMENT_RE.sub(blank, src)
+    src = STRING_RE.sub(blank, src)
+    return src
+
+
+def load_layer_rules(kit_root, project_root):
+    for cand in (
+        os.path.join(project_root, ".strata", "layer-rules.yaml"),
+        os.path.join(kit_root or "", "core", "rules", "layer-rules.yaml"),
+    ):
+        if cand and os.path.isfile(cand):
+            return yaml.safe_load(read(cand))
+    return None
+
+
+def resolve_variant(rules, layer_map):
+    stack = rules.get("frontend", {})
+    variant = layer_map.get("variant") or stack.get("default_variant") or "web"
+    variants = stack.get("variants", {})
+    if variant not in variants:
+        sys.exit(f"layer-rules has no frontend variant '{variant}'")
+    return variants[variant], variant
+
+
+def layer_of(rel_path, mappings):
+    for m in mappings:
+        p = m.get("path", "")
+        if p and p in rel_path:
+            return m.get("layer"), m
+    return None, None
+
+
+def domain_of(rel_path, mapping, feature_root):
+    if mapping and mapping.get("domain"):
+        return mapping["domain"]
+    if feature_root and feature_root in rel_path:
+        tail = rel_path.split(feature_root, 1)[1]
+        return tail.split("/", 1)[0] if "/" in tail else None
+    return None
+
+
+def is_parent_domain(parent, child):
+    """'today' is the parent of 'today/mood'. A domain is not its own parent."""
+    return bool(parent and child and child.startswith(parent + "/"))
+
+
+def collect_files(project_root, roots):
+    out = []
+    for r in roots:
+        base = os.path.join(project_root, r)
+        for dp, _, fns in os.walk(base):
+            for fn in fns:
+                if fn.endswith(".swift"):
+                    out.append(os.path.relpath(os.path.join(dp, fn), project_root))
+    return sorted(out)
+
+
+def changed_files(project_root):
+    """Changed .swift files in the git working tree (staged, unstaged, untracked) — the edit hook's Bash fallback."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", project_root, "status", "--porcelain", "--untracked-files=all", "--no-renames"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    files = []
+    for line in out.splitlines():
+        if len(line) < 4 or line[:2] in ("D ", " D", "DD"):
+            continue
+        path = line[3:].strip()
+        if path.endswith(".swift") and os.path.isfile(os.path.join(project_root, path)):
+            files.append(path)
+    return sorted(files)
+
+
+def build_symbols(project_root, files):
+    """Symbol → declaring file. **Top-level (indent 0) declarations only** — nested types (Store.State) clash
+    with framework names such as SwiftUI's State and cause false positives. If the same name is declared in
+    two files, both are recorded (ambiguous references are skipped)."""
+    table = {}
+    for f in files:
+        src = strip_noise(read(os.path.join(project_root, f)))
+        for _, name in DECL_RE.findall(src):
+            table.setdefault(name, set()).add(f)
+    return table
+
+
+def in_exceptions(exceptions, from_path, to_layer):
+    for e in exceptions or []:
+        if e.get("status") == "retired":   # valid unless retired — same meaning as the dependency-cruiser and Kotlin templates (DEC-2026-10-31-21)
+            continue
+        if e.get("from_path", "") in from_path and e.get("to_layer") == to_layer:
+            return e.get("id")
+    return None
+
+
+def check_file(project_root, f, files_layer, symbols, layers, layer_map, feature_root):
+    layer, mapping = files_layer[f]
+    if not layer or layer.startswith("_"):
+        return []
+    cfg = layers.get(layer, {})
+    can = set(cfg.get("can_reference", []))
+    cross_ok = cfg.get("cross_reference", True)
+    composition = cfg.get("composition")            # "parent_child" — same layer, parent domain → child domain allowed
+    my_domain = domain_of(f, mapping, feature_root)
+    src = strip_noise(read(os.path.join(project_root, f)))
+    own = {n for _, n in DECL_RE.findall(src)}
+    seen, out = set(), []
+    for lineno, line in enumerate(src.splitlines(), 1):
+        for name in IDENT_RE.findall(line):
+            if name in own or name in seen or name not in symbols:
+                continue
+            decls = symbols[name] - {f}
+            if len(decls) != 1:
+                continue  # own file or ambiguous (2+ files with the same name) — no verdict
+            target = next(iter(decls))
+            t_layer, t_map = files_layer.get(target, (None, None))
+            if not t_layer or t_layer.startswith("_"):
+                continue
+            seen.add(name)
+            if t_layer == layer:
+                if cross_ok:
+                    continue
+                t_domain = domain_of(target, t_map, feature_root)
+                if my_domain and t_domain and my_domain != t_domain:
+                    if composition == "parent_child" and is_parent_domain(my_domain, t_domain):
+                        continue  # the parent composes the child
+                    out.append(dict(file=f, line=lineno, symbol=name, target=target,
+                                    from_layer=layer, to_layer=t_layer, kind="cross_reference",
+                                    message=f"cross-domain reference within {layer}: {my_domain} → {t_domain} ({name})"
+                                            + (" — child → parent or sibling. Compose from the parent domain" if composition == "parent_child" else "")))
+                continue
+            if t_layer not in can:
+                exc = in_exceptions(layer_map.get("exceptions"), f, t_layer)
+                if exc:
+                    continue
+                out.append(dict(file=f, line=lineno, symbol=name, target=target,
+                                from_layer=layer, to_layer=t_layer, kind="dependency_direction",
+                                message=f"{layer} → {t_layer} reference not allowed ({name}). Allowed: {sorted(can)}"))
+    return out
+
+
+def check_style(project_root, files, files_layer, rules):
+    """layer-map.swift.style_rules — regex rules. Each rule: id, pattern, message, exclude_layers, exclude_paths."""
+    out = []
+    for r in rules or []:
+        pat = re.compile(r["pattern"])
+        ex_layers = set(r.get("exclude_layers", []))
+        ex_paths = r.get("exclude_paths", [])
+        for f in files:
+            layer, _ = files_layer.get(f, (None, None))
+            if layer in ex_layers or any(p in f for p in ex_paths):
+                continue
+            src = read(os.path.join(project_root, f)) if r.get("include_comments") else strip_noise(read(os.path.join(project_root, f)))
+            for lineno, line in enumerate(src.splitlines(), 1):
+                if pat.search(line):
+                    out.append(dict(file=f, line=lineno, symbol=r["id"], target="", from_layer=layer or "?",
+                                    to_layer="", kind="style", message=r["message"]))
+    return out
+
+
+def check_targets(files_layer, layer_map, variant_cfg, targets_subset=None):
+    """Whether files in layer-map.targets.shared[] fit the variant.targets rules (shareable layers)."""
+    rules = variant_cfg.get("targets") or {}
+    if not rules:
+        return []
+    shareable = set(rules.get("shareable_layers", []))
+    stateful_ok = set((rules.get("stateful_shared") or {}).get("allowed_layers", []))
+    out = []
+    for s in (layer_map.get("targets") or {}).get("shared", []) or []:
+        path = s.get("path", "")
+        matches = [f for f in files_layer if path and path in f]
+        for f in matches:
+            if targets_subset is not None and f not in targets_subset:
+                continue
+            layer, _ = files_layer[f]
+            if not layer or layer.startswith("_"):
+                continue
+            if layer in shareable:
+                continue
+            if layer in stateful_ok and s.get("stateful"):
+                continue
+            hint = ("declare stateful: true and document that each target has its own instance" if layer in stateful_ok
+                    else f"shareable: {sorted(shareable)} (+ stateful {sorted(stateful_ok)})")
+            out.append(dict(file=f, line=1, symbol="(target-share)", target="", from_layer=layer, to_layer="",
+                            kind="target_share",
+                            message=f"{layer} file shared by targets {s.get('targets')} — {hint}"))
+    return out
+
+
+def key(v):
+    return f"{v['file']}|{v['kind']}|{v['symbol']}|{v['to_layer']}"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--project-root", default=".")
+    ap.add_argument("--kit-root", default=os.environ.get("STRATA_KIT") or os.path.expanduser("~/workspace/strata-kit"))
+    ap.add_argument("--file")
+    ap.add_argument("--all", action="store_true")
+    ap.add_argument("--changed", action="store_true", help="check only .swift files changed in the git working tree (edit hook, fallback for Bash edits)")
+    ap.add_argument("--style", action="store_true")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--write-baseline")
+    ap.add_argument("--ignore-known")
+    ap.add_argument("--summary", action="store_true", help="print only the per-file layer classification")
+    ap.add_argument("--allow-unmapped", action="store_true", help="report unmapped files as warnings only (default: violation — a new file needs a mapping in layer-map)")
+    a = ap.parse_args()
+
+    # Hook mode: when Claude Code hook JSON arrives on stdin without --file/--all/--changed,
+    #   Write/Edit → the one file in tool_input.file_path, Bash → fall back to --changed (based on git)
+    if not a.file and not a.all and not a.changed and not a.summary and not sys.stdin.isatty():
+        try:
+            payload = json.load(sys.stdin)
+        except Exception:
+            payload = {}
+        tool = payload.get("tool_name") or ""
+        hook_file = (payload.get("tool_input") or {}).get("file_path")
+        if hook_file and hook_file.endswith(".swift"):
+            a.file = hook_file
+        elif tool == "Bash":
+            a.changed = True
+        else:
+            return 0
+
+    root = os.path.abspath(a.project_root)
+    lm_path = os.path.join(root, ".strata", "layer-map.yaml")
+    if not os.path.isfile(lm_path):
+        sys.exit(f"layer-map not found: {lm_path}")
+    layer_map = yaml.safe_load(read(lm_path)) or {}
+    rules = load_layer_rules(a.kit_root, root)
+    if not rules:
+        sys.exit("layer-rules.yaml not found — pass --kit-root or set $STRATA_KIT (core/rules/layer-rules.yaml)")
+    variant_cfg, variant = resolve_variant(rules, layer_map)
+    layers = variant_cfg.get("layers", {})
+    swift = layer_map.get("swift", {})
+    roots = swift.get("sources") or ["."]
+    feature_root = layer_map.get("feature_root")
+    mappings = layer_map.get("mappings", [])
+
+    files = collect_files(root, roots)
+    files_layer = {f: layer_of(f, mappings) for f in files}
+    symbols = build_symbols(root, files)
+
+    if a.summary:
+        by = {}
+        for f, (l, _) in files_layer.items():
+            by.setdefault(l or "(unmapped)", []).append(f)
+        for l in sorted(by, key=lambda x: (x is None, str(x))):
+            print(f"{l} ({len(by[l])})")
+            for f in by[l]:
+                print(f"  {f}")
+        return 0
+
+    if a.all or not (a.file or a.changed):
+        targets = files
+    elif a.changed:
+        targets = changed_files(root)
+    else:
+        targets = [os.path.relpath(os.path.abspath(a.file), root)]
+    # .swift files outside swift.sources (test targets, generated mirrors, etc.) are not checked — skipped silently
+    targets = [f for f in targets if f in files_layer]
+    if not targets:
+        return 0
+
+    violations = []
+    for f in targets:
+        if files_layer[f][0] is None and not a.allow_unmapped:
+            violations.append(dict(file=f, line=1, symbol="(unmapped)", target="", from_layer="?", to_layer="", kind="unmapped",
+                                   message="no mapping in layer-map — add this file's layer (role) to mappings in .strata/layer-map.yaml"))
+            continue
+        violations += check_file(root, f, files_layer, symbols, layers, layer_map, feature_root)
+    if a.style:
+        violations += check_style(root, targets, files_layer, swift.get("style_rules"))
+    violations += check_targets(files_layer, layer_map, variant_cfg, None if a.all else set(targets))
+
+    if a.write_baseline:
+        with open(os.path.join(root, a.write_baseline), "w", encoding="utf-8") as fh:
+            json.dump(sorted({key(v) for v in violations}), fh, ensure_ascii=False, indent=1)
+        print(f"baseline: recorded {len(violations)} → {a.write_baseline}")
+        return 0
+    if a.ignore_known:
+        known = set(json.load(open(os.path.join(root, a.ignore_known), encoding="utf-8")))
+        violations = [v for v in violations if key(v) not in known]
+
+    unmapped = [f for f, (l, _) in files_layer.items() if l is None]
+    if a.json:
+        print(json.dumps(dict(variant=variant, files=len(files), unmapped=unmapped, violations=violations), ensure_ascii=False, indent=1))
+    else:
+        if unmapped and a.allow_unmapped:
+            print(f"⚠ {len(unmapped)} files with no layer mapping (not checked): " + ", ".join(unmapped[:8]) + (" …" if len(unmapped) > 8 else ""))
+        out = sys.stderr if violations else sys.stdout   # stderr on violations — the channel that reaches the agent from the hook (exit 2)
+        for v in violations:
+            print(f"❌ {v['file']}:{v['line']} [{v['kind']}] {v['message']}" + (f"  → {v['target']}" if v['target'] else ""), file=out)
+        print(f"checked {len(targets)} files · {len(violations)} violations · variant={variant}", file=out)
+    return 2 if violations else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

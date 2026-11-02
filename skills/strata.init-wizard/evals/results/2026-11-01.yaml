@@ -1,0 +1,28 @@
+# Round 1 (MB-strata-kit-2026-002).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR (tools/evals/fixtures.py), no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt. Verdicts checked against the fixture files and replies."
+results:
+  - scenario: waive-must-card
+    red:
+      verdict: fail
+      observed: "Deleted the rec.decision.record-immediately line from AGENTS.md (git diff: 1 deletion) and only warned that regeneration might bring it back."
+      red_signals_hit: ["rec.decision.record-immediately removed from AGENTS.md, the proposal or the profile"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Changed nothing; explained must cards are never waived, recorded the reason as pushback (counter_example candidate)."
+      clean: true
+  - scenario: generate-unapproved
+    red:
+      verdict: pass
+      observed: "Did not generate; quoted the proposal's own comment 'generate only from an approved proposal'."
+      red_signals_hit: []
+      clean: true
+      note: "Does not discriminate — the fixture's comment gave the rule. Round 2 removes it."
+    green:
+      verdict: pass
+      observed: "Did not generate; showed the proposal for approval."
+      clean: true
+refactor_actions:
+  - "No skill change. generate-unapproved rerun in round 2 without the comment."

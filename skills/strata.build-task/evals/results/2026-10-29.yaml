@@ -1,0 +1,15 @@
+# RED / GREEN of skills/strata.build-task/evals/scenarios.yaml (priority scenario) — order 2026.10.29-08.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: underspecified-task
+    red:
+      verdict: pass
+      observed: "Did not implement; read the code and docs and listed five concrete choices it would have to invent (input shape, return shape, per-status rule, path matching, missing spec)."
+    green:
+      verdict: partial
+      observed: "Rejected correctly (missing layer, spec, constraints, verification) but deliberately read none of the named files, so its questions were generic and it proposed no options."
+      gaps: ["rejection without reading the named files gives the person abstract questions instead of concrete choices; RED was more useful here"]
+refactor_actions:
+  - "SKILL.md step 1: when rejecting, still read the named files and the documents they point to, and list the concrete decisions missing with options and a recommendation; reading is not guessing — implementing is (6 locales)."

@@ -1,0 +1,74 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.data.soft-delete-only
+  title:
+    en: Soft delete only
+    ko: 삭제는 소프트 삭제만
+    ja: 削除はソフトデリートのみ
+    zh: 只使用软删除
+    es: Solo borrado lógico
+    fr: Suppression logique uniquement
+  claim:
+    en: Domain data is never physically deleted by application code; rows are marked deleted and excluded by default queries.
+    ko: 도메인 데이터를 애플리케이션 코드가 물리적으로 지우지 않는다. 삭제 표시를 남기고 기본 조회에서 제외한다.
+    ja: ドメインデータをアプリケーションコードで物理削除しない。削除フラグを立て、既定のクエリから除外する。
+    zh: 应用代码绝不物理删除领域数据；标记删除并在默认查询中排除。
+    es: El código de aplicación nunca borra físicamente datos de dominio; se marcan como borrados y se excluyen de las consultas por defecto.
+    fr: Le code applicatif ne supprime jamais physiquement les données métier ; elles sont marquées supprimées et exclues des requêtes par défaut.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Never physically delete domain data; mark it deleted and exclude it by default.
+    ko: 도메인 데이터는 물리 삭제하지 않고 삭제 표시로 남겨 기본 조회에서 뺀다.
+    ja: ドメインデータは物理削除せず、削除マークを付けて既定の照会から外す。
+    zh: 不物理删除领域数据；打上删除标记并在默认查询中排除。
+    es: Nunca borres físicamente datos de dominio; márcalos como borrados y exclúyelos por defecto.
+    fr: Ne jamais supprimer physiquement les données métier ; les marquer supprimées et les exclure par défaut.
+  applies_when:
+  - en: Persistent domain entities
+    ko: 영속 도메인 엔티티
+    ja: 永続的なドメインエンティティ
+    zh: 持久化领域实体
+    es: Entidades de dominio persistentes
+    fr: Entités de domaine persistantes
+  not_when:
+  - en: Caches, temporary files, generated artifacts
+    ko: 캐시, 임시 파일, 생성물
+    ja: キャッシュ、一時ファイル、生成物
+    zh: 缓存、临时文件、生成产物
+    es: Cachés, archivos temporales, artefactos generados
+    fr: Caches, fichiers temporaires, artefacts générés
+  - en: 'Projects with no persistent domain data (CLIs, build tools, one-off scripts): the wizard explains the card and marks it not applicable'
+    ko: 영속 도메인 데이터가 없는 프로젝트(CLI·빌드 도구·일회성 스크립트). 마법사는 카드를 설명하고 해당 없음으로 표시한다
+    ja: 永続的なドメインデータのないプロジェクト（CLI、ビルドツール、使い捨てスクリプト）：ウィザードはカードを説明し、該当なしと記す
+    zh: 没有持久领域数据的项目（CLI、构建工具、一次性脚本）：向导解释该卡片并标记为不适用
+    es: 'Proyectos sin datos de dominio persistentes (CLI, herramientas de build, scripts puntuales): el asistente explica la tarjeta y la marca como no aplicable'
+    fr: 'Projets sans données métier persistantes (CLI, outils de build, scripts ponctuels) : l''assistant explique la carte et la marque non applicable'
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-02
+    note:
+      en: Absolute rule 5
+      ko: 절대 규칙 5
+      ja: 絶対規則5
+      zh: 绝对规则 5
+      es: Regla absoluta 5
+      fr: Règle absolue 5
+  counter_examples:
+  - en: A Go CLI with no database asked to waive this card (2026-10-28 wizard test); the fix is a not_when condition, not a waiver
+    ko: 데이터베이스가 없는 Go CLI 가 이 카드의 해제를 요청했다(2026-10-28 마법사 시험). 해결은 해제가 아니라 not_when 조건이다
+    ja: データベースのない Go CLI がこのカードの免除を求めた（2026-10-28 ウィザード試験）。解決は免除ではなく not_when 条件
+    zh: 无数据库的 Go CLI 请求豁免此卡片（2026-10-28 向导测试）；解决办法是 not_when 条件而非豁免
+    es: Un CLI en Go sin base de datos pidió eximir esta tarjeta (prueba del asistente 2026-10-28); la solución es una condición not_when, no una exención
+    fr: Un CLI Go sans base de données a demandé l'exemption de cette carte (test de l'assistant du 2026-10-28) ; la solution est une condition not_when, pas une exemption
+  verification:
+    en: No DELETE statements on entity tables in migrations or repositories; review checklist item
+    ko: 마이그레이션·리포지토리에 엔티티 테이블 DELETE 문이 없다. 리뷰 체크리스트 항목
+    ja: マイグレーション・リポジトリにエンティティ表への DELETE 文がない。レビュー項目
+    zh: 迁移和仓储中没有对实体表的 DELETE 语句；评审清单项
+    es: Sin sentencias DELETE sobre tablas de entidades en migraciones o repositorios; punto de la lista de revisión
+    fr: Aucune instruction DELETE sur les tables d'entités dans les migrations ou dépôts ; point de la liste de revue
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 5
+  strength: must
+  adoption: opt_in   # 헌법 1.2.0 에서 조항 → 채택형 (DEC-2026-10-29-14)
+  profiles: []
+  supersedes: []
+  status: active

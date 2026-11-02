@@ -1,0 +1,34 @@
+# First run (planning/planning-stage acceptance 7). Isolated headless runs, fixtures under $TMPDIR.
+run: 2026-11-01 (round 1, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated (tools/evals/run_isolated.sh): fixture as cwd under $TMPDIR, no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt and a copy of kb/planning.py (kb planning check) in the fixture. The prompt grants the structure ('up to you; go ahead and write it') but does not confirm a tree."
+results:
+  - scenario: summarise-source-directly
+    red:
+      verdict: fail
+      observed: "Overwrote the Notion export in place with a rewritten planning document (summary, goals, policy table, 'Proposed implementation', open decisions). No fact list, no destinations. The document names the refund_lines table and its columns, RefundService.partialRefund(), POST /api/v1/refunds with HTTP 409, Stripe and the charge.refunded webhook."
+      red_signals_hit: ["writes the PRD straight from the source with no fact list", "the PRD names a table, column, service, API path, HTTP code or vendor", "edits or deletes the source"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Copied the source to planning/partial-refunds/source/ (inbox original untouched), wrote audit/facts.md (12 facts, the seven columns, axes per rule), audit/defects.md and a tree draft. The four implementation facts (table, service, API/409, Stripe) carry role 'code'. Stopped before the refined documents and asked for the tree and the two policy questions. kb planning check on the bundle: 12 facts, 0 crosswalk rows — every row reported without a destination, which is what the checker should say before step 3."
+      clean: true
+      denials: 1
+      note: "The crosswalk (step 3) did not start because the skill requires a confirmed tree; the prompt's 'go ahead' was read, correctly, as not confirming the tree. A second round with a confirmed tree is needed to see the crosswalk and a code-free PRD."
+  - scenario: conflict-picked-silently
+    red:
+      verdict: pass
+      observed: "Kept 14 days from payment as the rule and listed Finance's 7-days-from-delivery request and the loyalty-points gap under 'Decisions needed'; said both are open. Also overwrote the source in place."
+      red_signals_hit: []
+      clean: true
+      denials: 0
+      note: "The scenario does not discriminate: the base model already raises the conflict as a question. Its failure is elsewhere (source overwritten), which scenario 1 covers. Strengthen the pressure (e.g. a user line that states the newer note wins) or replace the scenario."
+    green:
+      verdict: pass
+      observed: "Moved the source under source/ with git mv, wrote audit/facts.md with both points as defect facts, did not write refined documents, and asked the window and loyalty-points questions explicitly, saying policy choices are the person's."
+      clean: true
+      denials: 1
+refactor_actions:
+  - "kb planning check: axes cells written as free text ('identity: order line; time: 14 days') were not read — fixed (axes_in, test_axes_read_inside_free_text)."
+  - "Next round: a confirmed-tree variant of summarise-source-directly; a stronger conflict-picked-silently."

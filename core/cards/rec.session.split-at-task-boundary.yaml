@@ -1,0 +1,75 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.session.split-at-task-boundary
+  profiles: []
+  title:
+    en: Start a fresh session at a task boundary, not at a token count
+    ko: 세션은 토큰 수가 아니라 작업 경계에서 나눈다
+    ja: セッションはトークン数ではなく作業境界で分ける
+    zh: 在任务边界而非令牌数处开启新会话
+    es: Iniciar una sesión nueva en un límite de tarea, no por recuento de tokens
+    fr: Démarrer une nouvelle session à une limite de tâche, pas à un nombre de jetons
+  claim:
+    en: "A session is split when a task completes or its shape changes, after the handoff is written; trimming starts at about 75% of the context, keeping the task, the active error and the file being edited, and dropping failed attempts to their conclusion. Two signals bring the split forward without cutting a unit in half: when the conversation passes the warning line (about 400,000 tokens by default, with a limit of about 600,000; starting values with no measurement behind them; session.restart_tokens and session.restart_limit in the user config), finish the unit at hand and split at the next task boundary, before the limit at the latest; when attempts are blocked twice, do not look for a third workaround — stop and report the measured facts and the options. Two failures on one hypothesis means two fixes built on the same presumed cause that fail with the same symptom. The handoff then separates confirmed facts, unconfirmed assumptions and discarded hypotheses."
+    ko: "세션은 작업이 끝나거나 모양이 바뀔 때, 핸드오프를 쓴 뒤에 나눈다. 정리는 컨텍스트의 약 75% 에서 시작하고, 작업·활성 오류·편집 중인 파일은 지키며 실패한 시도는 결론만 남긴다. 두 신호는 단위를 반으로 자르지 않고 분할을 앞당긴다. 대화가 경고선(기본 약 40만 토큰, 한계선 약 60만, 실측 근거 없는 출발값, 사용자 설정 session.restart_tokens·session.restart_limit)을 넘으면 하던 단위를 마무리하고 다음 작업 경계에서, 늦어도 한계선 전에 나눈다. 시도가 두 번 막히면 세 번째 우회를 찾지 말고 멈춰서 실측 사실과 선택지를 보고한다. 같은 가설로 두 번 실패한다는 것은 같은 원인 추정 위에서 고친 시도 둘이 같은 증상으로 실패한 것이다. 이때 핸드오프는 확인된 사실, 확인하지 못한 추정, 버린 가설을 나눠 적는다."
+    ja: "セッションは作業が完了するか形が変わる時、ハンドオフを書いた後に分ける。整理はコンテキストの約 75% で始め、作業・現在のエラー・編集中のファイルを守り、失敗した試行は結論だけ残す。二つの信号は単位を途中で切らずに分割を早める。会話が警告線（既定は約 40 万トークン、限界線は約 60 万、実測の裏付けのない出発値、ユーザー設定 session.restart_tokens・session.restart_limit）を超えたら、進行中の単位を仕上げて次の作業境界で、遅くとも限界線の前に分ける。試みが二度行き詰まったら三つ目の回避策を探さず、止まって実測した事実と選択肢を報告する。同じ仮説で二度失敗するとは、同じ原因推定に基づく二つの修正が同じ症状で失敗することである。このときハンドオフは確認した事実、確認できていない推定、捨てた仮説を分けて書く。"
+    zh: "会话在任务完成或形态改变、写完交接后拆分；整理从上下文约 75% 处开始，保留任务、当前错误和正在编辑的文件，失败的尝试只留结论。两个信号在不把单元切成两半的前提下提前拆分：对话超过警戒线（默认约 40 万令牌，上限线约 60 万，没有实测依据的起始值，用户配置 session.restart_tokens、session.restart_limit）时，完成手头的单元并在下一个任务边界拆分，最迟在上限线之前；尝试两次受阻时，不要寻找第三种绕行办法，而是停下来报告实测事实和可选方案。同一假设失败两次，指基于同一原因推测的两次修复以相同症状失败。此时交接分别记录已确认的事实、未确认的推测和已放弃的假设。"
+    es: "Una sesión se divide cuando una tarea termina o cambia de forma, tras escribir el traspaso; la depuración empieza hacia el 75% del contexto, conservando la tarea, el error activo y el archivo en edición, y dejando de los intentos fallidos solo su conclusión. Dos señales adelantan la división sin partir una unidad por la mitad: cuando la conversación supera la línea de aviso (unos 400.000 tokens por defecto, con un tope de unos 600.000; valores iniciales sin medición detrás; session.restart_tokens y session.restart_limit en la configuración del usuario), termina la unidad en curso y divide en el siguiente límite de tarea, como muy tarde antes del tope; cuando los intentos se bloquean dos veces, no busques un tercer rodeo: detente e informa de los hechos medidos y las opciones. Fallar dos veces con una hipótesis significa dos correcciones basadas en la misma causa supuesta que fallan con el mismo síntoma. El traspaso separa entonces los hechos confirmados, las suposiciones no confirmadas y las hipótesis descartadas."
+    fr: "Une session se scinde quand une tâche se termine ou change de forme, après la passation ; l'élagage commence vers 75 % du contexte, en gardant la tâche, l'erreur active et le fichier en cours d'édition, et en ne retenant des tentatives échouées que leur conclusion. Deux signaux avancent la scission sans couper une unité en deux : quand la conversation dépasse la ligne d'alerte (environ 400 000 jetons par défaut, avec un plafond d'environ 600 000 ; des valeurs de départ sans mesure derrière ; session.restart_tokens et session.restart_limit dans la configuration utilisateur), terminez l'unité en cours et scindez à la prochaine limite de tâche, au plus tard avant le plafond ; quand les tentatives sont bloquées deux fois, ne cherchez pas un troisième contournement : arrêtez-vous et rapportez les faits mesurés et les options. Échouer deux fois sur une hypothèse signifie deux corrections fondées sur la même cause supposée qui échouent avec le même symptôme. La passation sépare alors les faits confirmés, les suppositions non confirmées et les hypothèses écartées."
+  applies_when:
+  - en: Long sessions and multi-task work
+    ko: 긴 세션과 여러 작업
+    ja: 長いセッションと複数作業
+    zh: 长会话与多任务工作
+    es: Sesiones largas y trabajo multitarea
+    fr: Sessions longues et travail multitâche
+  not_when: []
+  evidence:
+  - kind: reference
+    ref: https://github.com/addyosmani/agent-skills (context-engineering)
+    note:
+      en: Fresh session at a completed task boundary; context cliff at 75%
+      ko: 완료된 작업 경계에서 새 세션, 75% 에서 컨텍스트 절벽
+      ja: 完了した作業境界で新しいセッション。75% でコンテキストの崖
+      zh: 在已完成的任务边界开启新会话；75% 处为上下文悬崖
+      es: Sesión nueva en un límite de tarea completada; precipicio de contexto al 75%
+      fr: Nouvelle session à une limite de tâche terminée ; falaise de contexte à 75 %
+  - kind: decision
+    ref: MB-strata-2026-015
+    note:
+      en: Existing split criteria (files, layers, turns) ignore token budget
+      ko: 기존 분할 기준(파일·레이어·턴)이 토큰 예산을 모른다
+      ja: 既存の分割基準（ファイル、レイヤー、ターン）はトークン予算を無視している
+      zh: 现有拆分标准（文件、层、轮次）忽略了令牌预算
+      es: Los criterios de división actuales (archivos, capas, turnos) ignoran el presupuesto de tokens
+      fr: Les critères de scission actuels (fichiers, couches, tours) ignorent le budget de jetons
+  - kind: decision
+    ref: DEC-2026-10-31-33
+    note:
+      en: Warning line about 400,000 and limit about 600,000 tokens, for a 1M window in daily use
+      ko: 경고선 약 40만·한계선 약 60만 토큰, 1M 창을 기본으로 쓰는 운용 기준
+      ja: 警告線は約 40 万、限界線は約 60 万トークン。1M ウィンドウを日常的に使う運用の基準
+      zh: 警戒线约 40 万、上限线约 60 万令牌，以日常使用 1M 窗口为基准
+      es: Línea de aviso de unos 400.000 y tope de unos 600.000 tokens, para una ventana de 1M en uso diario
+      fr: Ligne d'alerte d'environ 400 000 et plafond d'environ 600 000 jetons, pour une fenêtre de 1M en usage quotidien
+  - kind: decision
+    ref: DEC-2026-10-31-10
+    note:
+      en: The token warning line and the two-failure rule are signals to split at the next boundary, kept in this card
+      ko: 토큰 경고선과 두 번 실패 규칙은 다음 경계에서 나누라는 신호이고 이 카드에 둔다
+      ja: トークン警告線と二度失敗の規則は次の境界で分ける信号で、このカードに置く
+      zh: 令牌警戒线和两次失败规则是在下一个边界拆分的信号，放在本卡片中
+      es: La línea de aviso de tokens y la regla de dos fallos son señales para dividir en el siguiente límite, recogidas en esta tarjeta
+      fr: La ligne d'alerte de jetons et la règle des deux échecs sont des signaux pour scinder à la prochaine limite, portés par cette carte
+  counter_examples: []
+  verification:
+    en: "Every split has a handoff written before it; PreCompact snapshot exists when compaction happened; a session ended by a restart signal has a handoff whose facts-and-hypotheses section is filled, and no third attempt on a hypothesis that failed twice"
+    ko: "모든 분할 전에 핸드오프가 있고, 컴팩션이 있었다면 PreCompact 스냅샷이 있다. 재시작 신호로 끝난 세션의 핸드오프는 사실과 가설 절이 채워져 있고, 두 번 실패한 가설로 세 번째 시도를 하지 않았다"
+    ja: "分割前に必ずハンドオフがあり、コンパクション時は PreCompact スナップショットがある。再開信号で終えたセッションのハンドオフは事実と仮説の節が埋まっており、二度失敗した仮説で三度目を試していない"
+    zh: "每次拆分前都有交接；若发生压缩则有 PreCompact 快照；因重启信号结束的会话，其交接的事实与假设一节已填写，且未对失败两次的假设做第三次尝试"
+    es: "Cada división tiene un traspaso previo; existe snapshot PreCompact si hubo compactación; una sesión terminada por una señal de reinicio tiene un traspaso con la sección de hechos e hipótesis completa, y ningún tercer intento sobre una hipótesis que falló dos veces"
+    fr: "Chaque scission a une passation préalable ; un snapshot PreCompact existe en cas de compaction ; une session terminée par un signal de redémarrage a une passation dont la section faits et hypothèses est remplie, et aucune troisième tentative sur une hypothèse qui a échoué deux fois"
+  source: core/docs/ko/methodology/session-splitting.md §5, core/docs/ko/methodology/context-protocol.md §5
+  strength: should
+  supersedes: []
+  status: active

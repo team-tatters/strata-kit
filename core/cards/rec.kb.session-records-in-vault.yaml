@@ -1,0 +1,66 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.session-records-in-vault
+  strength: must
+  adoption: opt_in   # DEC-2026-10-30-01
+  default_when: uses_vault
+  profiles: []
+  title:
+    en: Session records live in the vault, not in the code repository
+    ko: 세션 기록은 코드 저장소가 아니라 vault 에 둔다
+    ja: セッション記録はコードリポジトリではなく vault に置く
+    zh: 会话记录放在 vault 而非代码仓库
+    es: Los registros de sesión viven en el vault, no en el repositorio de código
+    fr: Les enregistrements de session vivent dans le vault, pas dans le dépôt de code
+  claim:
+    en: Handoffs, ledgers, tasks, orders, relay packets and decision-note mirrors are written to the vault project directory and never into a code repository. A session that touched code ends with a handoff in the vault; the code repository receives only the code and the CI-executed contracts.
+    ko: 핸드오프, ledger, 태스크, 오더, 릴레이 패킷, DEC 노트 미러는 vault 의 프로젝트 디렉터리에 쓰고 코드 저장소에는 절대 쓰지 않는다. 코드를 건드린 세션은 vault 의 핸드오프로 끝나고, 코드 저장소는 코드와 CI 가 실행하는 계약만 받는다.
+    ja: ハンドオフ、ledger、タスク、オーダー、リレーパケット、DEC ノートミラーは vault のプロジェクトディレクトリに書き、コードリポジトリには決して書かない。コードに触れたセッションは vault のハンドオフで終わり、コードリポジトリはコードと CI が実行する契約だけを受け取る。
+    zh: 交接、台账、任务、订单、中继包和决策注记镜像写入 vault 的项目目录，绝不写入代码仓库。触及代码的会话以 vault 中的交接结束；代码仓库只接收代码和 CI 执行的契约。
+    es: Traspasos, ledgers, tareas, órdenes, paquetes de relé y espejos de notas de decisión se escriben en el directorio de proyecto del vault y nunca en un repositorio de código. Una sesión que tocó código termina con un traspaso en el vault; el repositorio de código solo recibe el código y los contratos ejecutados por CI.
+    fr: Passations, ledgers, tâches, ordres, paquets de relais et miroirs de notes de décision s'écrivent dans le répertoire de projet du vault et jamais dans un dépôt de code. Une session qui a touché au code se termine par une passation dans le vault ; le dépôt de code ne reçoit que le code et les contrats exécutés par la CI.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "Handoffs, ledgers, tasks, orders and relay packets go to the vault, never into a code repository."
+    ko: "핸드오프·ledger·태스크·오더·릴레이 패킷은 vault 에 쓰고 코드 저장소에는 쓰지 않는다."
+    ja: "ハンドオフ・ledger・タスク・オーダー・リレーパケットは vault に書き、コードリポジトリには書かない。"
+    zh: "交接、ledger、任务、订单、中继包写入 vault，绝不写进代码仓库。"
+    es: "Traspasos, ledgers, tareas, órdenes y paquetes de relevo van al vault, nunca a un repositorio de código."
+    fr: "Passations, ledgers, tâches, ordres et paquets de relais vont dans le vault, jamais dans un dépôt de code."
+  applies_when:
+  - en: Every session on every project
+    ko: 모든 프로젝트의 모든 세션
+    ja: すべてのプロジェクトのすべてのセッション
+    zh: 每个项目的每个会话
+    es: Cada sesión en cada proyecto
+    fr: Chaque session sur chaque projet
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-08-19-01
+    note:
+      en: Work history externalized to the vault (Tier V); the repository keeps guidance (Tier P) only
+      ko: 작업 이력은 vault(Tier V)로 외부화, 저장소는 지침(Tier P)만
+      ja: 作業履歴は vault（Tier V）へ外部化し、リポジトリは指針（Tier P）のみ
+      zh: 工作历史外置到 vault（Tier V）；仓库只保留指引（Tier P）
+      es: El historial de trabajo se externaliza al vault (Tier V); el repositorio conserva solo la guía (Tier P)
+      fr: L'historique de travail est externalisé vers le vault (Tier V) ; le dépôt ne garde que les consignes (Tier P)
+  - kind: measurement
+    ref: a backend project, 2026-10-20
+    note:
+      en: 160 commits of methodology files and 35 branches carrying them had to be untracked from the company repository
+      ko: 방법론 파일 커밋 160건과 그것을 든 브랜치 35개를 회사 저장소에서 추적 해제해야 했다
+      ja: 方法論ファイルのコミット160件とそれを持つブランチ35本を会社リポジトリから追跡解除する必要があった
+      zh: 不得不从公司仓库中取消跟踪 160 次方法论文件提交及携带它们的 35 个分支
+      es: Hubo que dejar de rastrear 160 commits de archivos de metodología y 35 ramas que los llevaban en el repositorio de la empresa
+      fr: Il a fallu cesser de suivre 160 commits de fichiers de méthodologie et 35 branches les portant dans le dépôt de l'entreprise
+  counter_examples: []
+  verification:
+    en: git ls-files in the code repository matches no session, task, order, relay or decision-note path
+    ko: 코드 저장소의 git ls-files 에 세션·태스크·오더·릴레이·DEC 노트 경로가 없다
+    ja: コードリポジトリの git ls-files にセッション・タスク・オーダー・リレー・DEC ノートのパスがない
+    zh: 代码仓库的 git ls-files 中不含会话、任务、订单、中继或决策注记路径
+    es: git ls-files del repositorio de código no contiene rutas de sesión, tarea, orden, relé ni notas de decisión
+    fr: git ls-files du dépôt de code ne contient aucun chemin de session, tâche, ordre, relais ou note de décision
+  source: core/docs/ko/environment/data-placement.md §2
+  supersedes: []
+  status: active

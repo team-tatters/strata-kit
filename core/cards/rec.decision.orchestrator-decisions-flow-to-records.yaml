@@ -1,0 +1,66 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.decision.orchestrator-decisions-flow-to-records
+  strength: must
+  adoption: conditional   # DEC-2026-10-30-01
+  condition: uses_quilt
+  profiles: []
+  title:
+    en: Decisions made through an orchestrator still land in the records
+    ko: 오케스트레이터를 거친 결정도 레코드에 남는다
+    ja: オーケストレーター経由の決定もレコードに残る
+    zh: 经由编排器做出的决策同样进入记录
+    es: Las decisiones tomadas a través de un orquestador también llegan a los registros
+    fr: Les décisions prises via un orchestrateur arrivent aussi dans les enregistrements
+  claim:
+    en: A decision reached in a relay, an approval, a HighFive judgement or a flow run (Quilt or any other orchestrator) is recorded by the session that owns the project with the decision writer, citing the relay or approval id as its source, and appears in that session's handoff. Orchestrator transcripts are evidence, not records.
+    ko: 릴레이, 승인, HighFive 판단, 플로우 실행(Quilt 나 다른 오케스트레이터)에서 내려진 결정은 프로젝트를 맡은 세션이 decision writer 로 기록하고 릴레이·승인 id 를 출처로 적으며 그 세션의 핸드오프에 나타난다. 오케스트레이터의 기록은 증거이지 레코드가 아니다.
+    ja: リレー、承認、HighFive の判断、フロー実行（Quilt や他のオーケストレーター）で下された決定は、プロジェクトを担うセッションが decision writer で記録し、リレー・承認 id を出典として記し、そのセッションのハンドオフに現れる。オーケストレーターの記録は証拠であってレコードではない。
+    zh: 在中继、审批、HighFive 判断或流程运行（Quilt 或其他编排器）中达成的决策，由负责该项目的会话用 decision writer 记录，引用中继或审批 id 作为来源，并出现在该会话的交接中。编排器的记录是证据而非正式记录。
+    es: Una decisión alcanzada en un relé, una aprobación, un juicio HighFive o una ejecución de flujo (Quilt u otro orquestador) la registra la sesión propietaria del proyecto con el CLI de decisiones, citando el id del relé o aprobación como fuente, y aparece en el traspaso de esa sesión. Las transcripciones del orquestador son evidencia, no registros.
+    fr: Une décision prise dans un relais, une approbation, un jugement HighFive ou une exécution de flux (Quilt ou tout autre orchestrateur) est enregistrée par la session propriétaire du projet avec le CLI de décisions, en citant l'id du relais ou de l'approbation comme source, et apparaît dans la passation de cette session. Les transcriptions de l'orchestrateur sont des preuves, pas des enregistrements.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "Decisions made through an orchestrator (relay, approval, flow) are recorded by the owning session with the relay or approval id as source."
+    ko: "오케스트레이터(릴레이·승인·플로우)에서 난 결정도 프로젝트를 맡은 세션이 레코드로 남기고 릴레이·승인 id 를 출처로 적는다."
+    ja: "オーケストレーター(リレー・承認・フロー)で出た決定も、プロジェクトを担うセッションがレコードに残し、リレー・承認 id を出典に書く。"
+    zh: "经由编排器（中继、审批、流程）做出的决定，也由负责项目的会话记成记录，并以中继或审批 id 为出处。"
+    es: "Las decisiones tomadas en un orquestador (relevo, aprobación, flujo) las registra la sesión dueña del proyecto, citando el id del relevo o la aprobación."
+    fr: "Les décisions prises via un orchestrateur (relais, approbation, flux) sont enregistrées par la session propriétaire du projet, avec l'id du relais ou de l'approbation comme source."
+  applies_when:
+  - en: Sessions running under Quilt or another orchestrator; cross-model reviews
+    ko: Quilt 나 다른 오케스트레이터 아래의 세션, 교차 모델 검토
+    ja: Quilt や他のオーケストレーター下のセッション、クロスモデルレビュー
+    zh: 在 Quilt 或其他编排器下运行的会话；跨模型评审
+    es: Sesiones bajo Quilt u otro orquestador; revisiones entre modelos
+    fr: Sessions sous Quilt ou un autre orchestrateur ; revues inter-modèles
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-10-28-04 (strata)
+    note:
+      en: Quilt reads agent-roles.yaml; the record flow is the counterpart
+      ko: Quilt 가 agent-roles.yaml 을 읽는다. 레코드 흐름은 그 짝이다
+      ja: Quilt は agent-roles.yaml を読む。レコードの流れはその対
+      zh: Quilt 读取 agent-roles.yaml；记录流程是其对应部分
+      es: Quilt lee agent-roles.yaml; el flujo de registros es su contraparte
+      fr: Quilt lit agent-roles.yaml ; le flux d'enregistrements en est le pendant
+  - kind: reference
+    ref: https://github.com/affaan-m/ECC
+    note:
+      en: Memory is unreviewed context, not executable policy
+      ko: 메모리는 검토되지 않은 컨텍스트이지 실행 가능한 정책이 아니다
+      ja: メモリは未レビューの文脈であり、実行可能なポリシーではない
+      zh: 记忆是未经评审的上下文，而非可执行的策略
+      es: La memoria es contexto sin revisar, no política ejecutable
+      fr: La mémoire est un contexte non revu, pas une politique exécutable
+  counter_examples: []
+  verification:
+    en: Every handoff closed under an orchestrator lists decisions_made with record ids whose source cites the relay or approval id, or states none
+    ko: 오케스트레이터 아래에서 닫힌 모든 핸드오프의 decisions_made 에 릴레이·승인 id 를 출처로 둔 레코드 id 가 있거나 none 이 적혀 있다
+    ja: オーケストレーター下で閉じたすべてのハンドオフの decisions_made に、リレー・承認 id を出典とするレコード id があるか none が記されている
+    zh: 在编排器下关闭的每份交接的 decisions_made 中列出以中继或审批 id 为来源的记录 id，或写明 none
+    es: Cada traspaso cerrado bajo un orquestador lista en decisions_made ids de registro cuya fuente cita el id del relé o aprobación, o indica none
+    fr: Chaque passation close sous orchestrateur liste dans decisions_made des ids d'enregistrement dont la source cite l'id du relais ou de l'approbation, ou indique none
+  source: core/docs/ko/methodology/agent-operations.md §4 Decision Inbox, Quilt docs/product.md 넘기기·승인
+  supersedes: []
+  status: active

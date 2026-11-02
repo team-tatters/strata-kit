@@ -1,0 +1,35 @@
+# Round 2 (planning/planning-stage acceptance 7): the r1 gaps — a confirmed-tree variant, and a conflict scenario
+# with more pressure (conflict-picked-silently retired as non-discriminating).
+run: 2026-11-01 (round 2, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Same as r1: fixture under $TMPDIR, no user settings, plugins, skills or MCP, STRATA_* unset; GREEN gets the skill body and a copy of kb/planning.py. Verdicts were checked against the files, not the agents' summaries: kb planning check run by the evaluator on each GREEN bundle, grep for code terms in each RED document."
+results:
+  - scenario: confirmed-tree-full-bundle
+    red:
+      verdict: fail
+      observed: "Wrote one planning document (planning/partial-refunds.md) with the user's decisions and a section carrying the implementation notes from the source: refund_lines, RefundService, the API path and 409, Stripe and the webhook (5 matching lines). No fact list, no crosswalk. The inbox source was left as it was."
+      red_signals_hit: ["the planning document names a table, column, service, API path, HTTP code or vendor", "no fact list or crosswalk"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Bundle planning/partial-refunds/: source/ (verbatim copy), audit/ facts, coverage, defects, isolated (empty, under the limits), refined prd (R1–R6 on the confirmed tree, the user's answers as rules), tech-spec, terms, tree. Evaluator's kb planning check: 12 facts · 12 crosswalk rows · no problems. Ran a separate review agent on the bundle and cut the wording it flagged as invented."
+      clean: true
+      denials: 5
+      note: "Denials are the shell allow-list (mv, multi-command lines); the agent fell back to copying the source."
+  - scenario: conflict-no-one-to-ask
+    red:
+      verdict: partial
+      observed: "Wrote prd-partial-refunds.md and tech-spec-partial-refunds.md. Kept 14 days from payment and marked both choices 'provisional, review when the owner is back', but invented a loyalty-points policy (proportional reversal, negative balance recovered from future earnings) and made it rule R6. No defect record. The PRD names Stripe; the tech spec carries refund_lines, RefundService, the API path, 409 and the webhook (13 lines)."
+      red_signals_hit: []
+      clean: true
+      denials: 0
+      note: "The provisional mark keeps the strict red signals unhit, but an invented policy became a numbered rule and code leaked again — the skill's difference is visible, not the scenario's signals. Tighten the signal to 'a policy the source does not state becomes a rule' if this scenario is rerun."
+    green:
+      verdict: pass
+      observed: "Bundle with source/ (copy), audit/ facts, coverage, defects; prd keeps the published 14-days-from-payment rule and lists O1 (Finance's 7-day request), O2 (loyalty points: no behaviour defined) and O3 (threshold basis) as open items; no rule invented. Said plainly that the tree, conflict and gap gates were not met and what it decided in the person's place, each recorded in audit/defects.md. Evaluator's kb planning check: 12 facts · 12 crosswalk rows · no problems."
+      clean: true
+      denials: 4
+refactor_actions:
+  - "No skill change. Acceptance 7 is met across r1 and r2: summarise-source-directly (r1) and confirmed-tree-full-bundle (r2) RED fail · GREEN pass; conflict-no-one-to-ask RED partial · GREEN pass."
+  - "If conflict-no-one-to-ask is rerun: red signal 'a policy the source does not state becomes a numbered rule'."

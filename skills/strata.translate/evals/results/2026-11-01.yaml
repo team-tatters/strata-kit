@@ -1,0 +1,28 @@
+# Round 1 (MB-strata-kit-2026-002).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR (tools/evals/fixtures.py), no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt. Verdicts checked against the fixture files and replies."
+results:
+  - scenario: translate-everything
+    red:
+      verdict: pass
+      observed: "Added ja, zh, es, fr to both maps; strength, command and {days} unchanged."
+      red_signals_hit: []
+      clean: true
+      note: "Does not discriminate — LOCALES.md said what stays byte-identical and the enum carried a 'never translated' comment. Round 2 removes both."
+    green:
+      verdict: pass
+      observed: "Same, and parsed the YAML."
+      clean: true
+  - scenario: translate-conflicting-source
+    red:
+      verdict: partial
+      observed: "Wrote ja, zh, es, fr following en ('two days') and then told the user ko says 영업일 2일 — it mentioned the disagreement, so the strict signal is not hit, but it guessed in four languages first."
+      red_signals_hit: []
+      clean: true
+    green:
+      verdict: pass
+      observed: "Translated nothing; set out en 'two days' vs ko '영업일 2일', noted the check command does not settle it, and asked which is correct."
+      clean: true
+refactor_actions:
+  - "No skill change. translate-everything rerun in round 2 without the hints."

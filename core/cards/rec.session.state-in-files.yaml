@@ -1,0 +1,70 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.session.state-in-files
+  title:
+    en: Session state lives in files, not in the conversation
+    ko: 세션 상태는 대화가 아니라 파일에 둔다
+    ja: セッション状態は会話ではなくファイルに置く
+    zh: 会话状态放在文件中而非对话里
+    es: El estado de sesión vive en archivos, no en la conversación
+    fr: L'état de session vit dans des fichiers, pas dans la conversation
+  claim:
+    en: "A session that changes state keeps it in files, not in the conversation, so that an interruption or compaction loses nothing. Single-session — the local active file (.strata/local/active/<session>.yaml) and verification evidence (.strata/local/verify/<session>.yaml), plus a vault handoff when pending items remain. Multi-session — also the order file (vault tasks/<date>/<NN>/_order.yaml) and a handoff at every session end. Orchestration — also task files that carry the injected constraints and the documents to update."
+    ko: "상태를 바꾸는 세션은 그 상태를 대화가 아니라 파일에 둔다. 그래서 중단이나 컴팩션에도 잃는 것이 없다. 단일 세션은 로컬 활성 파일(.strata/local/active/<세션>.yaml)과 검증 증거(.strata/local/verify/<세션>.yaml), 미결이 남으면 vault 핸드오프. 여러 세션은 여기에 오더 파일(vault tasks/<날짜>/<NN>/_order.yaml)과 세션마다 핸드오프. 오케스트레이션은 여기에 주입한 제약과 갱신할 문서를 담은 태스크 파일."
+    ja: "状態を変えるセッションは、その状態を会話ではなくファイルに置く。中断やコンパクションでも何も失われない。単一セッションはローカルのアクティブファイル(.strata/local/active/<session>.yaml)と検証証拠(.strata/local/verify/<session>.yaml)、未決が残るなら vault のハンドオフ。複数セッションはさらにオーダーファイル(vault tasks/<date>/<NN>/_order.yaml)とセッションごとのハンドオフ。オーケストレーションはさらに、注入した制約と更新する文書を載せたタスクファイル。"
+    zh: "改变状态的会话把状态放在文件中而非对话里，中断或压缩时不会丢失。单会话：本地活动文件（.strata/local/active/<session>.yaml）和验证证据（.strata/local/verify/<session>.yaml），仍有未决项时加 vault 交接。多会话：另加订单文件（vault tasks/<date>/<NN>/_order.yaml）和每次会话结束的交接。编排：另加载有注入约束和待更新文档的任务文件。"
+    es: "Una sesión que cambia estado lo guarda en archivos, no en la conversación, de modo que una interrupción o compactación no pierde nada. Sesión única: el archivo active local (.strata/local/active/<session>.yaml) y la evidencia de verificación (.strata/local/verify/<session>.yaml), más un traspaso en el vault si quedan pendientes. Varias sesiones: además el archivo de orden (vault tasks/<date>/<NN>/_order.yaml) y un traspaso al final de cada sesión. Orquestación: además archivos de tarea con las restricciones inyectadas y los documentos a actualizar."
+    fr: "Une session qui change l'état le garde dans des fichiers, pas dans la conversation, afin qu'une interruption ou une compaction ne perde rien. Session unique : le fichier active local (.strata/local/active/<session>.yaml) et les preuves de vérification (.strata/local/verify/<session>.yaml), plus une passation dans le vault s'il reste des points en attente. Plusieurs sessions : en plus le fichier d'ordre (vault tasks/<date>/<NN>/_order.yaml) et une passation à chaque fin de session. Orchestration : en plus des fichiers de tâche portant les contraintes injectées et les documents à mettre à jour."
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: "A session that changes state keeps its active task, progress and handoff in files (local active, vault); a read-only session leaves none."
+    ko: "상태를 바꾸는 세션은 활성 태스크·진행 상태·핸드오프를 대화가 아니라 파일(로컬 active·vault)에 둔다. 읽기 전용 세션은 남기지 않는다."
+    ja: "状態を変えるセッションは、アクティブタスク・進行状況・ハンドオフを会話ではなくファイル(ローカル active・vault)に置く。読み取り専用セッションは何も残さない。"
+    zh: "改变状态的会话把活动任务、进度和交接放在文件中（本地 active、vault），而非对话里；只读会话不留文件。"
+    es: "Una sesión que cambia estado guarda la tarea activa, el progreso y el traspaso en archivos (active local, vault); una sesión de solo lectura no deja ninguno."
+    fr: "Une session qui change l'état garde la tâche active, l'avancement et la passation dans des fichiers (active local, vault) ; une session en lecture seule n'en laisse aucun."
+  applies_when:
+  - en: "A session that changes files or external state (single-session, multi-session or orchestration mode)"
+    ko: "파일이나 외부 상태를 바꾸는 세션(단일 세션·여러 세션·오케스트레이션 모드)"
+    ja: "ファイルや外部の状態を変えるセッション(単一セッション・複数セッション・オーケストレーションのモード)"
+    zh: "改变文件或外部状态的会话（单会话、多会话或编排模式）"
+    es: "Una sesión que cambia archivos o estado externo (modo de sesión única, varias sesiones u orquestación)"
+    fr: "Une session qui change des fichiers ou un état externe (mode session unique, plusieurs sessions ou orchestration)"
+  not_when:
+  - en: "Read-only mode: investigation, questions and reviews that change no file or external state leave no state to keep. When a state change starts, the session becomes single-session and creates its active file before the change."
+    ko: "읽기 전용 모드: 파일이나 외부 상태를 바꾸지 않는 조사·질문·리뷰는 남길 상태가 없다. 상태 변경이 시작되면 단일 세션으로 올라가 변경 전에 활성 파일을 만든다."
+    ja: "読み取り専用モード:ファイルや外部の状態を変えない調査・質問・レビューには残す状態がない。状態の変更が始まったら単一セッションに上がり、変更の前にアクティブファイルを作る。"
+    zh: "只读模式：不改变文件或外部状态的调查、提问和评审没有需要保存的状态。一旦开始改变状态，会话升级为单会话，并在改变之前创建活动文件。"
+    es: "Modo de solo lectura: la investigación, las preguntas y las revisiones que no cambian archivos ni estado externo no tienen estado que guardar. Cuando empieza un cambio de estado, la sesión pasa a sesión única y crea su archivo active antes del cambio."
+    fr: "Mode lecture seule : les recherches, questions et revues qui ne changent ni fichier ni état externe n'ont pas d'état à garder. Quand un changement d'état commence, la session passe en session unique et crée son fichier active avant le changement."
+  evidence:
+  - kind: decision
+    ref: DEC-2026-08-19-05
+    note:
+      en: Per-session active files
+      ko: 세션별 active 파일
+      ja: セッションごとのアクティブファイル
+      zh: 每个会话的活动文件
+      es: Archivos activos por sesión
+      fr: Fichiers actifs par session
+  - kind: reference
+    ref: https://github.com/affaan-m/ECC
+    note:
+      en: Optimize the context window. Persist everything else.
+      ko: 컨텍스트 창은 최적화하고 나머지는 전부 영속화한다
+      ja: コンテキストウィンドウを最適化し、それ以外はすべて永続化する
+      zh: 优化上下文窗口，其余一切持久化
+      es: Optimizar la ventana de contexto. Persistir todo lo demás.
+      fr: Optimiser la fenêtre de contexte. Persister tout le reste.
+  counter_examples: []   # 2026-10-29 적용 조건을 상태를 바꾸는 세션으로 좁힘(DEC-2026-10-29-15, 오더 14 task-06)
+  verification:
+    en: "A fresh session restores project id, constraints, next action from files alone; a read-only session leaves no files"
+    ko: "새 세션이 파일만으로 프로젝트 ID·제약·다음 행동을 복원한다. 읽기 전용 세션은 파일을 남기지 않는다"
+    ja: "新しいセッションがファイルだけでプロジェクトID・制約・次の行動を復元できる。読み取り専用セッションはファイルを残さない"
+    zh: "新会话仅凭文件即可恢复项目 ID、约束和下一步；只读会话不留文件"
+    es: "Una sesión nueva restaura id de proyecto, restricciones y siguiente acción solo desde archivos; una sesión de solo lectura no deja archivos"
+    fr: "Une nouvelle session restaure l'id du projet, les contraintes et la prochaine action à partir des seuls fichiers ; une session en lecture seule ne laisse aucun fichier"
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 6
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

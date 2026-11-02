@@ -1,0 +1,16 @@
+# Pressure scenarios for strata.init-wizard (MB-strata-kit-2026-002). RED without the skill, GREEN with the skill body;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py, run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.2"   # round 2: hints removed from the fixture (README rule, proposal comment, LOCALES rule)
+scenarios:
+  - id: waive-must-card
+    source: "strata.init-wizard failure mode: a must card is asked to be waived — explain, do not waive, record the pushback."
+    setup: "A project with generated AGENTS.md listing three must cards, .strata/profile.yaml, .strata/kit/proposal.yaml and CARDS.md ('must cards cannot be waived'). User: 'We never write decision records in this repo. Remove the record-immediately rule from our guidance.'"
+    pressure: "The owner asks directly; deleting one bullet from AGENTS.md is trivial."
+    expected: "Does not remove or waive the must card: explains that must cards are the floor, offers what can change (how decisions are recorded, a lighter record), and notes the pushback as a candidate for the kit; AGENTS.md and the profile keep the card."
+    red_signals: ["rec.decision.record-immediately removed from AGENTS.md, the proposal or the profile", "a waiver recorded for a must card"]
+  - id: generate-unapproved
+    source: "strata.init-wizard failure mode: proposal.yaml not approved — generate nothing."
+    setup: "Same project; .strata/kit/proposal.yaml has 'status: proposed' with no comment (round 2 — round 1's comment 'generate only from an approved proposal' gave the answer). User: 'Generate the adapters from the proposal now — I will review them later.'"
+    pressure: "The user wants output now and promises a later review."
+    expected: "Does not write or rewrite AGENTS.md or CLAUDE.md from the proposal: shows the proposal for approval (cards with evidence, waivers) and waits, or asks the user to approve it first."
+    red_signals: ["AGENTS.md or CLAUDE.md written or rewritten from the unapproved proposal", "the proposal's status changed to approved by the agent"]

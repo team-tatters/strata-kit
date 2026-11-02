@@ -1,0 +1,176 @@
+package {{BASE_PACKAGE}}.architecture
+
+import com.tngtech.archunit.base.DescribedPredicate
+import com.tngtech.archunit.core.domain.JavaClass
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.library.Architectures.layeredArchitecture
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.yaml.snakeyaml.Yaml
+import java.io.File
+
+/**
+ * Brownfield (existing project) layer check — layer-map mode.
+ *
+ * An existing project whose packages do not follow the Strata standard segments (..data.. and so on)
+ * identifies layers by .strata/layer-map.yaml (path → layer) instead of package_identifier.
+ * The can_reference rules are loaded from layer-rules.yaml (SoT) just the same.
+ *
+ * layer-map semantics match check-layer-violation.py: substring match from the top down.
+ * Source-path mappings (containing src/main/kotlin/) differ from compiled paths, so they are matched piece by piece in order.
+ *
+ * When introducing this into existing code with many violations, freezing the existing violations with
+ * ArchUnit FreezingArchRule and failing only new ones is recommended (see README).
+ */
+class StrataLayerMapTest {
+
+    data class Mapping(val path: String, val layer: String)
+
+    /** layer-map.yaml `exceptions:` — a waiver that references a decision in decisions.yaml */
+    data class Waiver(val id: String, val fromPath: String, val toLayer: String)
+
+    companion object {
+        private val projectRoot: File = resolveProjectRoot()
+        private val rules: List<StrataLayer> = StrataRules.load()
+        private val mappings: List<Mapping> = loadLayerMap()
+        private val waivers: List<Waiver> = loadWaivers()
+        private val classes: JavaClasses = importCompiledClasses()
+
+        private fun resolveProjectRoot(): File {
+            System.getProperty("strata.classesRoot")?.let { return File(it) }
+            return generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+                .firstOrNull { File(it, ".strata/layer-map.yaml").isFile }
+                ?: error(".strata/layer-map.yaml not found (or set -Dstrata.classesRoot)")
+        }
+
+        private fun layerMapFile(): File =
+            System.getProperty("strata.layerMap")?.let { File(it) }
+                ?: File(projectRoot, ".strata/layer-map.yaml")
+
+        private fun loadLayerMap(): List<Mapping> {
+            @Suppress("UNCHECKED_CAST")
+            val root = Yaml().load<Map<String, Any>>(layerMapFile().readText())
+            val raw = root["mappings"] as List<Map<String, String>>
+            return raw.map { Mapping(it.getValue("path"), it.getValue("layer")) }
+        }
+
+        private fun loadWaivers(): List<Waiver> {
+            @Suppress("UNCHECKED_CAST")
+            val root = Yaml().load<Map<String, Any>>(layerMapFile().readText())
+            val raw = root["exceptions"] as? List<Map<String, String>> ?: return emptyList()
+            return raw.filter { it["status"] != "retired" }
+                .map { Waiver(it.getValue("id"), it.getValue("from_path"), it.getValue("to_layer")) }
+        }
+
+        private fun isWaived(from: JavaClass, toLayer: String): Boolean {
+            val rel = relPathOf(from) ?: return false
+            return waivers.any { rel.contains(it.fromPath) && it.toLayer == toLayer }
+        }
+
+        private fun importCompiledClasses(): JavaClasses {
+            val dirs = projectRoot.walkTopDown()
+                .onEnter { it.name != ".git" && it.name != "node_modules" }
+                .filter { it.isDirectory }
+                .filter {
+                    it.path.endsWith("build/classes/kotlin/main") ||
+                        it.path.endsWith("build/classes/java/main")
+                }
+                .map { it.toPath() }
+                .toList()
+            check(dirs.isNotEmpty()) { "no compiled classes — run ./gradlew classes first: $projectRoot" }
+            return ClassFileImporter().importPaths(dirs)
+        }
+
+        private fun relPathOf(cls: JavaClass): String? {
+            val uri = cls.source.map { it.uri.toString() }.orElse(null) ?: return null
+            val rootPath = projectRoot.absolutePath
+            val idx = uri.indexOf(rootPath)
+            return if (idx >= 0) uri.substring(idx + rootPath.length + 1) else null
+        }
+
+        private fun moduleOf(cls: JavaClass): String? =
+            relPathOf(cls)?.substringBefore("/build/classes/", missingDelimiterValue = "")
+                ?.ifEmpty { null }
+
+        private fun layerOf(cls: JavaClass): String? {
+            val rel = relPathOf(cls) ?: return null
+            for (m in mappings) {
+                val frags = m.path.split("src/main/kotlin/").filter { it.isNotEmpty() }
+                var cursor = 0
+                var ok = frags.isNotEmpty()
+                for (f in frags) {
+                    val i = rel.indexOf(f, cursor)
+                    if (i < 0) { ok = false; break }
+                    cursor = i + f.length
+                }
+                if (ok) return m.layer
+            }
+            return null
+        }
+
+        private fun layerPredicate(name: String) =
+            object : DescribedPredicate<JavaClass>("layer-map layer $name") {
+                override fun test(input: JavaClass): Boolean = layerOf(input) == name
+            }
+    }
+
+    @Test
+    fun `layer classification summary`() {
+        val byLayer = classes.groupBy { layerOf(it) ?: "(unmapped)" }
+        println("== layer classification (${classes.size} classes):")
+        byLayer.entries.sortedBy { it.key }.forEach { (layer, list) ->
+            println("   %-18s %d".format(layer, list.size))
+        }
+        assertTrue(byLayer.keys.any { it != "(unmapped)" }, "no class is mapped to any layer")
+    }
+
+    @Test
+    fun `violation tally - for sizing an introduction (always passes)`() {
+        val allowed = rules.associate { it.name to (it.canReference.toSet() + it.name) }
+        val layerPair = mutableMapOf<String, Int>()
+        val modulePair = mutableMapOf<String, Int>()
+        for (cls in classes) {
+            val from = layerOf(cls) ?: continue
+            if (from.startsWith("_") || from !in allowed) continue
+            for (dep in cls.directDependenciesFromSelf) {
+                val to = layerOf(dep.targetClass) ?: continue
+                if (to.startsWith("_") || to in allowed.getValue(from)) continue
+                if (isWaived(cls, to)) continue
+                layerPair.merge("$from → $to", 1, Int::plus)
+                modulePair.merge("$from → $to | ${moduleOf(cls)} → ${moduleOf(dep.targetClass)}", 1, Int::plus)
+            }
+        }
+        println("== violations by layer pair:")
+        layerPair.entries.sortedByDescending { it.value }
+            .forEach { println("   %-40s %d".format(it.key, it.value)) }
+        println("== top 20 by module pair:")
+        modulePair.entries.sortedByDescending { it.value }.take(20)
+            .forEach { println("   %-90s %d".format(it.key, it.value)) }
+    }
+
+    @Test
+    fun `layer dependency direction - no can_reference violations`() {
+        var arch = layeredArchitecture()
+            .consideringOnlyDependenciesInLayers()
+            .withOptionalLayers(true)
+        rules.forEach { arch = arch.layer(it.name).definedBy(layerPredicate(it.name)) }
+        rules.forEach { layer ->
+            arch = if (layer.canReference.isEmpty()) {
+                arch.whereLayer(layer.name).mayNotAccessAnyLayer()
+            } else {
+                arch.whereLayer(layer.name).mayOnlyAccessLayers(*layer.canReference.toTypedArray())
+            }
+        }
+        waivers.forEach { w ->
+            arch = arch.ignoreDependency(
+                object : DescribedPredicate<JavaClass>("waived origin ${w.id} (${w.fromPath})") {
+                    override fun test(input: JavaClass): Boolean =
+                        relPathOf(input)?.contains(w.fromPath) == true
+                },
+                layerPredicate(w.toLayer),
+            )
+        }
+        arch.check(classes)
+    }
+}

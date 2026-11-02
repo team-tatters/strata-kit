@@ -1,0 +1,57 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.document-roles
+  strength: should
+  profiles: []
+  title:
+    en: Every document has one role
+    ko: 문서마다 역할은 하나다
+    ja: 文書の役割は一つ
+    zh: 每份文档只有一个角色
+    es: Cada documento tiene un solo rol
+    fr: Chaque document a un seul rôle
+  claim:
+    en: A knowledge document describes the as-built shape and is updated in place; a planning document holds the desired shape and its implementation review; an archive document (session, task, relay) is evidence and is never edited after the fact; an index (MOC, node page, decision note) is generated. A document never mixes roles.
+    ko: 지식 문서는 만들어진 형상을 적고 제자리 갱신한다. 기획 문서는 바라는 형상과 구현 검토를 담는다. 아카이브 문서(세션·태스크·릴레이)는 증거이며 사후에 고치지 않는다. 인덱스(MOC·노드 페이지·DEC 노트)는 생성물이다. 한 문서가 역할을 섞지 않는다.
+    ja: 知識文書は現状の形を記しその場で更新する。企画文書は目標の形と実装レビューを持つ。アーカイブ文書（セッション・タスク・リレー）は証拠であり事後に編集しない。インデックスは生成物である。文書は役割を混ぜない。
+    zh: 知识文档描述现状形态并就地更新；规划文档保存目标形态及其实现评审；归档文档（会话、任务、中继）是证据，事后不编辑；索引是生成物。文档绝不混合角色。
+    es: Un documento de conocimiento describe la forma construida y se actualiza en el sitio; uno de planificación guarda la forma deseada y su revisión de implementación; uno de archivo (sesión, tarea, relé) es evidencia y nunca se edita después; un índice se genera. Un documento nunca mezcla roles.
+    fr: Un document de connaissance décrit la forme réalisée et se met à jour sur place ; un document de planification porte la forme visée et sa revue d'implémentation ; un document d'archive (session, tâche, relais) est une preuve jamais modifiée après coup ; un index est généré. Un document ne mélange jamais les rôles.
+  applies_when:
+  - en: Every vault document
+    ko: 모든 vault 문서
+    ja: すべての vault 文書
+    zh: 每份 vault 文档
+    es: Cada documento del vault
+    fr: Chaque document du vault
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-03
+    note:
+      en: Three document roles and link currency
+      ko: 문서 세 역할과 링크 현행성
+      ja: 文書の3つの役割とリンクの現行性
+      zh: 文档三种角色与链接时效性
+      es: Tres roles de documento y vigencia de enlaces
+      fr: Trois rôles de document et actualité des liens
+  - kind: reference
+    ref: https://github.com/github/spec-kit (spec-driven.md)
+    note:
+      en: Desired specification is a separate artifact from the implementation
+      ko: 바라는 명세는 구현과 별개의 산출물
+      ja: 目標仕様は実装とは別の成果物
+      zh: 目标规格是独立于实现的产物
+      es: La especificación deseada es un artefacto distinto de la implementación
+      fr: La spécification visée est un artefact distinct de l'implémentation
+  counter_examples: []
+  verification:
+    en: Frontmatter type matches the directory role; the index build reports zero role violations
+    ko: frontmatter 의 type 이 디렉터리 역할과 맞고 색인 빌드가 역할 위반 0건을 보고한다
+    ja: frontmatter の type がディレクトリの役割と一致し、インデックス構築が役割違反0件を報告する
+    zh: frontmatter 的 type 与目录角色一致；索引构建报告角色违规 0 条
+    es: El type del frontmatter coincide con el rol del directorio; la construcción del índice informa cero violaciones
+    fr: Le type du frontmatter correspond au rôle du répertoire ; la construction de l'index signale zéro violation
+  source: core/docs/ko/knowledge-base/vault-structure.md, core/docs/ko/knowledge-base/document-format.md
+  supersedes: []
+  status: active

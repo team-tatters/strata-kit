@@ -1,0 +1,85 @@
+# Ideation pack (planning/ideation-pack, MB-strata-kit-2026-022). Installed into the user layer with
+# `python3 -m kb skills install ideation --apply`; never shipped in the plugin (DEC-2026-10-31-36).
+# `next:` lists what may follow, with reasons; `kb skills next ideation.shape` orders them by the project's standing
+# and always offers "do nothing" (DEC-2026-10-31-37).
+version: '0.1'
+routes:
+- intent: shape-idea
+  skill: ideation.shape
+  stage: ideation
+  kind: procedure
+  triggers:
+    en:
+    - an idea to organise or grow
+    - a hunch that is not concrete yet
+    - stuck on the same ideas
+    ko:
+    - 정리하거나 키울 아이디어
+    - 아직 구체적이지 않은 직관
+    - 같은 생각만 반복됨
+    ja:
+    - 整理したり育てたいアイデア
+    - まだ具体的でない直感
+    - 同じ考えばかり繰り返す
+    zh:
+    - 要整理或培养的想法
+    - 还不具体的直觉
+    - 总是重复同样的想法
+    es:
+    - una idea para ordenar o hacer crecer
+    - una intuición aún no concreta
+    - atascado en las mismas ideas
+    fr:
+    - une idée à organiser ou à faire grandir
+    - une intuition pas encore concrète
+    - bloqué sur les mêmes idées
+  next:
+  - skill: strata.planning
+    area: planning
+    why:
+      en: the idea has outside sources or several rules — split them into facts with destinations first
+      ko: 아이디어에 바깥 원천이나 규칙이 여럿 있다 — 먼저 사실과 행선지로 나눈다
+      ja: アイデアに外部の原典や規則がいくつもある — まず事実と行き先に分ける
+      zh: 想法带有外部来源或多条规则 — 先拆成事实并标好去向
+      es: la idea trae fuentes externas o varias reglas — dividirlas primero en hechos con destino
+      fr: l'idée apporte des sources externes ou plusieurs règles — les découper d'abord en faits avec destination
+    on_proposes:
+      en: write the bundle as a proposal draft for the planning owner
+      ko: 묶음을 기획 owner 에게 보낼 제안 초안으로 쓴다
+      ja: 束を企画の owner に送る提案草案として書く
+      zh: 把这个包写成发给规划 owner 的提案草稿
+      es: escribir el paquete como borrador de propuesta para el owner de planificación
+      fr: écrire le lot comme brouillon de proposition pour l'owner de la planification
+  - skill: strata.spec
+    area: planning
+    why:
+      en: the idea is ready to become a planning document with acceptance criteria
+      ko: 아이디어를 인수 기준이 있는 기획 문서로 옮긴다
+      ja: アイデアを受け入れ基準のある企画文書に移す
+      zh: 把想法写成带验收标准的规划文档
+      es: la idea pasa a un documento de planificación con criterios de aceptación
+      fr: l'idée devient un document de planification avec critères d'acceptation
+    on_proposes:
+      en: write it as a proposal draft for the planning owner
+      ko: 기획 owner 에게 보낼 제안 초안으로 쓴다
+      ja: 企画の owner に送る提案草案として書く
+      zh: 写成发给规划 owner 的提案草稿
+      es: escribirla como borrador de propuesta para el owner de planificación
+      fr: l'écrire comme brouillon de proposition pour l'owner de la planification
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: the idea settled a constraint on future work
+      ko: 아이디어가 앞으로의 일을 묶는 제약을 정했다
+      ja: アイデアが今後の作業を縛る制約を決めた
+      zh: 这个想法确定了约束今后工作的限制
+      es: la idea fijó una restricción para el trabajo futuro
+      fr: l'idée a fixé une contrainte pour la suite
+  - skill: ideation.shape
+    why:
+      en: keep growing it next time — the empty facets are the next questions
+      ko: 다음에 이어서 키운다 — 빈칸이 다음 질문이다
+      ja: 次回も育てる — 空欄が次の問いになる
+      zh: 下次继续培养 — 空栏就是下一个问题
+      es: seguir haciéndola crecer — los huecos son las próximas preguntas
+      fr: continuer à la faire grandir — les cases vides sont les prochaines questions

@@ -1,0 +1,62 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.workflow.worktree-only-with-consent
+  title:
+    en: Worktrees only with the user's consent
+    ko: 작업 트리는 사용자 동의가 있을 때만
+    ja: ワークツリーはユーザーの同意がある時だけ
+    zh: 仅在用户同意时使用工作树
+    es: Worktrees solo con el consentimiento del usuario
+    fr: Worktrees uniquement avec le consentement de l'utilisateur
+  claim:
+    en: Work happens on the single branch the user is looking at. A git worktree (including harness isolation features) is created only after the agent proposes it with the need, branch name and cleanup plan, and the user accepts that proposal. One acceptance covers one proposal.
+    ko: 작업은 사용자가 보는 단일 체크아웃·단일 브랜치에서 순차로 한다. 작업 트리(하네스의 격리 기능 포함)는 필요성·브랜치 이름·정리 계획을 한 항목으로 제안하고 사용자가 수락한 뒤에만 만든다. 한 번의 수락은 그 제안에만 유효하다.
+    ja: 作業はユーザーが見ている単一ブランチで行う。ワークツリーは必要性・ブランチ名・後始末計画を提案し、ユーザーが受け入れた後にのみ作成する。
+    zh: 工作在用户所见的单一分支上进行。只有在代理提出必要性、分支名和清理计划并获用户接受后才创建工作树。
+    es: El trabajo se hace en la única rama que el usuario ve. Un worktree se crea solo tras proponer la necesidad, el nombre de rama y el plan de limpieza, y que el usuario lo acepte.
+    fr: Le travail se fait sur l'unique branche que l'utilisateur regarde. Un worktree n'est créé qu'après une proposition (besoin, nom de branche, plan de nettoyage) acceptée par l'utilisateur.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Work sequentially in one checkout; create a worktree only after the person accepts a proposal.
+    ko: 단일 체크아웃에서 순차로 일한다. 작업 트리는 제안해 수락받은 뒤에만 만든다.
+    ja: 単一のチェックアウトで順に作業する。ワークツリーは提案して承認を得た後にのみ作る。
+    zh: 在单个检出中顺序工作；只有在对方接受提议后才创建工作树。
+    es: Trabaja de forma secuencial en un solo checkout; crea un worktree solo después de que la persona acepte una propuesta.
+    fr: Travailler séquentiellement dans un seul checkout ; ne créer un worktree qu'après acceptation d'une proposition.
+  applies_when:
+  - en: Every mode, including automatic mode
+    ko: 자동 모드를 포함한 모든 모드
+    ja: 自動モードを含むすべてのモード
+    zh: 包括自动模式在内的所有模式
+    es: Todos los modos, incluido el automático
+    fr: Tous les modes, y compris le mode automatique
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-17-01
+    note:
+      en: Worktrees broke review and change tracking for the user
+      ko: 작업 트리가 사용자의 검토와 형상 추적을 깨뜨렸다
+      ja: ワークツリーがユーザーのレビューと変更追跡を壊した
+      zh: 工作树破坏了用户的评审与变更跟踪
+      es: Los worktrees rompieron la revisión y el seguimiento de cambios para el usuario
+      fr: Les worktrees ont cassé la revue et le suivi des changements pour l'utilisateur
+  counter_examples:
+  - en: superpowers uses worktrees by default for isolation; here the user's visibility outranks isolation
+    ko: superpowers 는 격리를 위해 기본으로 작업 트리를 쓴다. 여기서는 사용자의 가시성이 격리보다 우선한다
+    ja: superpowers は隔離のために既定でワークツリーを使う。ここではユーザーの可視性が隔離より優先する
+    zh: superpowers 默认使用工作树以实现隔离；在此用户的可见性优先于隔离
+    es: superpowers usa worktrees por defecto para aislar; aquí la visibilidad del usuario prevalece sobre el aislamiento
+    fr: superpowers utilise les worktrees par défaut pour l'isolation ; ici la visibilité de l'utilisateur prime sur l'isolation
+  verification:
+    en: git worktree list shows one entry unless a recorded acceptance exists
+    ko: 기록된 수락이 없으면 git worktree list 에 항목이 하나뿐이다
+    ja: 記録された受諾がなければ git worktree list の項目は1つ
+    zh: 无记录的接受时 git worktree list 只有一项
+    es: git worktree list muestra una sola entrada salvo que exista una aceptación registrada
+    fr: git worktree list n'affiche qu'une entrée sauf acceptation enregistrée
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 7
+  strength: must
+  adoption: opt_in   # 헌법 1.2.0 에서 조항 → 채택형 (DEC-2026-10-29-14)
+  profiles: []
+  supersedes: []
+  status: active

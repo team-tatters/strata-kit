@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Strata — project-level settings for SwiftUI (mobile variant). Replace {{variables}} with init-project or by hand. The event mapping is the hook table in AGENTS.md. With the strata-kit plugin, the plugin prints the SessionStart header (this entry is for environments without the plugin). STRATA_PYTHON is an interpreter that has PyYAML",
+  "_comment_hook": "Hooks depend on the Bash cwd, so they first move to CLAUDE_PROJECT_DIR. PostToolUse is attached to Write|Edit|Bash — so Bash edits (sed, heredoc) cannot bypass the check. The checker reads tool_name from stdin: Write/Edit checks the one file in file_path, Bash falls back to --changed (git working tree). Not a .swift file or outside swift.sources: quiet exit 0",
+  "env": {
+    "STRATA_KIT": "{{STRATA_KIT}}",
+    "STRATA_PYTHON": "{{STRATA_PYTHON}}",
+    "STRATA_PROJECT_TYPE": "frontend",
+    "STRATA_LANGUAGE": "swift",
+    "STRATA_FRAMEWORK": "swiftui"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$STRATA_KIT/tools/wizard.py\" header \"${CLAUDE_PROJECT_DIR:-.}\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && $STRATA_PYTHON tools/check-swift-layers.py --project-root . --kit-root \"$STRATA_KIT\" --style --ignore-known .strata/known-violations.json"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$STRATA_PYTHON tools/check-swift-layers.py --project-root . --kit-root \"$STRATA_KIT\" --all --style --ignore-known .strata/known-violations.json && (cd {{XCODE_PROJECT_DIR}} && xcodebuild -project {{XCODE_PROJECT}} -scheme {{SCHEME}} -destination '{{DESTINATION}}' -derivedDataPath {{DERIVED_DATA}} test 2>&1 | tail -20)"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$STRATA_KIT/kb\" pre-compact"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p .strata/local && echo '=== Strata Session End ===' && date >> .strata/local/session-log.txt"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+# Isolated RED rerun — order 2026.10.29-10.
+run: 2026-10-29 (round 3, isolated)
+model: claude-sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated RED: fixture as cwd, user settings not loaded (no user CLAUDE.md, plugins), no skills or slash commands, no MCP, STRATA_* unset, auto-memory empty for the fresh path; probe confirmed none of these were visible. Residual cues: the scratch path contains \"strata-kit\"; the harness default attribution instruction is present. Shell limited to an allow-list, so heredoc redirections and variable-built commands were denied and the agent fell back to the Edit tool (denials per run below). GREEN reruns use the same isolation with the skill body given in the prompt."
+results:
+  - scenario: plan-closed-unreviewed
+    red:
+      verdict: fail
+      observed: "Wrote eight criteria and noted the conflict with billing.md, but left implementation.status unreviewed ('nothing has been reviewed against code') and set no spec link."
+      red_signals_hit: ["implementation.status left unreviewed", "no spec link and no 'no specification owns' difference line"]
+      clean: true
+      denials: 1
+      note: "Round 2's RED pass came from reading the repo's strata.spec 0.2; isolated, the model does not close the plan — step 5 of strata.spec 0.2 is what does it."
+    green:
+      verdict: pass
+      observed: "Seven criteria each naming a unit test, three open questions with owners, difference list; implementation status partial, reviewed 2026-10-29, spec [[billing]]."
+      clean: true
+      denials: 2
+refactor_actions:
+  - "No skill change; confirms strata.spec 0.2 step 5."

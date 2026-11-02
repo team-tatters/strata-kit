@@ -1,0 +1,803 @@
+# Canonical: strata-kit core/rules/layer-rules.yaml — moved from strata docs/03-architecture/layer-rules.yaml (3b1d978) (strata-kit order 2026.10.29-01 task-02)
+# Read by: profile enforcement templates (check-swift-layers, depcruise, ArchUnit), python -m kb validate-naming and check-layer. Located via $STRATA_KIT/core/rules.
+# Strata Layer Dependency Rules
+# Hook scripts and the Builder/Worker agents read this file.
+# When you change it, always consider the effect on every agent.
+#
+# language_patterns identifying keys:
+#   go     — directory (file system path)
+#   kotlin — package_identifier (package segments, ArchUnit packageIdentifier syntax)
+#            the canonical JVM enforcement is the ArchUnit tests in profiles/backend.kotlin-spring-cqrs/enforcement/ (they consume this file at runtime)
+
+version: "1.1"
+methodology: "strata"
+
+# ============================================================
+# Backend CQRS layer architecture
+# ============================================================
+backend:
+  layer_order:
+    - "L1_Component"
+    - "LM1_Inherite"
+    - "L2_DataLayer"
+    - "LM2_Coordinate"
+    - "L3_Composite"
+    - "Route_Controller"
+
+  layers:
+    L1_Component:
+      level: 1
+      directory: "src/components/"
+      can_reference: []
+      cross_reference: true  # references between L1 allowed (shared utilities)
+      description: "Framework-independent pure functions, constants, types"
+      naming:
+        file_patterns:
+          - "{Name}Component.{ext}"
+          - "{Name}Const.{ext}"
+          - "{Name}Type.{ext}"
+          - "{Name}Util.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            package: ["internal/kit/", "internal/{domain}/"]   # type and pure-function files of the feature package
+            files: ["{domain}.go"]
+          kotlin:
+            # On the JVM, package segments rather than directories are the primary key for identifying a layer.
+            # package_identifier uses ArchUnit packageIdentifier syntax (consumed by the template tests).
+            package_identifier: "..component.."
+            source_root: "src/main/kotlin"
+            files:
+              - "{Name}Component.kt"
+              - "{Name}Const.kt"
+              - "{Name}Type.kt"
+              - "{Name}Util.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: ["kit", "domain"]   # types and free functions
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            directory: ["src/kit/", "src/{domain}/"]   # pure functions
+        export_style: "named"  # no default export
+      rules:
+        - "Pure calculations that need no injection (unit conversion, formulas) go into plain objects, not into any tier — do not duplicate a calculation or invent a forced Coordinator to get around the same-tier reference ban (DEC-2026-09-30-04)"
+        - "No external framework imports"
+        - "No holding state"
+        - "No I/O operations"
+
+    LM1_Inherite:
+      level: 1.5
+      directory: "src/inherite/"
+      can_reference: ["L1_Component"]
+      # LM1 allows references within the layer — {Name}Entity inheriting Base{Name} is the reason LM1 exists.
+      # (2026-07-07 ArchUnit check on a real backend project: with false, 49 legitimate inheritances were flagged as violations — this resolves the spec's self-contradiction)
+      cross_reference: true
+      description: "Shared dependencies injected into L2 (Audit, DB Config, etc.)"
+      naming:
+        file_patterns:
+          - "Base{Name}.{ext}"
+          - "{Name}Entity.{ext}"
+          - "{Name}Config.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            package: "internal/platform/"
+          kotlin:
+            package_identifier: "..inherite.."
+            source_root: "src/main/kotlin"
+            files:
+              - "Base{Name}.kt"
+              - "{Name}Entity.kt"
+              - "{Name}Config.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: "infra"
+            module: "infra::db"
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            directory: "src/platform/"
+            files: ["prisma.service.ts"]
+      rules:
+        - "Only DB connection settings and shared entity definitions allowed"
+        - "No business logic"
+
+    L2_DataLayer:
+      level: 2
+      directory: "src/data/{domain}/"
+      can_reference: ["L1_Component", "LM1_Inherite"]
+      cross_reference: false  # ★ no references within the same tier — service↔service, Repository↔Template (DEC-2026-09-30-04)
+      tiers:   # DEC-2026-09-30-04 — L2 has two tiers. The upper tier uses the lower tier; the lower tier does not know the upper tier
+        lower: {role: "data access", elements: ["Repository", "Template"]}
+        upper: {role: "service", elements: ["CommandService", "QueryService"], can_reference: ["lower"]}
+      description: "RDBMS, NoSQL, Cache data layer"
+      naming:
+        command_service: "{Domain}CommandService.{ext}"
+        query_service: "{Domain}QueryService.{ext}"
+        repository: "{Domain}Repository.{ext}"
+        template: "{Domain}Template.{ext}"
+        entity:
+          rdbms: "{TableName}.{ext}"
+          nosql: "{Name}Document.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            package: "internal/{domain}/"
+            files: {lower: ["store.go"], upper: ["command.go", "query.go"]}
+          kotlin:
+            package_identifier: "..data.."
+            domain_slice: "..data.(*).."  # for checking the ban on cross-domain references (ArchUnit slices)
+            source_root: "src/main/kotlin"
+            files:
+              - "{Domain}CommandService.kt"
+              - "{Domain}QueryService.kt"
+              - "{Domain}Repository.kt"
+              - "{Domain}Template.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: {lower: "infra", upper: "app"}
+            modules: {lower: ["infra::{domain}"], upper: ["app::{domain}::command", "app::{domain}::query"]}   # example lower-tier implementation: Pg{Domain}Repository
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            directory: "src/{domain}/data/"
+            files: {lower: ["{domain}.repository.ts", "{domain}.template.ts"], upper: ["{domain}-command.service.ts", "{domain}-query.service.ts"]}
+      rules:
+        - "One function manages only one entity/domain"
+        - "Minimal business logic — responsible for data access only"
+        - "Transaction boundaries are managed in CommandService"
+        - "QueryService is read-only and needs no transaction"
+        - "Repository is an interface implementation"
+        - "Template implements DSL-based queries"
+        # ── Separation of query-control concerns (2026-08-13, promoted from measurements on a backend project) ──
+        - "DSLContext and SQL strings belong to Template only — no DSLContext injection into Service or Repository"
+        - "Repository uses method-name derived queries only — no @Query or native SQL. Queries that derived queries cannot express are written as type-safe code in a jOOQ Template"
+        - "DDL, sequence and MV operations that need raw SQL are allowed only inside a Template (a comment explaining why the typed DSL cannot be used is required)"
+        - "CommandService writes a single entity (table) only — combining writes to several entities belongs to LM2/L3. Three exceptions: a read in order to update / a single aggregate through JPA associations (cascade) / an audit-history sidecar (an accompanying append-only audit record such as change_history — confirmed by the user 2026-08-13)"
+
+    LM2_Coordinate:
+      level: 2.5
+      directory: "src/coordinate/{domain}/"
+      can_reference: ["L2_DataLayer", "L1_Component", "LM1_Inherite"]
+      cross_reference: false  # ★ no cross-references between LM2
+      description: "Business interfaces reusable from L3"
+      naming:
+        command: "{Domain}CommandCoordinator.{ext}"
+        query: "{Domain}QueryCoordinator.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            package: ["internal/{domain}/", "internal/{concern}/"]
+            files: ["coordinate.go"]
+          kotlin:
+            package_identifier: "..coordinate.."
+            domain_slice: "..coordinate.(*).."
+            source_root: "src/main/kotlin"
+            files:
+              - "{Domain}CommandCoordinator.kt"
+              - "{Domain}QueryCoordinator.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: "app"
+            module: "app::{concern}::coordinator"
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            directory: "src/{domain}/coordinate/"
+      rules:
+        - "Group by shared domain concern, not by how often something is reused — do not put different concerns into one Coordinator just because they are called together (DEC-2026-09-30-04)"
+        - "May call L2 only"
+        - "Encapsulates business patterns that are reused repeatedly"
+        - "A single domain or a combination of at most two L2"
+        - "Do not assemble JSON or other serialized payloads as strings — use a DTO + serializer (ObjectMapper) (2026-08-13)"
+
+    L3_Composite:
+      level: 3
+      directory: "src/composite/{domain}/"
+      can_reference: ["L2_DataLayer", "LM2_Coordinate", "L1_Component"]
+      cross_reference: false  # ★ no cross-references between L3
+      description: "Performs a single business use case"
+      naming:
+        command: "{Domain}CommandCompositeService.{ext}"
+        query: "{Domain}QueryCompositeService.{ext}"
+        listener: "{Domain}Listener.{ext}"
+        task: "{Domain}Task.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            package: "internal/{domain}/"
+            files: ["usecase.go"]
+          kotlin:
+            package_identifier: "..composite.."
+            domain_slice: "..composite.(*).."
+            source_root: "src/main/kotlin"
+            files:
+              - "{Domain}CommandCompositeService.kt"
+              - "{Domain}QueryCompositeService.kt"
+              - "{Domain}Listener.kt"
+              - "{Domain}Task.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: "app"
+            module: "app::{domain}::usecase"
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            directory: "src/{domain}/"
+            files: ["{domain}-command.composite-service.ts", "{domain}.listener.ts", "{domain}.task.ts"]
+      rules:
+        - "May call LM2 or L2 only"
+        - "Corresponds to one business use case"
+        - "Listener/Task are at the same level"
+        - "Do not assemble JSON or other serialized payloads as strings — use a DTO + serializer (ObjectMapper) (2026-08-13)"
+
+    Route_Controller:
+      level: 4
+      directory: "src/controller/"
+      can_reference: ["L3_Composite", "L1_Component"]
+      cross_reference: true  # references to shared middleware between Controllers allowed
+      description: "Receives HTTP requests, validates them, passes them to L3"
+      naming:
+        file_patterns:
+          - "{Domain}Controller.{ext}"
+          - "{Domain}Router.{ext}"
+        language_patterns:
+          go:   # feature package + role files (DEC-2026-10-29-06, profiles/backend.go-service/docs/ko/backend-go.md)
+            files: ["internal/{domain}/http.go", "cmd/api/main.go"]
+          kotlin:
+            package_identifier: "..controller.."
+            source_root: "src/main/kotlin"
+            files:
+              - "{Domain}Controller.kt"
+          rust:   # Cargo workspace crates (profiles/service.rust/docs/ko/backend-rust-layers.md)
+            crate: "api"
+            module: "api::{domain}"
+          typescript:   # NestJS modules (profiles/backend.typescript-nest/docs/ko/backend-nest.md)
+            files: ["src/{domain}/{domain}.controller.ts"]
+      rules:
+        - "May call L3 only (business logic)"
+        - "URI definitions, parameter validation, authentication/authorization context injection"
+        - "Response DTO conversion"
+
+# ============================================================
+# Backend CQRS variants
+# ============================================================
+# The 6-layer dependency direction (L1→...→Route) is the same in both variants.
+# They differ in how L2 handles the write side and in whether there is an ES Track.
+# Choose the variant in the project's layer-rules.{lang}.yaml:
+#   variant: "cqrs"      (default)
+#   variant: "es-cqrs"
+#
+  variants:
+    cqrs:
+      description: "Traditional RDBMS-CQRS — L2 does Read+Write"
+      default: true
+      L2_DataLayer:
+        command_service: true
+        query_service: true
+
+    es-cqrs:
+      description: "Event Sourcing CQRS — L2 is read-only, writes go through the ES Track"
+      L2_DataLayer:
+        command_service: false
+        query_service: true
+
+      es_track:
+        aggregate:
+          description: "Event-publishing domain model (DDD Aggregate Root)"
+          directory: "internal/aggregate/{domain}/"
+          can_reference: ["L1_Component", "aggregate/_shared"]
+          forbid:
+            - "L2_DataLayer"
+            - "L3_Composite"
+            - "Route_Controller"
+            - "eventstore"
+            - "projection"
+          naming:
+            files:
+              - "{domain}_aggregate.go"
+              - "{domain}_events.go"
+              - "{domain}_commands.go"
+
+        eventstore:
+          description: "Event storage infrastructure (PG + JSONB)"
+          directory: "internal/eventstore/"
+          can_reference: ["L1_Component", "LM1_Inherite"]
+          forbid:
+            - "aggregate"
+            - "projection"
+            - "L3_Composite"
+          naming:
+            files:
+              - "event_store.go"
+              - "event_store_pg.go"
+              - "snapshot_store.go"
+
+        projection:
+          description: "Event → Read Model conversion (the only bridge between ES and strata)"
+          directory: "internal/projection/"
+          can_reference: ["L1_Component", "aggregate", "L2_DataLayer", "eventstore"]
+          forbid:
+            - "L3_Composite"
+            - "Route_Controller"
+          naming:
+            files:
+              - "{domain}_projector.go"
+              - "{domain}_inline_projector.go"
+              - "{domain}_async_projector.go"
+
+      rules:
+        R1:
+          description: "Command entry points must go through an L3 CompositeService"
+          scope: "both"
+          severity: "error"
+        R2:
+          description: "Aggregates must not import strata layers (L1 is the only exception)"
+          scope: "es-cqrs"
+          severity: "error"
+        R3:
+          description: "L2 DataLayer is read-only (no CommandService)"
+          scope: "es-cqrs"
+          severity: "error"
+        R4:
+          description: "Projection is the only bridge from ES to the strata Read Model"
+          scope: "es-cqrs"
+          severity: "error"
+        R5:
+          description: "No direct references between Aggregates (communicate through Saga/ProcessManager)"
+          scope: "es-cqrs"
+          severity: "error"
+        R6:
+          description: "Rebase policy lives at the Projection level (Aggregates know nothing of the policy)"
+          scope: "es-cqrs"
+          severity: "warning"
+
+# ============================================================
+# Frontend layer architecture
+# ============================================================
+frontend:
+  # Compatibility alias for older hooks and project layer maps.
+  # New projects should select a variant below. Default: web.
+  layer_order: &frontend_atomic_layer_order
+    - "L1"
+    - "LM"
+    - "L2"
+    - "Atomic"
+    - "Molecule"
+    - "Partial"
+    - "Page"
+    - "Layout"
+
+  layers: &frontend_atomic_layers
+    L1:
+      level: 1
+      directory: "src/core/"
+      can_reference: []
+      cross_reference: true
+      description: "Pure functions, constants, types, utility Hooks"
+      naming:
+        patterns:
+          - "use{Name}.{ext}"      # pure Hook
+          - "{name}.const.{ext}"
+          - "{name}.type.{ext}"
+          - "{name}.util.{ext}"
+      rules:
+        - "No dependency on the UI framework (pure state Hooks excepted)"
+        - "No API calls"
+        - "No access to global state"
+
+    LM:
+      level: 1.5
+      directory: "src/models/"
+      can_reference: ["L1"]
+      cross_reference: true
+      description: "ViewModel, DTO, API port/interface"
+      naming:
+        patterns:
+          - "{Name}ViewModel.{ext}"
+          - "{Name}DTO.{ext}"
+          - "{Name}Api.{ext}"
+          - "{Name}Interface.{ext}"
+      rules:
+        - "Transport port/interface and data conversion"
+        - "Response → ViewModel conversion"
+        - "No UI logic"
+
+    L2:
+      level: 2
+      directory: "src/hooks/"
+      can_reference: ["L1", "LM"]
+      cross_reference: false
+      description: "Server/client state adapter Hooks"
+      naming:
+        patterns:
+          - "useQuery{Name}.{ext}"
+          - "useMutation{Name}.{ext}"
+          - "use{Name}Store.{ext}"
+      rules:
+        - "No rendering of UI components"
+        - "Manages server state through the LM port/interface"
+        - "Global state implementation follows the framework/project convention"
+
+    Atomic:
+      level: 3
+      directory: "src/components/atoms/"
+      can_reference: ["L1"]
+      cross_reference: true
+      description: "Smallest-unit pure UI components"
+      naming:
+        patterns: ["{Name}.{ext}"]
+      rules:
+        - "No dependency on Hooks at L2 or below"
+        - "No API calls"
+        - "Works from Props alone"
+        - "No access to global state"
+
+    Molecule:
+      level: 4
+      directory: "src/components/molecules/"
+      can_reference: ["Atomic", "L2", "LM", "L1"]
+      cross_reference: false
+      description: "UI components specialized for a specific behavior"
+      naming:
+        patterns: ["{Name}.{ext}"]
+      rules:
+        - "Composes Atomic components"
+        - "May use L2 Hooks"
+        - "May be bound to specific domain logic"
+
+    Partial:
+      level: 5
+      directory: "src/components/partials/"
+      can_reference: ["Atomic", "Molecule", "L2", "L1"]
+      cross_reference: false
+      description: "Page-level set of UI for shared concerns"
+      naming:
+        patterns: ["{Name}Partial.{ext}"]
+      rules:
+        - "Composes Molecule + Atomic"
+        - "UI blocks shared across pages"
+
+    Page:
+      level: 6
+      directory: "src/pages/"
+      can_reference: ["Atomic", "Molecule", "Partial", "L2", "LM", "L1"]
+      cross_reference: false
+      description: "Page components that are route targets"
+      naming:
+        patterns: ["{Name}Page.{ext}"]
+      rules:
+        - "Entry point of the routing context"
+        - "Applies the layout"
+
+    Layout:
+      level: 6
+      directory: "src/layouts/"
+      can_reference: ["Atomic", "Molecule", "Partial", "L1"]
+      cross_reference: false
+      description: "Page layout wrapper"
+      naming:
+        patterns: ["{Name}Layout.{ext}"]
+      rules:
+        - "Structural wrappers such as navigation, sidebar, footer"
+        - "Receives the Page component as children"
+
+  default_variant: "web"
+
+  variants:
+    atomic:
+      description: "Existing Atomic UI variant — compatibility for legacy projects"
+      default: false
+      layer_order: *frontend_atomic_layer_order
+      layers: *frontend_atomic_layers
+
+    web:
+      description: "Framework-independent web frontend variant — default for new/target areas"
+      default: true
+      layer_order:
+        - "Foundation"
+        - "Contract"
+        - "DataState"
+        - "Primitive_UI"
+        - "Semantic_Component"
+        - "Feature_Block"
+        - "Route_Surface"
+        - "App_Shell"
+
+      layers:
+        Foundation:
+          level: 1
+          directory: "src/foundation/"
+          can_reference: []
+          cross_reference: true
+          description: "semantic tokens, pure functions, constants, primitive types"
+          naming:
+            patterns:
+              - "{name}.token.{ext}"
+              - "{name}.const.{ext}"
+              - "{name}.type.{ext}"
+              - "{name}.util.{ext}"
+          rules:
+            - "No UI rendering, transport, or access to global state"
+            - "No framework-dependent implementation"
+            - "Tokens have at least two tiers, primitive→alias. Components reference alias names only — core/docs/ko/architecture/frontend-design-contract.md"
+
+        Contract:
+          level: 1.5
+          directory: "src/contracts/"
+          can_reference: ["Foundation"]
+          cross_reference: true
+          description: "DTO, ViewModel, schema, API port/interface, cache key contract"
+          naming:
+            patterns:
+              - "{Name}DTO.{ext}"
+              - "{Name}ViewModel.{ext}"
+              - "{name}.schema.{ext}"
+              - "{name}.contract.{ext}"
+              - "{name}.keys.{ext}"
+          rules:
+            - "No UI rendering"
+            - "No calls to transport implementations"
+            - "No references to DataState or UI layers"
+
+        DataState:
+          level: 2
+          directory: "src/data-state/"
+          can_reference: ["Foundation", "Contract"]
+          cross_reference: false
+          description: "server-state, mutation, client-state adapter"
+          naming:
+            patterns:
+              - "use{Name}Query.{ext}"
+              - "use{Name}Mutation.{ext}"
+              - "use{Name}State.{ext}"
+              - "{name}DataState.{ext}"
+              - "{name}.service.{ext}"           # transport segment
+          rules:
+            - "Does not expose the transport client directly to the UI"
+            - "transport ({name}.service) is referenced only by DataState adapters (use*Query/use*Mutation) — components, Route Surface and orchestration hooks see only the adapters"
+            - "No rendering of UI components"
+            - "cache keys and DTO/ViewModel contracts reference Contract"
+
+        Primitive_UI:
+          level: 3
+          directory: "src/ui/primitives/"
+          can_reference: ["Foundation"]
+          cross_reference: true
+          description: "Low-level UI primitives bound to semantic tokens"
+          naming:
+            patterns:
+              - "{Name}.{ext}"
+              - "{Name}.stories.{ext}"
+              - "{Name}.test.{ext}"
+          rules:
+            - "No references to domain Contract, DataState, or transport"
+            - "Works from Props and Foundation tokens alone"
+
+        Semantic_Component:
+          level: 4
+          directory: "src/ui/semantic/"
+          can_reference: ["Foundation", "Contract", "Primitive_UI"]
+          cross_reference: false
+          description: "UI components with user/domain meaning that do not call DataState directly"
+          naming:
+            patterns:
+              - "{Domain}{Purpose}.{ext}"
+              - "{Purpose}{Role}.{ext}"
+              - "{Domain}{Purpose}View.{ext}"    # the render half of a Feature Block (Section)
+          rules:
+            - "No direct references to DataState"
+            - "No direct transport calls"
+            - "server-state is injected through props or callbacks"
+
+        Feature_Block:
+          level: 5
+          directory: "src/features/"
+          can_reference: ["Foundation", "Contract", "DataState", "Primitive_UI", "Semantic_Component"]
+          cross_reference: false   # no references to another domain's Section. Composing child Sections within the same domain is allowed (DEC-2026-11-01-19)
+          domain_slice: "src/features/(*)/"   # domain = the one directory directly under the feature root (layer-map feature_root, otherwise the part of this value before (*)). Files outside the root are not isolated. This is a boundary between pieces of code; it does not guarantee the meaning of a business domain (DEC-2026-11-01-19)
+          description: "A screen fragment for a specific use case and the point where its data/state are assembled. A child Section owns only the draft and mutations of its own use case, which is an independent unit of saving; a draft edited together, and submit, cancel and atomic save across several Sections, belong to a single coordinator (the parent Section) (DEC-2026-11-01-19)"
+          naming:
+            patterns:
+              - "{UseCase}Section.{ext}"         # screen fragment without a route (formerly Partial, Container, Block — all forbidden, DEC-2026-11-01-19)
+              - "{UseCase}Panel.{ext}"
+              - "{UseCase}Dialog.{ext}"
+              - "{UseCase}Table.{ext}"
+              - "use{UseCase}Section.{ext}"      # optional — split out only when another Section reuses the Section's state logic or it is tested on its own. By default it stays inside the Section
+          rules:
+            - "No direct references to another domain's Feature_Block — child Sections within the same domain are allowed; assembling screens from other domains is done by the Route_Surface ({Route}Page)"
+            - "State ownership splits three ways: owning the local draft · observing the server cache (several observers of the same query key are not duplicate owners) · responsibility for the save command. Atomicity comes from a single command or transaction in DataState/API, not from invalidation after several mutations"
+            - "Appearance is a pure function of Primitive_UI variant axes × Foundation aliases (Composition Legality — core/docs/ko/architecture/frontend-design-contract.md)"
+            - "Calling DataState is allowed from this layer up"
+            - "No responsibility for routing or app-wide providers"
+
+        Route_Surface:
+          level: 6
+          directory: "src/routes/"
+          can_reference: ["Foundation", "Contract", "Feature_Block", "App_Shell"]   # App_Shell: route files wrap themselves in the shell layout and providers (the reverse direction is forbidden)
+          cross_reference: false
+          description: "URL entry point, route params, permission boundary, screen assembly. A {RouteName}Page that assembles several Sections belongs to this layer wherever it sits (routes or features) — put it before the Feature_Block mapping in the layer-map (DEC-2026-11-01-19)"
+          naming:
+            patterns:
+              - "{RouteName}Route.{ext}"
+              - "{RouteName}Page.{ext}"
+          rules:
+            - "Responsible only for resolving the route context and placing Feature_Blocks"
+            - "No direct transport calls"
+            - "No DataState hook calls — routing and auth hooks only (DataState is not in can_reference)"
+            - "Do not export as reusable UI"
+
+        App_Shell:
+          level: 7
+          directory: "src/app-shell/"
+          can_reference: ["Foundation", "Contract", "DataState", "Primitive_UI", "Semantic_Component"]
+          cross_reference: false
+          description: "Global providers, navigation, app-level layout. Also includes shell packages shared by several apps (zones)"
+          naming:
+            patterns:
+              - "{Name}Shell.{ext}"
+              - "{Name}Provider.{ext}"
+              - "{Name}Layout.{ext}"
+          rules:
+            - "No direct references to Feature_Block"
+            - "No domain use case logic"
+
+    mobile:
+      description: "Native mobile UI variant (SwiftUI, Compose) — layer meanings and can_reference are the same as web; vocabulary, Feature assembly and target-sharing rules differ (DEC-2026-09-11-01)"
+      default: false
+      layer_order:
+        - "Foundation"
+        - "Contract"
+        - "DataState"
+        - "Primitive_UI"
+        - "Semantic_Component"
+        - "Feature_Block"
+        - "Route_Surface"
+        - "App_Shell"
+
+      # sharing across targets — when the app, widget, watch and intents put the same file into several targets (no copying, only adding targets)
+      targets:
+        shareable_layers: ["Foundation", "Contract", "Primitive_UI", "Semantic_Component"]
+        stateful_shared:
+          allowed_layers: ["DataState"]
+          requires: "layer-map targets.shared[].stateful: true + document that each target has its own instance"
+        forbidden_layers: ["Feature_Block", "Route_Surface", "App_Shell"]
+
+      layers:
+        Foundation:
+          level: 1
+          directory: "Packages/Foundation/"
+          can_reference: []
+          cross_reference: true
+          description: "Design tokens (color, typography, spacing, radius, motion), pure shapes, constants, pure utilities"
+          naming:
+            patterns:
+              - "{Name}Tokens.{ext}"
+              - "{Name}Shape.{ext}"
+              - "{Name}.{ext}"
+          rules:
+            - "No state ownership, I/O, or persistence (UserDefaults, DataStore)"
+            - "Tokens are generated from tokens.json. Raw hex values and system fonts only inside this layer"
+            - "Platform UI framework types only as token return types (Color, Font)"
+
+        Contract:
+          level: 1.5
+          directory: "Packages/Contract/"
+          can_reference: ["Foundation"]
+          cross_reference: true
+          description: "Codable/Serializable models, screen state values (UiState), pure calculation rules, deep-link contracts, port protocols"
+          naming:
+            patterns:
+              - "{Name}.{ext}"
+              - "{Name}UiState.{ext}"
+              - "{Name}UiModel.{ext}"
+              - "{Name}Rules.{ext}"
+              - "{Name}Contract.{ext}"
+              - "{Name}DeepLink.{ext}"
+          rules:
+            - "Value types only. No UI framework imports (Foundation/kotlin.* only)"
+            - "No display properties (color, icon, font) — put them in an extension in Semantic Component"
+            - "Do not use the name 'ViewModel' — on mobile a ViewModel means a state owner (DataState/Feature). Screen state values are UiState/UiModel"
+
+        DataState:
+          level: 2
+          directory: "Packages/DataState/"
+          can_reference: ["Foundation", "Contract"]
+          cross_reference: false
+          description: "State owners (Store/ViewModel) + isolated I/O (Service/Repository/Session)"
+          naming:
+            patterns:
+              - "{Name}Store.{ext}"          # main-actor state owner (ObservableObject / ViewModel)
+              - "{Name}Repository.{ext}"     # persistence and remote I/O — actor / suspend + IO dispatcher
+              - "{Name}Service.{ext}"
+              - "{Name}Session.{ext}"        # cross-process and cross-device sessions (WatchConnectivity, etc.)
+              - "{Name}Bridge.{ext}"         # bridge across targets (App Group, widget refresh)
+          rules:
+            - "Store is on the main actor, Repository/Service are isolated I/O — views see only the Store"
+            - "No direct references to another domain's Store — assembly happens in the Feature Block"
+            - "Persistence and transport end inside this layer. No UserDefaults or file I/O in views or Contract"
+            - "cache keys and model contracts reference Contract"
+
+        Primitive_UI:
+          level: 3
+          directory: "Packages/DesignSystem/"
+          can_reference: ["Foundation"]
+          cross_reference: true
+          description: "Domain-agnostic components — buttons, chips, rows, tab bars. A design system package"
+          naming:
+            patterns:
+              - "{Name}.{ext}"
+              - "{Prefix}Components.{ext}"
+          rules:
+            - "No references to domain models, Store, or Contract"
+            - "Works from props (variant, intent, size axes) and Foundation tokens alone"
+            - "Must be a separate module (SPM package / Gradle module) — the compiler enforces that it cannot import the app target"
+
+        Semantic_Component:
+          level: 4
+          directory: "App/Sources/Components/"
+          can_reference: ["Foundation", "Contract", "Primitive_UI"]
+          cross_reference: false
+          description: "Meaningful views drawn from props/UiState alone — charts, stages, headers, empty states. No state ownership"
+          naming:
+            patterns:
+              - "{Domain}{Purpose}View.{ext}"
+              - "{Purpose}{Role}.{ext}"
+              - "{Model}+Style.{ext}"          # display-property extension of a Contract model
+          rules:
+            - "No Store access — zero environment injection (@EnvironmentObject / hiltViewModel)"
+            - "No creating @StateObject / ViewModel"
+            - "UiState comes in as props, events go out as callbacks"
+
+        Feature_Block:
+          level: 5
+          directory: "App/Sources/Features/"
+          can_reference: ["Foundation", "Contract", "DataState", "Primitive_UI", "Semantic_Component"]
+          cross_reference: false
+          composition: "parent_child"          # parent→child assembly within the same domain tree allowed (domain 'today' → 'today/mood'). Siblings and reverse direction forbidden
+          description: "State owner of a screen fragment — holds the Store (@StateObject/@EnvironmentObject/hiltViewModel) and passes props down"
+          naming:
+            patterns:
+              - "{UseCase}View.{ext}"
+              - "{UseCase}Screen.{ext}"
+              - "{UseCase}Sheet.{ext}"
+              - "{UseCase}Section.{ext}"
+          rules:
+            - "No references to sibling-domain Feature Blocks. Declare parent→child assembly with the domain path (parent/child)"
+            - "Calling DataState is allowed from this layer up"
+            - "No responsibility for the navigation graph or global providers (push routes through the callback/binding the Route Surface provides)"
+
+        Route_Surface:
+          level: 6
+          directory: "App/Sources/Routes/"
+          can_reference: ["Foundation", "Contract", "Feature_Block", "App_Shell"]
+          cross_reference: false
+          description: "Navigation graph entry points — TabView, NavigationStack, NavHost destinations, deep-link resolution, permission boundary"
+          naming:
+            patterns:
+              - "{Flow}Flow.{ext}"
+              - "{Name}TabView.{ext}"
+              - "{Name}Route.{ext}"
+              - "{Name}NavGraph.{ext}"
+          rules:
+            - "No creating or injecting Stores (App Shell's job). No referencing Stores either — DataState is not in can_reference"
+            - "Only placing Feature Blocks and resolving routes. No exporting reusable UI"
+            - "The tab root and each tab's NavigationStack/NavHost are in the same Route Surface domain"
+
+        App_Shell:
+          level: 7
+          directory: "App/Sources/Shell/"
+          can_reference: ["Foundation", "Contract", "DataState", "Primitive_UI", "Semantic_Component"]
+          cross_reference: false
+          description: "@main App / Application, MainActivity, global Store creation and environment injection, DI container, WidgetBundle, shell chrome (tab bar)"
+          naming:
+            patterns:
+              - "{Name}App.{ext}"
+              - "{Name}Shell.{ext}"
+              - "{Name}Bundle.{ext}"
+              - "{Name}Module.{ext}"          # DI module (Hilt)
+          rules:
+            - "No direct references to Feature Block — wraps the Route Surface"
+            - "No domain use case logic"
+            - "Store creation (@StateObject) and the .environmentObject chain live here, in one place"
+
+# ============================================================
+# Dependency validation rules (for hook scripts)
+# ============================================================
+validation:
+  import_check:
+    enabled: true
+    severity: "error"     # error | warning
+    action: "block"       # block | warn
+  
+  naming_check:
+    enabled: true
+    severity: "warning"
+    action: "warn"
+  
+  cross_reference_check:
+    enabled: true
+    severity: "error"
+    action: "block"
+    message: "Cross-reference between layers at the same level detected. Strata rule violation."

@@ -1,0 +1,56 @@
+# Strata — SwiftLint custom_rules (merge into the project's .swiftlint.yml)
+# check-swift-layers.py --style runs the same rules without SwiftLint. Put only one of the two in CI.
+# included / excluded are path regexes (SwiftLint README "Defining Custom Rules").
+# Replace {{TOKENS_PATH}} with a regex for the Foundation token file path — e.g. ".*/OrotTokens\\.swift"
+
+excluded:
+  - .build
+  - "**/Tests"
+
+custom_rules:
+  strata_no_color_hex_in_view:
+    name: "Color(hex:) outside tokens"
+    regex: 'Color\(hex:'
+    excluded:
+      - "{{TOKENS_PATH}}"
+    match_kinds:
+      - identifier
+      - argument
+    message: "Color(hex:) is for use inside token files only — use an alias token (core/docs/en/architecture/frontend-design-contract.md)"
+    severity: error
+
+  strata_no_raw_hex_literal:
+    name: "hex literal outside tokens"
+    regex: '"#?[0-9A-Fa-f]{6}"'
+    excluded:
+      - "{{TOKENS_PATH}}"
+    match_kinds:
+      - string
+    message: "hex literals are forbidden outside Foundation — add them through tokens.json → Swift tokens"
+    severity: error
+
+  strata_no_system_font:
+    name: "system font set directly"
+    regex: '\.font\(\.system'
+    excluded:
+      - "{{TOKENS_PATH}}"
+    message: "use typography tokens (tokens absorb Dynamic Type through Font.custom(_:size:relativeTo:))"
+    severity: warning
+
+  strata_no_userdefaults_in_view:
+    name: "direct UserDefaults access in a view"
+    regex: 'UserDefaults\.standard'
+    included:
+      - ".*View\\.swift"
+      - ".*Page\\.swift"
+    message: "persistence stays inside the DataState store — views read through the store"
+    severity: warning
+
+  strata_token_exception_expiry:
+    name: "token-exception expiry"
+    regex: '@strata:token-exception\b.*\buntil\s+\d{4}-\d{2}-\d{2}'
+    match_kinds:
+      - comment
+      - doccomment
+    message: "check the expiry date — if it has passed, promote to an alias (DEC) or remove the value (core/docs/en/conventions/strata-markers.md)"
+    severity: warning

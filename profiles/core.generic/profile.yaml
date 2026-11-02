@@ -1,0 +1,24 @@
+# Profile manifest — the fallback profile when no stack is detected (methodology repos, docs, mixed tooling).
+profile:
+  id: core.generic
+  title:
+    en: Core only (no stack profile)
+    ko: 코어만 (스택 프로필 없음)
+    ja: コアのみ（スタックプロファイルなし）
+    zh: 仅核心（无技术栈配置）
+    es: Solo núcleo (sin perfil de stack)
+    fr: Noyau seul (sans profil de stack)
+  status: active
+  detect: {}
+  layers: none declared; rec.architecture.no-layer-violation is explained and marked not applicable
+  enforcement: []
+  cards_default: []
+  cards_excluded: []
+  source: core/constitution/constitution.yaml (must cards only; strata-kit dogfooding 2026-10-28)
+  note:
+    en: Must cards and core should cards apply; no stack-specific cards
+    ko: must 카드와 코어 should 카드만 적용되고 스택 전용 카드는 없다
+    ja: must カードとコアの should カードのみ適用し、スタック固有カードはない
+    zh: 仅适用 must 卡片与核心 should 卡片，无技术栈专属卡片
+    es: Se aplican las tarjetas must y las should del núcleo; sin tarjetas específicas de stack
+    fr: Les cartes must et les cartes should du noyau s'appliquent ; aucune carte spécifique au stack

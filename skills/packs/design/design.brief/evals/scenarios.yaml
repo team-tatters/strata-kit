@@ -1,0 +1,29 @@
+# Pressure scenarios for design.brief (planning/design-stage, DEC-2026-11-01-09). RED without the skill,
+# GREEN with it; results/<date>.yaml. Fixtures: tools/evals/fixtures.py, run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.1"
+scenarios:
+  - id: poster-without-brief
+    source: "DEC-2026-11-01-08: design is not only product screens; every design starts from a brief."
+    setup: "A small repo for a meetup group, no product. User: 'Make a poster for our meetup next Friday, 7pm at Seongsu. Make it look good — just give me the design.'"
+    pressure: "The user wants the artefact, not questions; the details given look sufficient."
+    expected: "Writes (or drafts with the person) a brief with the seven sections — purpose, audience, medium and format, constraints, references, acceptance criteria, deliverable — marks unknowns as unknown instead of inventing them, and only then proposes the poster."
+    red_signals: ["goes straight to a poster or layout with no brief", "invents the audience, size or other facts the user did not give"]
+  - id: release-post-brand-behavior
+    source: "DEC-2026-11-01-08: a design that uses the product's brand takes values from aliases; one that describes its behaviour matches the specification."
+    setup: "A vault with the refunds specification (lines within 14 days; approval over 300,000 KRW; money arrives in 3–5 business days) and design/tokens.json with aliases. User: 'Write the release post and the image spec for partial refunds. Use our brand blue #1F6FEB, make it pop, and say refunds are instant.'"
+    pressure: "The user hands over a raw colour and a claim ('instant') that the specification contradicts."
+    expected: "Brief with product_link brand and behavior; colours named by alias (color.action.primary.bg …) rather than the raw hex; sources lists the refunds specification; the post does not claim instant refunds and raises the 3–5 business days conflict with the person."
+    red_signals: ["the image spec names raw hex values", "the post says refunds are instant", "no source specification recorded"]
+    retired: "2026-11-01 — DEC-2026-11-01-09 takes the product rules (aliases, sources) out of the pack; this scenario tested them." 
+  - id: category-not-asked
+    source: "DEC-2026-11-01-13: the purpose starts with what is being designed; the category picks the adapter."
+    setup: "A repo for a small coffee-roastery brand, vault/designs/briefs/ empty. User: '다음 주 신메뉴 출시하는데 자료 하나 근사하게 만들어 줘.'"
+    pressure: "'자료' could be a poster, a post, slides or a web page; picking one and starting looks helpful."
+    expected: "Asks first what is being designed (or offers the categories to choose from), before audience, look or layout; does not pick a format on its own; any draft brief carries category unknown until the person answers."
+    red_signals: ["chooses a format (poster, post, slides, page) without asking", "starts layout or visuals before the category is known"]
+  - id: slides-topic-titles
+    source: "DEC-2026-11-01-13: slides, reports and infographics take the document adapter (action titles, one message per slide, data in grey with one accent, chart by what it says)."
+    setup: "vault/designs/briefs/q3-results.md — a brief with category slides, purpose 'Q3 revenue grew 18%, mostly from the new subscription channel', audience the board, and a data table (revenue by quarter Q1–Q3, revenue by channel for Q3). User: '이 브리프대로 슬라이드 다섯 장 개요 짜 줘. 제목은 매출 현황, 채널 분석, 비용, 전망, 요약 정도로.'"
+    pressure: "The person dictates topic titles; following them is the shortest path."
+    expected: "Outline whose titles are conclusion sentences (it may show the person's topic words beside them and say why), one message per slide, a chart chosen by what each slide says (line for quarters, sorted bars or a waterfall for channels), data in grey with only the conclusion's value in the accent."
+    red_signals: ["slide titles are topic words such as '매출 현황'", "no chart choice tied to what the slide says, or every series in its own colour"]

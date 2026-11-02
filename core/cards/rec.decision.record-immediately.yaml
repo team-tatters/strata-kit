@@ -1,0 +1,70 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.decision.record-immediately
+  title:
+    en: Record architecture decisions immediately
+    ko: 아키텍처 결정은 즉시 기록한다
+    ja: 設計判断は即時に記録する
+    zh: 架构决策立即记录
+    es: Registrar las decisiones de arquitectura de inmediato
+    fr: Consigner immédiatement les décisions d'architecture
+  claim:
+    en: When an architecture decision happens, write a decision record with the decision writer CLI in the same session. The index and the vault mirror are generated from records and never hand-edited.
+    ko: 아키텍처 결정이 생기면 같은 세션에서 decision writer CLI 로 레코드를 남긴다. 인덱스와 vault 미러는 레코드에서 생성되며 손으로 고치지 않는다.
+    ja: 設計判断が生じたら、同じセッション内で decision writer CLI によりレコードを残す。インデックスと vault ミラーはレコードから生成され、手で編集しない。
+    zh: 一旦产生架构决策，就在同一会话中用 decision writer CLI 写入记录。索引和 vault 镜像由记录生成，绝不手工编辑。
+    es: Cuando ocurre una decisión de arquitectura, se escribe un registro con el CLI de decisiones en la misma sesión. El índice y el espejo del vault se generan a partir de los registros y nunca se editan a mano.
+    fr: Lorsqu'une décision d'architecture est prise, on l'enregistre avec le CLI de décisions dans la même session. L'index et le miroir du vault sont générés à partir des enregistrements et jamais édités à la main.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Record architecture decisions in the same session with the decision CLI; never hand-edit the index.
+    ko: 아키텍처 결정은 같은 세션에서 decision CLI 로 기록한다. 인덱스는 손으로 고치지 않는다.
+    ja: アーキテクチャ決定は同じセッションで decision CLI で記録する。インデックスは手で直さない。
+    zh: 架构决定在同一会话中用 decision CLI 记录；不要手工修改索引。
+    es: Registra las decisiones de arquitectura en la misma sesión con la CLI de decisiones; nunca edites el índice a mano.
+    fr: Enregistrer les décisions d'architecture dans la même session avec la CLI de décision ; ne jamais modifier l'index à la main.
+  applies_when:
+  - en: 'Any choice that constrains future code: layering, contracts, data placement, policies'
+    ko: '앞으로의 코드를 구속하는 모든 선택: 레이어, 계약, 데이터 배치, 정책'
+    ja: 将来のコードを拘束するあらゆる選択：レイヤー、契約、データ配置、ポリシー
+    zh: 任何约束未来代码的选择：分层、契约、数据放置、策略
+    es: 'Cualquier elección que restrinja el código futuro: capas, contratos, ubicación de datos, políticas'
+    fr: 'Tout choix qui contraint le code futur : couches, contrats, placement des données, politiques'
+  not_when:
+  - en: Local implementation choices that a later change can reverse without touching a contract
+    ko: 계약을 건드리지 않고 되돌릴 수 있는 지역적 구현 선택
+    ja: 契約に触れずに後で戻せる局所的な実装上の選択
+    zh: 无需触及契约即可在以后撤销的局部实现选择
+    es: Elecciones locales de implementación reversibles después sin tocar un contrato
+    fr: Choix d'implémentation locaux réversibles plus tard sans toucher à un contrat
+  evidence:
+  - kind: decision
+    ref: DEC-2026-08-19-05
+    note:
+      en: Records are the source of truth; decisions.yaml is a generated index
+      ko: 레코드가 정본, decisions.yaml 은 생성 인덱스
+      ja: レコードが原本であり、decisions.yaml は生成されたインデックス
+      zh: 记录是正本；decisions.yaml 是生成的索引
+      es: Los registros son la fuente de verdad; decisions.yaml es un índice generado
+      fr: Les enregistrements font foi ; decisions.yaml est un index généré
+  - kind: measurement
+    ref: a backend project, 2026-08-21 — mirror had 0 records
+    note:
+      en: A mirror generated in a separate manual step was found empty; the mirror must be generated in the same run as the record
+      ko: 별도 수동 실행에 맡긴 미러가 비어 있었다. 미러는 레코드 기록과 같은 실행에서 생성해야 한다
+      ja: 別の手動手順で生成したミラーが空だった。ミラーはレコードと同じ実行で生成する
+      zh: 在单独手工步骤中生成的镜像为空；镜像必须与记录在同一次运行中生成
+      es: Un espejo generado en un paso manual aparte estaba vacío; el espejo debe generarse en la misma ejecución que el registro
+      fr: Un miroir généré dans une étape manuelle séparée était vide ; le miroir doit être généré dans la même exécution que l'enregistrement
+  counter_examples: []
+  verification:
+    en: kb decision check-uncommitted reports 0 at session end; the handoff lists decisions_made
+    ko: 세션 종료 시 kb decision check-uncommitted 가 0건, 핸드오프의 decisions_made 에 ID 가 있다
+    ja: セッション終了時に kb decision check-uncommitted が0件、ハンドオフの decisions_made にIDがある
+    zh: 会话结束时 kb decision check-uncommitted 为 0；交接的 decisions_made 列出 ID
+    es: kb decision check-uncommitted informa 0 al cerrar la sesión; el traspaso lista decisions_made
+    fr: kb decision check-uncommitted signale 0 en fin de session ; la passation liste decisions_made
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 2
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

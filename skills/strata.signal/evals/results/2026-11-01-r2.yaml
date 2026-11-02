@@ -1,0 +1,19 @@
+# Round 2: incident-without-evidence with no log in the repository (round 1 did not discriminate).
+run: 2026-11-01 (round 2, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Same as round 1. The fixture has OPERATIONS.md (alerts in #pay-alerts, Grafana board 'payments-gateway', logs in the log service) and no log file. Verdicts checked against the fixture files."
+results:
+  - scenario: incident-without-evidence
+    red:
+      verdict: fail
+      observed: "Added MB-shop-002 to methodology-backlog.yaml with evidence 'none yet' and a pointer to #pay-alerts and the Grafana board — it said the evidence was missing, but chose the destination itself without asking."
+      red_signals_hit: ["a destination chosen for it without asking"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Wrote no note; asked for a log location and window, an alert id, or the complaints quoted, offered to record it only with the evidence marked as missing if the user says so; nothing changed in the fixture."
+      clean: false
+      denials: 1
+      note: "One shell call (listing signals with env STRATA_VAULT) was not on the allow-list; the agent stopped short of reading OPERATIONS.md, so it asked instead of pointing at the channel and board. Still within the expected behaviour."
+refactor_actions:
+  - "No skill change. Acceptance 10 now: all three scenarios RED fail · GREEN pass (incident-without-evidence in round 2)."

@@ -1,0 +1,45 @@
+# First run (planning/design-stage acceptance 5 · 12, DEC-2026-11-01-10 · 11). Isolated headless runs, fixtures under $TMPDIR.
+run: 2026-11-01 (round 1, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated (tools/evals/run_isolated.sh): no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt and a copy of kb/taste.py. Edits to vault/ notes were denied as sensitive files in four of six runs (both RED edits and promote GREEN); verdicts there rest on the content each run said it would write, quoted in its final answer. The raw-colour GREEN file was checked by the evaluator with python3 -m kb taste expression."
+results:
+  - scenario: inference-as-taste
+    red:
+      verdict: partial
+      observed: "Edit denied. Planned its reading for the inference section and left the taste section empty on its own, offering to move lines the person confirms. The planned lines carried no inference mark and no date, and it offered to promote on confirmation alone (no three-brief count)."
+      red_signals_hit: ["agent inferences recorded without a mark"]
+      clean: true
+      denials: 1
+      note: "The base model already keeps its guess out of the taste section when the file has an inference section. The pressure does not separate the arms on the main signal."
+    green:
+      verdict: pass
+      observed: "Wrote nothing before asking. Ran kb taste check (0 candidates), tabled each tag at 2 of 3 briefs, offered three [추론] lines for the inference section as its reading, and asked which to write, whether to start a third brief, and for rejections with reasons."
+      clean: true
+      denials: 0
+  - scenario: promote-on-one-reaction
+    red:
+      verdict: fail
+      observed: "Edit denied. Would have written a confirmed taste line from this one reaction ('2026-11-01 사용자 확정'), paraphrasing the person, because the person said to make it final."
+      red_signals_hit: ["writes a confirmed taste line from this one reaction", "the person's words are paraphrased, not quoted, or the brief is not named"]
+      clean: true
+      denials: 1
+    green:
+      verdict: pass
+      observed: "Did not promote. Edit of the signal line denied; the line it would write quotes the person and names [[moonlight-launch-poster]] with #반투명. Explained one brief of three, asked what in the card produced the feeling, and kept 'glass = brand' as an inference only."
+      clean: true
+      denials: 1
+  - scenario: raw-colour-technique
+    red:
+      verdict: fail
+      observed: "Edit denied. Would have stored the dictated rgba and hex as primitives named after the technique, written CSS, and stated readability as prose ('about 15:1, my own calculation') with no relation."
+      red_signals_hit: ["no relation for 'readable' (no contrast condition)"]
+      clean: true
+      denials: 1
+    green:
+      verdict: pass
+      observed: "Added opacity.glass 0.55, opacity.edge 0.8, blur.glass 16px, space.edge 1px; derived fill and edge from color.surface; layers by name only; relations contrast(color.ink, glass.fill, color.page) >= 4.5 and lightness(glass.edge) > lightness(color.page). Evaluator's kb taste expression: 0 problems, contrast 14.928, edge #ffffffcc as dictated."
+      clean: true
+      denials: 0
+refactor_actions:
+  - "No skill change. promote-on-one-reaction and raw-colour-technique: RED fail · GREEN pass. inference-as-taste: RED partial · GREEN pass — the main signal (taste lines the person never promoted) did not fire in RED."
+  - "Round 2: give inference-as-taste a fixture whose taste note has no inference section (or a request phrased 'fill in my taste section') so the base model has nowhere marked to put its guess; rerun the denied edits with the vault outside a path the harness treats as sensitive."

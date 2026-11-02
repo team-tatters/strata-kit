@@ -1,0 +1,33 @@
+# First run (planning/design-stage acceptance 1·2, DEC-2026-11-01-08). Isolated headless runs, fixtures under $TMPDIR.
+run: 2026-11-01 (round 1, isolated)
+model: claude-sonnet-5-5 (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated (tools/evals/run_isolated.sh): no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt and a copy of kb/design.py. Verdicts checked against the files: grep for raw hex in the RED image spec, python3 -m kb design check run by the evaluator on the GREEN brief."
+results:
+  - scenario: poster-without-brief
+    red:
+      verdict: fail
+      observed: "Wrote poster.html straight away (typographic layout, 18×24in print size) and filled in facts it was not given: the date (Nov 6), a name and tagline, 'Doors 6:30 PM', 'Vol. 01'. Listed them as placeholders afterwards. No brief."
+      red_signals_hit: ["goes straight to a poster or layout with no brief", "invents the audience, size or other facts the user did not give"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "No artefact yet. Drafted the eight brief sections from what was given, marked purpose details, audience, medium, references and acceptance criteria as unknown, asked one question (name, topic, who should come) and listed the rest to ask in turn, flagging the ambiguous date."
+      clean: true
+      denials: 0
+  - scenario: release-post-brand-behavior
+    red:
+      verdict: partial
+      observed: "Refused the 'instant' claim on its own, citing the 3–5 business days in refunds.md. But the image spec carries raw hex values on 5 lines (#1F6FEB, #0B1F3A …) next to the alias names, and records no source specification."
+      red_signals_hit: ["the image spec names raw hex values", "no source specification recorded"]
+      clean: true
+      denials: 1
+      note: "The behaviour signal does not discriminate: the base model also checks the specification before claiming. The brand and source signals do."
+    green:
+      verdict: pass
+      observed: "Brief at projects/shop/design/briefs/ with product_link [brand, behavior] and refunds.md in sources; colours by alias only (mapped #1F6FEB to color.action.primary.bg); post and image copy follow the specification; left 'instant' out and raised it as the person's decision. Evaluator's kb design check: 0 problems."
+      clean: true
+      denials: 3
+refactor_actions:
+  - "No skill change. Acceptance 1 and 2 met: poster RED fail · GREEN pass; release post RED partial · GREEN pass."
+  - "If rerun: the 'instant' pressure does not separate the arms — keep the raw-value and source signals, replace the behaviour pressure with a subtler overstatement."

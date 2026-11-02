@@ -1,0 +1,364 @@
+# Canonical: strata-kit core/rules/naming-convention.yaml — moved from strata docs/03-architecture/naming-convention.yaml (3b1d978) (strata-kit order 2026.10.29-01 task-02)
+# Read by: profile enforcement templates (check-swift-layers, depcruise, ArchUnit), python -m kb validate-naming and check-layer. Located via $STRATA_KIT/core/rules.
+# Strata naming convention
+# Read by the hook (python -m kb validate-naming) and by agents.
+
+version: "1.0"
+
+# ============================================================
+# Common rules
+# ============================================================
+common:
+  case_styles:
+    file: "PascalCase"         # UserCommandService.ts
+    class: "PascalCase"        # class UserCommandService
+    function: "camelCase"      # createUser()
+    constant: "UPPER_SNAKE"    # MAX_RETRY_COUNT
+    type: "PascalCase"         # type UserCreateInput
+    enum: "PascalCase"         # enum OrderStatus
+    enum_value: "UPPER_SNAKE"  # PENDING, CONFIRMED
+    variable: "camelCase"      # const userName
+    directory: "kebab-case"    # src/data/user-profile/
+
+  prohibited_patterns:
+    - "Manager"   # ambiguous responsibility → use Coordinator or Service
+    - "Helper"    # → use Util
+    - "Handler"   # allowed only in Controller
+    - "Impl"      # → an implementation uses the interface name as is
+
+# ============================================================
+# Backend naming per layer (Kotlin/TypeScript default)
+# ============================================================
+backend:
+  L1_Component:
+    file_suffix: ["Component", "Const", "Type", "Util", "Enum"]
+    examples:
+      - "DateUtil.ts"
+      - "OrderType.ts"
+      - "ErrorCodeConst.ts"
+      - "PaginationComponent.ts"
+
+  LM1_Inherite:
+    file_prefix: ["Base"]
+    file_suffix: ["Entity", "Config"]
+    examples:
+      - "BaseAuditEntity.ts"
+      - "BaseMongoConfig.ts"
+
+  L2_DataLayer:
+    command: "{Domain}CommandService"
+    query: "{Domain}QueryService"
+    repository: "{Domain}Repository"
+    template: "{Domain}Template"
+    # naming for DSLContext/SQL-only implementations (paired with the layer-rules L2 'separation of query-control concerns' rule, 2026-08-13)
+    dsl_template: "{Domain}{Purpose}DSLTemplate"   # e.g. {Domain}QueryDSLTemplate, {Domain}ProvisionDSLTemplate, {Domain}RefreshDSLTemplate
+    entity:
+      rdbms: "{TableName}"       # same as the table name
+      nosql: "{Name}Document"    # Document suffix
+    test: "{Domain}{ServiceType}.test"
+    examples:
+      - "UserCommandService.ts"
+      - "OrderQueryService.ts"
+      - "OrderRepository.ts"
+      - "OrderSearchTemplate.ts"
+      - "UserDocument.ts"
+      - "OrderCommandService.test.ts"
+
+  LM2_Coordinate:
+    command: "{Domain}CommandCoordinator"
+    query: "{Domain}QueryCoordinator"
+    examples:
+      - "PaymentCommandCoordinator.ts"
+      - "InventoryQueryCoordinator.ts"
+
+  L3_Composite:
+    command: "{Domain}CommandCompositeService"      # {Domain}{Action}CompositeService when the action should be visible (DEC-2026-10-29-05)
+    query: "{Domain}QueryCompositeService"
+    listener: "{Domain}Listener"
+    task: "{Domain}Task"
+    examples:
+      - "OrderCommandCompositeService.kt"
+      - "OrderQueryCompositeService.kt"
+      - "EmissionManageCompositeService.kt"
+      - "OrderStatusListener.ts"
+      - "OrderCleanupTask.ts"
+
+  Route_Controller:
+    controller: "{Domain}Controller"
+    router: "{Domain}Router"
+    dto:
+      request: "{Action}{Domain}Request"
+      response: "{Domain}{Action}Response"
+    examples:
+      - "OrderController.ts"
+      - "CreateOrderRequest.ts"
+      - "OrderDetailResponse.ts"
+
+# ============================================================
+# Backend naming per layer (Go)
+# ============================================================
+# Go follows the conventions of snake_case file names and one package per directory.
+# A directory is a package boundary, so the package name expresses the role instead of a suffix.
+backend_go:
+  common:
+    case_styles:
+      file: "snake_case"           # inventory_query.go
+      struct: "PascalCase"         # type InventoryQueryService struct
+      function: "PascalCase"       # func NewInventoryQueryService() (exported)
+      constant: "PascalCase"       # const MaxRetryCount (exported), camelCase (unexported)
+      interface: "PascalCase"      # type EventStore interface
+      variable: "camelCase"        # var userName
+      directory: "snake_case"      # internal/data/inventory/
+
+  L1_Component:
+    files: ["{name}_const.go", "{name}_type.go", "{name}_util.go", "{name}_enum.go"]
+    examples:
+      - "date_util.go"
+      - "order_type.go"
+      - "error_code_const.go"
+
+  LM1_Inherite:
+    files: ["base_{name}.go", "{name}_entity.go", "{name}_config.go"]
+    examples:
+      - "base_audit_entity.go"
+      - "pg_config.go"
+
+  L2_DataLayer:
+    query: "{domain}_query.go"
+    repository: "{domain}_repository.go"
+    examples:
+      - "inventory_query.go"
+      - "inventory_repository.go"
+
+  LM2_Coordinate:
+    command: "{domain}_command_coordinator.go"
+    query: "{domain}_query_coordinator.go"
+    examples:
+      - "payment_command_coordinator.go"
+
+  L3_Composite:
+    command: "{domain}_command_composition.go"
+    query: "{domain}_query_composition.go"
+    listener: "{domain}_listener.go"
+    task: "{domain}_task.go"
+    examples:
+      - "order_command_composition.go"
+      - "order_status_listener.go"
+
+  Route_Controller:
+    controller: "{domain}_controller.go"
+    router: "{domain}_router.go"
+    dto:
+      request: "{action}_{domain}_request.go"
+      response: "{domain}_{action}_response.go"
+    examples:
+      - "order_controller.go"
+      - "create_order_request.go"
+
+# ============================================================
+# ES Track naming (es-cqrs variant only)
+# ============================================================
+es_track:
+  aggregate:
+    files: ["{domain}_aggregate.go", "{domain}_events.go", "{domain}_commands.go"]
+    examples:
+      - "inventory_aggregate.go"
+      - "inventory_events.go"
+      - "inventory_commands.go"
+
+  eventstore:
+    files: ["event_store.go", "event_store_pg.go", "snapshot_store.go"]
+    examples:
+      - "event_store.go"
+      - "event_store_pg.go"
+
+  projection:
+    files: ["{domain}_projector.go", "{domain}_inline_projector.go", "{domain}_async_projector.go"]
+    examples:
+      - "inventory_projector.go"
+      - "inventory_inline_projector.go"
+
+# ============================================================
+# Strata markers (layer annotations in source code)
+# ============================================================
+# Details: core/docs/ko/conventions/strata-markers.md
+markers:
+  syntax: "@strata:{tag} {value}"
+  tags:
+    port:
+      description: "Declares a layer port (service interface)"
+      pattern: "@strata:port {Layer}-{ServiceName}"
+      examples:
+        - "@strata:port L2-InventoryQueryService"
+        - "@strata:port DataState-InventoryQuery"
+    layer:
+      description: "Declares the layer the file belongs to"
+      pattern: "@strata:layer {Layer}"
+      examples:
+        - "@strata:layer L2"
+        - "@strata:layer L3"
+        - "@strata:layer DataState"
+        - "@strata:layer Feature_Block"
+    domain:
+      description: "Declares the business domain the file belongs to"
+      pattern: "@strata:domain {domain}"
+      examples: ["@strata:domain inventory", "@strata:domain order"]
+    generated:
+      description: "Marker for generated files (excluded from layer validation)"
+      pattern: "@strata:generated"
+    adapter:
+      description: "Declares an adapter for an external library/framework"
+      pattern: "@strata:adapter {library}"
+      examples: ["@strata:adapter sqlc", "@strata:adapter jooq"]
+    depends:
+      description: "Declares an explicit dependency port"
+      pattern: "@strata:depends {Layer}-{ServiceName}"
+      examples:
+        - "@strata:depends L2-OrderQueryService"
+        - "@strata:depends Contract-OrderDTO"
+    token_exception:
+      description: "Temporary allowance for a raw token value outside Foundation — an expiry date is required; once it passes, the diff check fails (core/docs/ko/architecture/frontend-design-contract.md, exception policy section)"
+      pattern: "@strata:token-exception {reason} until {YYYY-MM-DD}"
+      examples:
+        - "@strata:token-exception temporary color pending final design until 2026-10-31"
+    computed:
+      description: "Permanent exception for using values computed or measured at runtime (continuous dimensions such as a virtual scroll position, a measured reference width, a data column width) in design properties — a reason is required, no expiry. One-off design values use token_exception (DEC-2026-10-31-05)"
+      pattern: "@strata:computed {reason}"
+      examples:
+        - "@strata:computed spacing computed from the row height"
+
+  language_format:
+    kotlin: "KDoc @strata:{tag} — /** @strata:port L2-InventoryQueryService */"
+    go: "godoc comment — // strata:port L2-InventoryQueryService (without @)"
+    typescript: "JSDoc @strata:{tag} — /** @strata:port L2-InventoryQueryService */"
+    swift: "doc comment /// @strata:{tag} — /// @strata:layer Contract (profiles/frontend.swiftui/docs/ko/frontend-swiftui.md)"
+    rust: "doc comment /// @strata:{tag} — /// @strata:port L2-InventoryQueryService (profiles/service.rust/docs/ko/backend-rust.md)"
+
+# ============================================================
+# Frontend naming per layer
+# ============================================================
+frontend:
+  variants:
+    atomic:
+      layers: ["L1", "LM", "L2", "Atomic", "Molecule", "Partial", "Page", "Layout"]
+    web:
+      layers:
+        - "Foundation"
+        - "Contract"
+        - "DataState"
+        - "Primitive_UI"
+        - "Semantic_Component"
+        - "Feature_Block"
+        - "Route_Surface"
+        - "App_Shell"
+
+  L1:
+    hook: "use{Name}"
+    const: "{name}.const"
+    type: "{name}.type"
+    util: "{name}.util"
+
+  LM:
+    viewmodel: "{Name}ViewModel"
+    dto: "{Name}DTO"
+    api: "{name}Api"
+
+  L2:
+    query_hook: "useQuery{Name}"
+    mutation_hook: "useMutation{Name}"
+    store: "use{Name}Store"
+
+  Atomic:
+    component: "{Name}"      # Button, Input, Badge
+    story: "{Name}.stories"
+    test: "{Name}.test"
+
+  Molecule:
+    component: "{Name}"      # SearchBar, OrderCard
+    
+  Partial:
+    component: "{Name}Partial"
+
+  Page:
+    component: "{Name}Page"
+
+  Layout:
+    component: "{Name}Layout"
+
+  Foundation:
+    token: "{name}.token"
+    token_alias: "{category}.{object}.{role}.{state}"   # color.action.primary.bg.hover — core/docs/ko/architecture/frontend-design-contract.md
+    const: "{name}.const"
+    type: "{name}.type"
+    util: "{name}.util"
+
+  Contract:
+    dto: "{Name}DTO"
+    viewmodel: "{Name}ViewModel"
+    schema: "{name}.schema"
+    contract: "{name}.contract"
+    cache_key: "{domain}.keys"                          # one file per domain
+    cache_key_shape: "[scope, domain, entity..., params]"  # first element = app/zone identifier. Hierarchy: all → lists → list(p) — frontend-query-state.md
+
+  DataState:
+    query_adapter: "use{Entity}Query"                   # use{Entity}ListQuery
+    mutation_adapter: "use{Entity}{Action}Mutation"     # Create | Update | Delete | Submit ...
+    client_state: "use{Name}State"
+    adapter: "{name}DataState"
+    transport: "{name}.service"                         # HTTP call segment — imported only by adapters
+    forbidden_hook_prefixes: ["useFetch", "useGet", "usePost", "usePut", "usePatch", "useDelete"]   # HTTP verbs are transport vocabulary
+
+  Primitive_UI:
+    component: "{Name}"
+    story: "{Name}.stories"
+    test: "{Name}.test"
+
+  Semantic_Component:
+    component: "{Domain}{Purpose}"
+    role_component: "{Purpose}{Role}"
+    view: "{Domain}{Purpose}View"                       # the render half of a Section — zero DataState or router hooks
+
+  Feature_Block:
+    section: "{UseCase}Section"                         # screen fragment without a route (formerly Partial, Container). Default suffix
+    orchestration_hook: "use{UseCase}Section"           # optional — split out only for reuse or standalone testing. The Section is the state owner; by default it stays inside the Section
+    panel: "{UseCase}Panel"
+    dialog: "{UseCase}Dialog"
+    table: "{UseCase}Table"
+    forbidden_suffixes: ["Block", "Container", "Partial"]   # all of these are Section — DEC-2026-11-01-19 (Block alias retired, confirmed by cross-review). The edit hook and CI diff rules read this list
+
+  Props:                                                # component props — the name carries owner, direction and value/behavior (frontend-react.md, Props naming section)
+    value: "{state}"                                    # current value of state owned by the parent, read-only. No prefix
+    change_request: "on{State}Change"                   # child → parent request to change state. Passing a setter directly (set*) is forbidden
+    event: "on{Event}"                                  # triggers a parent action (onSubmit · onRowClick). Internal handlers are handle{Event}
+    shared_control: "{state}Control"                    # a value+change pair shared by several children — a { value, onChange, ... } bundle. Type {State}Control
+    model: "{name}Model"                                # bundle of derived, display-only data (Contract ViewModel). No callbacks
+    default_value: "default{State}"                     # uncontrolled initial value — owned by the child
+    boolean: ["is{X}", "has{X}", "can{X}", "should{X}"]
+    server_slice: ["{entities}", "is{Entities}Loading", "{entities}Error"]   # do not pass the whole query result object
+    render_slot: "render{Slot}"
+    ref: "{name}Ref"
+    forbidden_prefixes: ["set", "handle", "shared", "section"]   # set/handle are internal names; shared/section say nothing about direction
+
+  Route_Surface:
+    route: "{RouteName}Route"
+    page: "{RouteName}Page"
+
+  App_Shell:
+    shell: "{Name}Shell"
+    provider: "{Name}Provider"
+    layout: "{Name}Layout"
+
+# ============================================================
+# Test file naming
+# ============================================================
+test:
+  unit:
+    location: "same-directory"  # same directory as the source file
+    suffix: ".test"
+    pattern: "{SourceFileName}.test.{ext}"
+  integration:
+    location: "test/integration/"
+    suffix: ".integration.test"
+  e2e:
+    location: "test/e2e/"
+    suffix: ".e2e.test"

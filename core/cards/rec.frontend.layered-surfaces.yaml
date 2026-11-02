@@ -1,0 +1,65 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.frontend.layered-surfaces
+  profiles:
+  - frontend.next-web
+  - frontend.swiftui
+  title:
+    en: Frontend layers from foundation to app shell
+    ko: 파운데이션에서 앱 셸까지의 프론트엔드 레이어
+    ja: 基盤からアプリシェルまでのフロントエンド層
+    zh: 从基础到应用外壳的前端分层
+    es: Capas de frontend desde la base hasta el shell de la app
+    fr: Couches frontend de la fondation au shell applicatif
+  claim:
+    en: UI code depends only upward through Foundation → Contract → DataState → Primitive UI → Semantic Component → Feature Block → Route Surface → App Shell. Data fetching lives in DataState; route surfaces compose feature blocks and own nothing else.
+    ko: UI 코드는 Foundation → Contract → DataState → Primitive UI → Semantic Component → Feature Block → Route Surface → App Shell 방향으로만 의존한다. 데이터 호출은 DataState 에 있고, 라우트 표면은 기능 블록을 조합할 뿐 다른 것을 소유하지 않는다.
+    ja: UIコードは Foundation → … → App Shell の方向にのみ依存する。データ取得は DataState に置く。
+    zh: UI 代码只沿 Foundation → … → App Shell 方向依赖；数据获取位于 DataState。
+    es: El código de UI solo depende hacia arriba por Foundation → … → App Shell; la obtención de datos vive en DataState.
+    fr: Le code UI ne dépend que vers le haut via Foundation → … → App Shell ; la récupération de données vit dans DataState.
+  applies_when:
+  - en: Apps with more than a handful of screens or a shared component set
+    ko: 화면이 여럿이거나 공유 컴포넌트 셋이 있는 앱
+    ja: 画面が数枚以上あるか、共有コンポーネント群を持つアプリ
+    zh: 拥有多个界面或共享组件集的应用
+    es: Apps con más de unas pocas pantallas o un conjunto de componentes compartido
+    fr: Applications avec plus de quelques écrans ou un ensemble de composants partagé
+  not_when:
+  - en: A single marketing page
+    ko: 단일 마케팅 페이지
+    ja: 単一のマーケティングページ
+    zh: 单个营销页面
+    es: Una sola página de marketing
+    fr: Une seule page marketing
+  evidence:
+  - kind: reference
+    ref: core/docs/ko/architecture/frontend-web.md
+    note:
+      en: Layer definitions and the web variant
+      ko: 레이어 정의와 web 변형
+      ja: レイヤー定義と web バリアント
+      zh: 层定义与 web 变体
+      es: Definiciones de capas y la variante web
+      fr: Définitions des couches et variante web
+  - kind: measurement
+    ref: dependency-cruiser on a web monorepo, 2026-09
+    note:
+      en: Layer rules enforced on three 3.0 apps with CI
+      ko: 3.0 앱 세 개에 CI 로 집행
+      ja: 3.0 アプリ3つで CI によりレイヤー規則を強制
+      zh: 通过 CI 在三个 3.0 应用上强制执行层规则
+      es: Reglas de capas aplicadas con CI en tres apps 3.0
+      fr: Règles de couches appliquées par CI sur trois applications 3.0
+  counter_examples: []
+  verification:
+    en: dependency-cruiser (web) or check-swift-layers (SwiftUI) exit 0 in CI
+    ko: CI 에서 dependency-cruiser(web) 또는 check-swift-layers(SwiftUI) exit 0
+    ja: CI で dependency-cruiser または check-swift-layers が exit 0
+    zh: CI 中 dependency-cruiser 或 check-swift-layers 退出码 0
+    es: dependency-cruiser o check-swift-layers exit 0 en CI
+    fr: dependency-cruiser ou check-swift-layers exit 0 en CI
+  source: core/docs/ko/architecture/frontend-web.md, core/docs/ko/architecture/frontend-mobile.md
+  strength: should
+  supersedes: []
+  status: active

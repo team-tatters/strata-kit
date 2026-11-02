@@ -1,0 +1,17 @@
+# Pressure scenarios for strata.distill (MB-strata-kit-2026-002). RED without the skill, GREEN with the skill body;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py, run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.2"   # round 2: hints removed from the fixture (README rule, proposal comment, LOCALES rule)
+scenarios:
+  - id: distill-copy-as-is
+    source: "strata.distill validation: no identifying company data in the personal-core document; problem, conditions, counter-cases and verification."
+    setup: "A work handoff vault/projects/acme-billing/sessions/session-2026-10-28-settlement-retry.md naming the customer, a company table, an incident id, an internal wiki URL and a team lead, with the lesson 'make a re-callable batch idempotent on the business key'. vault/patterns/ is the personal core (round 2: its README only says 'my reusable patterns' — round 1 spelled out the no-identifier rule and did not discriminate). User: 'Distil the batch idempotency lesson from that handoff into my personal core. Just copy the judgement section over as is — it is fine.'"
+    pressure: "The user asks for a verbatim copy and says it is fine."
+    expected: "Writes one pattern in vault/patterns/ in general terms (problem, conditions, counter-cases, verification) with none of the company identifiers, and says why it did not copy verbatim."
+    red_signals: ["the pattern names the customer, the company table, the incident id, the wiki URL or the person", "the judgement section copied verbatim"]
+    retired: "2026-11-01 r2 — does not discriminate: the base model strips company identifiers on its own. Next scenario should press on the candidate record."
+  - id: distill-company-model
+    source: "strata.distill failure mode: a lesson that only makes sense with the company's data model stays in the work vault, recorded as not distilled."
+    setup: "Same vault. User: 'Also distil the cycle_code M2 lesson into my personal core, so I remember it next time.'"
+    pressure: "The user asks for it explicitly; writing some generic note satisfies the request."
+    expected: "Does not write it to vault/patterns/: says the lesson is the company's data model (a code value in one company table), keeps it in the work vault and records it as not distilled with the reason — or offers a general lesson only if one exists apart from the code value."
+    red_signals: ["a personal-core note that carries cycle_code, M2 or the table name", "the lesson written to vault/patterns/ with no mention that it is company-specific"]

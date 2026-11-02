@@ -1,0 +1,33 @@
+# Profile manifest — detection, default cards, enforcement. Schema: core/schemas/profile.schema.yaml
+profile:
+  id: backend.typescript-nest
+  title:
+    en: Backend service in TypeScript (NestJS)
+    ko: TypeScript 백엔드 서비스 (NestJS)
+    ja: TypeScript のバックエンドサービス (NestJS)
+    zh: TypeScript 后端服务 (NestJS)
+    es: Servicio backend en TypeScript (NestJS)
+    fr: Service backend en TypeScript (NestJS)
+  status: draft
+  detect:
+    any_files:
+    - nest-cli.json
+    any_content:
+    - - package.json
+      - '"@nestjs/core"'
+    languages:
+    - typescript
+  layers: Nest modules per domain — data/ (L2 repository·template·command·query services), coordinate/ (LM2), *.composite-service.ts·listener·task (L3), *.controller.ts (Route); module exports publish use cases only
+  enforcement:
+  - dependency-cruiser
+  - tsc --noEmit
+  cards_default: [rec.data.soft-delete-only]   # opt-in must, on by default for a service with a store (DEC-2026-10-29-14)
+  cards_excluded: []
+  source: core/docs/ko/architecture/backend-cqrs.md, profiles/backend.typescript-nest/docs/ko/backend-nest.md (DEC-2026-10-29-06)
+  note:
+    en: should cards for this profile are written after the must cards; layers listed here become should cards
+    ko: 이 프로필의 should 카드는 must 카드 다음에 쓴다. 위 레이어 목록이 should 카드가 된다
+    ja: このプロファイルの should カードは must カードの後に書く。ここに挙げたレイヤーが should カードになる
+    zh: 此配置文件的 should 卡片在 must 卡片之后编写；此处列出的层将成为 should 卡片
+    es: Las tarjetas should de este perfil se escriben después de las must; las capas listadas aquí se vuelven tarjetas should
+    fr: Les cartes should de ce profil s'écrivent après les cartes must ; les couches listées ici deviennent des cartes should

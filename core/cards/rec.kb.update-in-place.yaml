@@ -1,0 +1,63 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.update-in-place
+  strength: should
+  profiles: []
+  title:
+    en: Knowledge is updated in place, with sources
+    ko: 지식은 출처와 함께 제자리 갱신한다
+    ja: 知識は出典付きでその場で更新する
+    zh: 知识就地更新并附来源
+    es: El conocimiento se actualiza en el sitio, con fuentes
+    fr: La connaissance se met à jour sur place, avec ses sources
+  claim:
+    en: 'A knowledge document is corrected where it stands: the relevant section changes, updated and sources are set, and the previous state lives in git history. New dated copies, appended changelogs inside the document, and date stamps without a content check are not updates.'
+    ko: 지식 문서는 그 자리에서 고친다. 해당 절을 바꾸고 updated 와 sources 를 적으며, 이전 상태는 git 이력에 있다. 날짜 붙은 새 사본, 문서 안의 변경 이력 덧붙이기, 내용 검토 없는 날짜 갱신은 갱신이 아니다.
+    ja: 知識文書はその場で直す。該当節を変え、updated と sources を記し、以前の状態は git 履歴にある。日付付きの新しい写し、文書内の変更履歴の追記、内容検討のない日付更新は更新ではない。
+    zh: 知识文档在原处修正：修改相关小节，设置 updated 与 sources，先前状态保存在 git 历史中。带日期的新副本、文档内追加的变更日志、未经内容检查的日期戳都不算更新。
+    es: 'Un documento de conocimiento se corrige donde está: cambia la sección pertinente, se fijan updated y sources, y el estado anterior vive en el historial de git. Las copias nuevas con fecha, los changelogs añadidos dentro del documento y los sellos de fecha sin revisión de contenido no son actualizaciones.'
+    fr: 'Un document de connaissance se corrige là où il est : la section concernée change, updated et sources sont renseignés, et l''état précédent vit dans l''historique git. Les nouvelles copies datées, les journaux de modifications ajoutés dans le document et les tampons de date sans revue du contenu ne sont pas des mises à jour.'
+  applies_when:
+  - en: Knowledge documents (as-built)
+    ko: 지식 문서(as-built)
+    ja: 知識文書（現状）
+    zh: 知识文档（现状）
+    es: Documentos de conocimiento (as-built)
+    fr: Documents de connaissance (réalisé)
+  not_when:
+  - en: Archive documents, which are never edited after the fact
+    ko: 사후에 고치지 않는 아카이브 문서
+    ja: 事後に編集しないアーカイブ文書
+    zh: 事后不编辑的归档文档
+    es: Documentos de archivo, que nunca se editan después
+    fr: Documents d'archive, jamais modifiés après coup
+  evidence:
+  - kind: decision
+    ref: DEC-2026-08-19-04
+    note:
+      en: 'Vault normalization: Knowledge is update-in-place, Archive is immutable'
+      ko: 'vault 정규화: Knowledge 는 제자리 갱신, Archive 는 불변'
+      ja: 'vault 正規化: Knowledge はその場で更新、Archive は不変'
+      zh: vault 规范化：Knowledge 就地更新，Archive 不可变
+      es: 'Normalización del vault: Knowledge se actualiza en el sitio, Archive es inmutable'
+      fr: 'Normalisation du vault : Knowledge se met à jour sur place, Archive est immuable'
+  - kind: reference
+    ref: strata MB-strata-2026-007
+    note:
+      en: The KB answered 'what happened' but only half of 'what is true now'
+      ko: KB 가 '무슨 일이 있었나' 에는 답했지만 '지금 무엇이 참인가' 에는 반만 답했다
+      ja: KB は「何が起きたか」には答えたが「今何が真か」には半分しか答えなかった
+      zh: KB 回答了“发生了什么”，但对“现在什么为真”只回答了一半
+      es: La KB respondía 'qué pasó' pero solo a medias 'qué es cierto ahora'
+      fr: La KB répondait « que s'est-il passé » mais seulement à moitié « qu'est-ce qui est vrai maintenant »
+  counter_examples: []
+  verification:
+    en: kb_freshness lists no knowledge document whose code changed after its updated date without a doc_change declaration
+    ko: kb_freshness 가 updated 이후 코드가 바뀌었는데 doc_change 선언이 없는 지식 문서를 0건 보고한다
+    ja: kb_freshness が updated 以降にコードが変わったのに doc_change 宣言のない知識文書を0件報告する
+    zh: kb_freshness 报告的“updated 之后代码已变但无 doc_change 声明”的知识文档为 0
+    es: kb_freshness no lista documentos cuyo código cambió tras updated sin declaración doc_change
+    fr: kb_freshness ne liste aucun document dont le code a changé après updated sans déclaration doc_change
+  source: core/docs/ko/knowledge-base/document-format.md 문서 라이프사이클
+  supersedes: []
+  status: active

@@ -1,0 +1,36 @@
+# Profile manifest — detection, default cards, enforcement. Schema: core/schemas/profile.schema.yaml
+profile:
+  id: frontend.next-web
+  title:
+    en: 'Frontend: Next.js web layers'
+    ko: '프론트엔드: Next.js 웹 레이어'
+    ja: 'フロントエンド: Next.js Web'
+    zh: 前端：Next.js Web 分层
+    es: 'Frontend: capas web Next.js'
+    fr: 'Frontend : couches web Next.js'
+  status: active
+  detect:
+    any_files:
+    - next.config.js
+    - next.config.mjs
+    - next.config.ts
+    any_content:
+    - - package.json
+      - '"next"'
+    languages:
+    - typescript
+  layers: Foundation → Contract → DataState → Primitive UI → Semantic Component → Feature Block → Route Surface → App Shell
+  enforcement:
+  - dependency-cruiser
+  cards_default:
+  - rec.frontend.layered-surfaces
+  - rec.frontend.design-contract
+  cards_excluded: []
+  source: core/docs/ko/architecture/frontend-web.md, core/docs/ko/architecture/frontend-design-contract.md
+  note:
+    en: should cards for this profile are written after the must cards; layers listed here become should cards
+    ko: 이 프로필의 should 카드는 must 카드 다음에 쓴다. 위 레이어 목록이 should 카드가 된다
+    ja: このプロファイルの should カードは must カードの後に書く。ここに挙げたレイヤーが should カードになる
+    zh: 此配置文件的 should 卡片在 must 卡片之后编写；此处列出的层将成为 should 卡片
+    es: Las tarjetas should de este perfil se escriben después de las must; las capas listadas aquí se vuelven tarjetas should
+    fr: Les cartes should de ce profil s'écrivent après les cartes must ; les couches listées ici deviennent des cartes should

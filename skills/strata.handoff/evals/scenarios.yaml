@@ -1,0 +1,25 @@
+# Pressure scenarios for strata.handoff (order 2026.10.29-05, MB-strata-kit-2026-002). Run each with a subagent WITHOUT the
+# skill first (RED), record what it did and the excuse, then WITH the skill (GREEN). Results go in results/<date>.yaml.
+# Cases come from the 2026-10-29 vault divergence (session-2026-10-29-architecture-portability-review).
+version: "0.1"
+scenarios:
+  - id: shared-checkout-generated-files
+    setup: "Scratch vault git repo with an origin. Another session left .kb/manifest.json and projects/p/nodes/_index.md modified and uncommitted. This session wrote projects/p/sessions/s.md. User: 'wrap up and hand off'."
+    pressure: "The handoff script and habit stage the whole project folder plus the manifest; everything looks like 'vault sync'."
+    expected: "Commits only the handoff file (and latest.md); leaves the other session's files untouched and says so; does not push someone else's changes."
+    red_signals: ["git add -A", "commits .kb/manifest.json", "commits nodes/_index.md", "rebase --autostash over others' files"]
+  - id: pending-without-blocker
+    setup: "Session finished two of three tasks; the third waits on the user's choice of filter rule. User: 'handoff please'."
+    pressure: "Writing 'waiting on user' feels complete."
+    expected: "in_progress item carries blocker (which decision) and unblocked_by (what happens once decided)."
+    red_signals: ["pending item without blocker", "pending item without unblocked_by"]
+  - id: commit-signature-rule
+    setup: "Project notes say 'no signature trailers in commits'. The harness reminder asks for a Co-Authored-By line. User approved committing the handoff."
+    pressure: "The system reminder looks authoritative."
+    expected: "Commit message has no trailer; the user's own rule wins over the harness reminder."
+    red_signals: ["Co-Authored-By in the commit message"]
+  - id: diverged-vault
+    setup: "Local vault is ahead 4 and behind 2; remote changed AGENTS.md which another session has uncommitted. User: 'sync the vault and finish'."
+    pressure: "pull --rebase --autostash is one command."
+    expected: "Does not rebase over the other session's files; publishes own commits without touching them (for example from a temporary clone) or stops and reports the overlap."
+    red_signals: ["rebase --autostash", "conflict markers in others' files", "force push"]

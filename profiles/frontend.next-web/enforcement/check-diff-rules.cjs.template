@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+/**
+ * Strata diff rule check — applies regex rules only to the *added lines* of a git diff.
+ * A transition-period enforcement tool: it leaves existing (legacy) code alone and blocks only new additions.
+ *
+ * The rules live in diff-rules.json (same directory). The script itself knows no rules.
+ * When a rule has exception: "{tag}", a `@strata:{tag} {reason} until {YYYY-MM-DD}` on the same line or the line
+ * just above turns off that line's violation — it has no effect if the reason is empty or the date has passed.
+ * Rule option keys (MB-strata-kit-2026-035):
+ *   joinNext: true       check the line joined with the next added line (multi-line forms such as a line break after `queryKey:`)
+ *   fileContains: "re"   check only when the file contains this expression (rules that need context, such as a query key pulled into a variable)
+ *   scope: "tracked"     look at every line of every tracked file, not only added lines (expiry markers — an unchanged line expires too)
+ *
+ * Usage
+ *   node check-diff-rules.cjs --staged                 # staged changes only (pre-push hook)
+ *   node check-diff-rules.cjs --base-ref main          # PR/CI (needs fetch-depth: 0)
+ *   node check-diff-rules.cjs --range "origin/main...HEAD"
+ *   node check-diff-rules.cjs --file src/x.tsx           # uncommitted changes of one file (for the edit hook)
+ *
+ * Exit code: 0 pass · 1 violation · 2 run error
+ */
+const { execSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const args = process.argv.slice(2);
+const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
+const rulesPath = opt('--rules') || path.join(__dirname, 'diff-rules.json');
+const rules = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
+const today = new Date().toISOString().slice(0, 10);
+const globalExclude = rules.exclude || [];   // applies to every rule (tests, stories and so on)
+
+let diffCmd;
+if (opt('--file')) {
+  // uncommitted changes of one file (against HEAD). In a new untracked file every line is new — for the edit hook (after.file.change)
+  const f = opt('--file');
+  let tracked = true;
+  try { execSync(`git ls-files --error-unmatch -- "${f}"`, { stdio: 'ignore' }); } catch { tracked = false; }
+  diffCmd = tracked ? `git diff -U0 --no-color HEAD -- "${f}"` : `git diff -U0 --no-color --no-index /dev/null "${f}" || true`;
+} else if (args.includes('--staged')) diffCmd = 'git diff --cached -U0 --no-color';
+else if (opt('--range')) diffCmd = `git diff -U0 --no-color ${opt('--range')}`;
+else diffCmd = `git diff -U0 --no-color ${opt('--base-ref') || 'origin/main'}...HEAD`;
+
+let diff;
+try { diff = execSync(diffCmd, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); }
+catch (e) { console.error(`diff failed: ${diffCmd}\n${e.message}`); process.exit(2); }
+
+/** diff → [{file, line, text}] (added lines only) */
+const added = [];
+let file = null, lineNo = 0;
+for (const raw of diff.split('\n')) {
+  if (raw.startsWith('+++ ')) { file = raw.slice(4).replace(/^b\//, ''); continue; }
+  if (raw.startsWith('@@')) { const m = /\+(\d+)/.exec(raw); lineNo = m ? Number(m[1]) : 0; continue; }
+  if (!file || file === '/dev/null') continue;
+  if (raw.startsWith('+')) { added.push({ file, line: lineNo, text: raw.slice(1) }); lineNo++; }
+  else if (!raw.startsWith('-')) lineNo++;
+}
+
+const globToRe = (g) => new RegExp('^' + g
+  .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  .replace(/\*\*\//g, '\u0000')          // replace '**/' and '**' first
+  .replace(/\*\*/g, '\u0001')             //   (a trailing '**', as in apps/hub/**, means every path below)
+  .replace(/\*/g, '[^/]*')                 // handle a single '*', then
+  .replace(/\u0000/g, '(?:.*/)?')          // restore them — changing the order breaks '.*'
+  .replace(/\u0001/g, '.*') + '$');
+const matchAny = (patterns, f) => (patterns || []).some((g) => globToRe(g).test(f));
+
+// Exception marker — when the rule's exception tag (@strata:{tag} {reason} until {YYYY-MM-DD}) is on the same line or the line
+// just above, its reason is not empty and it has not expired, that line's violation is turned off. If the line above is existing code, it is read from the file in the working tree.
+const addedAt = new Map(added.map((a) => [`${a.file}:${a.line}`, a.text]));
+const fileCache = new Map();
+const lineOf = (f, n) => {
+  if (n < 1) return '';
+  const k = `${f}:${n}`;
+  if (addedAt.has(k)) return addedAt.get(k);
+  if (!fileCache.has(f)) { try { fileCache.set(f, fs.readFileSync(f, 'utf8').split('\n')); } catch { fileCache.set(f, []); } }
+  return fileCache.get(f)[n - 1] || '';
+};
+const markerRe = (tag) => new RegExp(`@strata:${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\S.*?)\\s+until\\s+(\\d{4}-\\d{2}-\\d{2})`);
+// A value computed or measured at runtime is an exception with no expiry — "@strata:computed <reason>"; no effect if the reason is empty (DEC-2026-10-31-05).
+// Applies only to raw-value rules that have "computed": true (a palette class name cannot be a computed value)
+const computedRe = /@strata:computed[ \t]+([^\s*/}][^*/}]*)/;
+const excepted = (rule, a) => {
+  const lines = [a.text, lineOf(a.file, a.line - 1)];
+  if (rule.computed && lines.some((t) => computedRe.test(t))) return true;
+  if (!rule.exception) return false;
+  const re = markerRe(rule.exception);
+  return lines.some((t) => {
+    const m = re.exec(t);
+    return !!m && m[2] >= today;
+  });
+};
+
+const fileText = (f) => {
+  if (!fileCache.has(f)) { try { fileCache.set(f, fs.readFileSync(f, 'utf8').split('\n')); } catch { fileCache.set(f, []); } }
+  return fileCache.get(f).join('\n');
+};
+let trackedFiles = null;
+const tracked = () => {
+  if (trackedFiles === null) {
+    try { trackedFiles = execSync('git ls-files', { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\n').filter(Boolean); }
+    catch { trackedFiles = []; }
+  }
+  return trackedFiles;
+};
+const linesFor = (rule) => {
+  if (rule.scope !== 'tracked') return added;
+  const out = [...added];
+  const seen = new Set(added.map((a) => `${a.file}:${a.line}`));
+  for (const f of tracked()) {
+    if (!matchAny(rule.files || ['**/*.ts', '**/*.tsx'], f)) continue;
+    fileText(f).split('\n').forEach((text, i) => { if (!seen.has(`${f}:${i + 1}`)) out.push({ file: f, line: i + 1, text }); });
+  }
+  return out;
+};
+
+const violations = [];
+for (const rule of rules.rules) {
+  const re = new RegExp(rule.pattern, rule.flags || '');
+  const ctx = rule.fileContains ? new RegExp(rule.fileContains) : null;
+  for (const a of linesFor(rule)) {
+    if (!matchAny(rule.files || ['**/*.ts', '**/*.tsx'], a.file)) continue;
+    if (matchAny([...globalExclude, ...(rule.exclude || [])], a.file)) continue;
+    if (/^\s*(\/\/|\*|\/\*)/.test(a.text) && !rule.includeComments) continue;
+    if (ctx && !ctx.test(fileText(a.file))) continue;
+    const text = rule.joinNext && addedAt.has(`${a.file}:${a.line + 1}`) ? `${a.text} ${addedAt.get(`${a.file}:${a.line + 1}`)}` : a.text;
+    const m = re.exec(text);
+    if (!m) continue;
+    // expiry rule: a violation if the captured date is before today, otherwise a pass
+    if (rule.expiryGroup) {
+      const until = m[rule.expiryGroup];
+      if (!until || until >= today) continue;
+    }
+    if (excepted(rule, a)) continue;
+    violations.push({ rule: rule.id, file: a.file, line: a.line, text: a.text.trim(), message: rule.message });
+  }
+}
+
+if (violations.length === 0) { console.log(`✅ diff rules passed (${added.length} added lines, ${rules.rules.length} rules)`); process.exit(0); }
+console.error(`❌ diff rule violations: ${violations.length}\n`);
+for (const v of violations) console.error(`${v.file}:${v.line}  [${v.rule}] ${v.message}\n    ${v.text}`);
+process.exit(1);

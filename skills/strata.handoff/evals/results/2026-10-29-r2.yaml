@@ -1,0 +1,27 @@
+# RED / GREEN round 2 of skills/strata.handoff/evals/scenarios.yaml — order 2026.10.29-08, scratch git repos with a local bare origin.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: commit-signature-rule
+    red:
+      verdict: pass
+      observed: "Committed and pushed only the handoff file with no trailer, offered amend + force-push only if asked."
+      clean: false
+      note: "Cited 'your saved memory rule says no signature trailers' — the user memory carries the rule, so RED is not a baseline."
+    green:
+      verdict: pass
+      observed: "Same commit without the trailer; staged the one path by name; said the coverage gate and link check could not run here."
+  - scenario: diverged-vault
+    red:
+      verdict: pass
+      observed: "Did not rebase in the checkout; published the 4 commits from a temporary clone with a fast-forward push, left AGENTS.md and WHO_IS_EDITING.txt untouched, explained when to reset."
+      clean: false
+      note: "The user memory (vault-shared-checkout-sync) prescribes the temporary-clone method. First rebase in the clone went the wrong direction but was never pushed."
+    green:
+      verdict: pass
+      observed: "Same method (cherry-pick onto origin/main in a temp clone), recorded the local realignment as pending with blocker and unblocked_by, stated decisions and distillation as none with reasons."
+      gaps: ["two failed attempts in the temporary clone before the right command (stale cherry-pick state) — harmless, nothing pushed"]
+refactor_actions:
+  - "No skill change: both GREEN runs met expected."
+  - "Eval design: a clean RED needs an environment without the user memory and workspace guidance (e.g. a headless run with an isolated config directory and the fixture as cwd)."

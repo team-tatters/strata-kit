@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- strata librarian daily job (DEC-2026-10-29-04·16, template DEC-2026-10-31-29). Fill the {placeholders}; see README.md -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>{KIT}/core/templates/librarian/strata-librarian.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>STRATA_PYTHON</key><string>{PYTHON}</string>
+    <key>STRATA_KIT</key><string>{KIT}</string>
+    <key>STRATA_VAULT</key><string>{VAULT}</string>
+    <key>LIBRARIAN_PROJECTS</key><string>{PROJECTS}</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>{HOUR}</integer>
+    <key>Minute</key><integer>{MINUTE}</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>{LOG}</string>
+  <key>StandardErrorPath</key>
+  <string>{LOG}</string>
+</dict>
+</plist>

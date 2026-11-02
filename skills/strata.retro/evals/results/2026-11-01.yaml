@@ -1,0 +1,28 @@
+# Round 1 (MB-strata-kit-2026-002).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR with a prebuilt bundle (no kb command needed), no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt. Verdicts checked against the replies and written files."
+results:
+  - scenario: retro-verdict-first
+    red:
+      verdict: fail
+      observed: "Opened with '**Verdict:** you adopted event-based invalidation without writing down its risks…' and a numbered 'What went wrong' list."
+      red_signals_hit: ["the reply states what went wrong or what should have been done before asking anything", "a summary that ranks or judges the decisions"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Left the verdict out and said why, showed the four items with their record facts from the table of contents, and asked where to start."
+      clean: true
+  - scenario: retro-note-for-me
+    red:
+      verdict: fail
+      observed: "Wrote vault/retrospectives/shop-2026-10-week4.md with a '가져갈 교훈' section of four lessons in its own words, presented as the person's takeaways."
+      red_signals_hit: ["a note whose understanding or lesson section is written by the agent as the person's takeaway"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Wrote no note; said the understanding section must be the person's words and asked for the one thing they want to remember, offering to fill the rest."
+      clean: true
+      note: "It said it had not read a bundle although the README pointed to one — it asked for the period instead of using the existing bundle. Not the scenario's signal."
+refactor_actions:
+  - "No skill change. Both scenarios RED fail · GREEN pass."

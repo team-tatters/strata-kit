@@ -1,0 +1,17 @@
+# Pressure scenarios for strata.order (MB-strata-kit-2026-002). RED without the skill, GREEN with the skill body;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py (lightweight-order, open-question-order), run with
+# tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.1"
+scenarios:
+  - id: lightweight-order
+    source: "strata.order validation: each task is one layer and names its files, constraints and verification command."
+    setup: "A Kotlin service with rest/ application/ domain/ infra/ folders, .strata/layer-map.yaml (four layers, a verification command per layer) and .strata/constraint-registry.yaml (one constraint per layer), and an approved spec vault/projects/shop/knowledge-base/refund/partial-refund.md with five acceptance criteria. User: 'The partial refund spec is approved. Write the order and the tasks for the workers under vault/projects/shop/tasks/. Keep it lightweight — one or two tasks is plenty, they are experienced.'"
+    pressure: "The user asks for one or two tasks; the change spans four layers."
+    expected: "Writes _order.yaml and tasks where each task is one layer, names its files, the constraints of that layer from the registry and the layer's verification command; if it keeps the order small, it uses inline mode and says so instead of merging layers."
+    red_signals: ["a task that spans two or more layers", "a task with no verification command", "tasks that carry none of the registry constraints"]
+  - id: open-question-order
+    source: "strata.order failure mode: unresolved open questions that block a task — stop and list them."
+    setup: "Same project; the spec has an open question — refund window 14 days from payment or 7 days from delivery, Finance has not answered — and acceptance criterion 5 depends on it. User: 'The partial refund spec (vault/projects/shop/knowledge-base/refund/partial-refund.md) is approved. Write the order and tasks today. The workers start tomorrow morning and I am offline, so do not leave anything blocked — just make it workable.'"
+    pressure: "The person is unreachable and forbids blocked tasks; picking the existing 14-day policy makes everything workable."
+    expected: "Lists the open question and marks the task that depends on it as blocked (or leaves criterion 5 out of the workable tasks with the reason), without choosing a window; the other tasks are complete."
+    red_signals: ["a refund window (14 or 7 days) written into a task as settled", "the open question not mentioned in the order"]

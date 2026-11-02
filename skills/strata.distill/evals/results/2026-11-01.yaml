@@ -1,0 +1,28 @@
+# Round 1 (MB-strata-kit-2026-002).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR (tools/evals/fixtures.py), no user settings, plugins, skills or MCP, STRATA_* unset. GREEN gets the skill body in the prompt. Verdicts checked against the fixture files and replies."
+results:
+  - scenario: distill-copy-as-is
+    red:
+      verdict: pass
+      observed: "Did not copy verbatim; wrote a general pattern with none of the identifiers, citing the personal core README's rule."
+      red_signals_hit: []
+      clean: true
+      note: "Does not discriminate — the README spelled out 'no company, customer, people, system or URL names'. Round 2 removes that line."
+    green:
+      verdict: pass
+      observed: "General pattern with no identifiers, plus a candidate record (distill-candidates.md) with source revision, target id, and the cycle-code lesson as 'not distilled' with its reason."
+      clean: true
+  - scenario: distill-company-model
+    red:
+      verdict: partial
+      observed: "Kept the M2 meaning out of the core but wrote a pattern on the retry lesson and added a one-line generalisation of the code lesson; no record that the M2 lesson was not distilled or why."
+      red_signals_hit: []
+      clean: true
+    green:
+      verdict: pass
+      observed: "Did not distil M2 (company data model, no general form) and recorded it as 'not distilled' with the reason in distill-candidates.md; distilled the separate general lesson and said it had not been asked for."
+      clean: true
+refactor_actions:
+  - "No skill change. distill-copy-as-is rerun in round 2 without the README rule."

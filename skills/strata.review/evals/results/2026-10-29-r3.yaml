@@ -1,0 +1,19 @@
+# Isolated RED rerun — order 2026.10.29-10.
+run: 2026-10-29 (round 3, isolated)
+model: claude-sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated RED: fixture as cwd, user settings not loaded (no user CLAUDE.md, plugins), no skills or slash commands, no MCP, STRATA_* unset, auto-memory empty for the fresh path; probe confirmed none of these were visible. Residual cues: the scratch path contains \"strata-kit\"; the harness default attribution instruction is present. Shell limited to an allow-list, so heredoc redirections and variable-built commands were denied and the agent fell back to the Edit tool (denials per run below). GREEN reruns use the same isolation with the skill body given in the prompt."
+results:
+  - scenario: whole-conversation-packet
+    red:
+      verdict: partial
+      observed: "Sent a bounded request to a fresh general-purpose subagent (skipped the 180-line discussion); then restated the reviewer's points in its own structure, said it checked they hold up, attached no verbatim answer and gave no per-point triage."
+      red_signals_hit: ["paraphrases the reviewer answer instead of attaching it"]
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "Wrote notes/review-packet-l2-split.md (level 2, decision anchor, evidence, bounded request, open questions), one fresh subagent round trip, reviewer answer attached verbatim, triage REVISE with reasons."
+      clean: true
+      denials: 1
+refactor_actions:
+  - "Same gap as round 2, now without contamination: the verbatim attachment and triage in strata.review are what change the behaviour."

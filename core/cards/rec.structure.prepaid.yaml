@@ -1,0 +1,69 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.structure.prepaid
+  profiles: []
+  title:
+    en: Pay for structure up front
+    ko: 구조는 선지불한다
+    ja: 構造は先払いする
+    zh: 结构先行投入
+    es: Pagar la estructura por adelantado
+    fr: Payer la structure d'avance
+  claim:
+    en: Structure that offsets the cost of change is put in place from the start; layers are not reduced because the project is small today. The three boundaries a layer cannot cover (data ownership, cross-domain writes, cross-domain reads) are declared explicitly.
+    ko: 변경 비용을 상쇄하는 구조는 처음부터 갖춘다. 지금 규모가 작다고 레이어를 줄이지 않는다. 레이어가 덮지 못하는 세 경계(데이터 소유, 도메인 간 쓰기, 도메인 간 읽기)는 명시적으로 선언한다.
+    ja: 変更コストを相殺する構造は最初から備える。今の規模が小さいからといってレイヤーを減らさない。
+    zh: 抵消变更成本的结构从一开始就建立；不因当前规模小而减少层级。
+    es: La estructura que compensa el coste del cambio se pone desde el inicio; no se reducen capas porque el proyecto sea pequeño hoy.
+    fr: La structure qui compense le coût du changement est mise en place dès le départ ; on ne réduit pas les couches parce que le projet est petit aujourd'hui.
+  applies_when:
+  - en: Expected lifetime of a year or more, or more than one domain writing data
+    ko: 예상 수명 1년 이상, 또는 데이터를 쓰는 도메인이 둘 이상
+    ja: 想定寿命が1年以上、またはデータを書き込むドメインが複数
+    zh: 预期寿命一年以上，或有多个领域写入数据
+    es: Vida esperada de un año o más, o más de un dominio que escribe datos
+    fr: Durée de vie attendue d'un an ou plus, ou plus d'un domaine écrivant des données
+  not_when:
+  - en: One-off tools and single-file scripts
+    ko: 일회성 도구와 단일 파일 스크립트
+    ja: 使い捨てツールと単一ファイルのスクリプト
+    zh: 一次性工具和单文件脚本
+    es: Herramientas puntuales y scripts de un solo archivo
+    fr: Outils ponctuels et scripts d'un seul fichier
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-01
+    note:
+      en: Prepaid structure principle; the earlier 'reduce layers by scale' proposal was withdrawn
+      ko: 구조 선지불 원칙. '규모별 레이어 축소' 안은 철회됨
+      ja: 構造先払いの原則。以前の「規模に応じてレイヤーを減らす」案は撤回された
+      zh: 结构先行原则；此前“按规模减少层级”的提案已撤回
+      es: Principio de estructura prepagada; la propuesta anterior de 'reducir capas según la escala' se retiró
+      fr: Principe de structure prépayée ; la proposition antérieure « réduire les couches selon l'échelle » a été retirée
+  - kind: reference
+    ref: https://github.com/github/spec-kit (constitution Article VII Simplicity)
+    note:
+      en: Simplicity caps initial projects at three; prepaid structure and simplicity bound each other
+      ko: 단순성 조항은 초기 프로젝트를 3개로 묶는다. 선지불 구조와 단순성은 서로의 경계다
+      ja: 単純性は初期プロジェクトを3つに制限する。構造先払いと単純性は互いの境界である
+      zh: 简约性将初始项目限制为三个；结构先行与简约性互为边界
+      es: La simplicidad limita los proyectos iniciales a tres; la estructura prepagada y la simplicidad se acotan mutuamente
+      fr: La simplicité plafonne les projets initiaux à trois ; structure prépayée et simplicité se bornent mutuellement
+  counter_examples:
+  - en: 'spec-kit''s simplicity article: more than three initial projects needs justification'
+    ko: 'spec-kit 단순성 조항: 초기 프로젝트가 셋을 넘으면 사유가 필요하다'
+    ja: spec-kit の単純性条項：初期プロジェクトが3つを超えるには正当化が必要
+    zh: spec-kit 的简约条款：初始项目超过三个需说明理由
+    es: 'Artículo de simplicidad de spec-kit: más de tres proyectos iniciales requiere justificación'
+    fr: 'Article de simplicité de spec-kit : plus de trois projets initiaux exige une justification'
+  verification:
+    en: The profile's layer-map and the three boundary declarations exist in .strata/ before the first feature
+    ko: 첫 기능 전에 프로필의 layer-map 과 세 경계 선언이 .strata/ 에 있다
+    ja: 最初の機能より前にプロファイルのレイヤーマップと3つの境界宣言が .strata/ にある
+    zh: 第一个功能之前 .strata/ 中已有配置文件的层映射和三项边界声明
+    es: El layer-map del perfil y las tres declaraciones de límite existen en .strata/ antes de la primera funcionalidad
+    fr: Le layer-map du profil et les trois déclarations de limite existent dans .strata/ avant la première fonctionnalité
+  source: core/docs/ko/architecture/prepaid-structure.md
+  strength: should
+  supersedes: []
+  status: active

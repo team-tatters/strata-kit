@@ -1,0 +1,321 @@
+# Next-flow candidates for the core skills (DEC-2026-10-31-37, moved out of registry.yaml by DEC-2026-11-01-15).
+# Keyed by skill name; each candidate is {skill, why, area?, on_proposes?}. `python3 -m kb skills next <skill>` reads
+# this file with the registry layers; it is not read at session start. "Do nothing" is always added by the command.
+version: '0.1'
+next:
+  strata.planning:
+  - skill: strata.spec
+    area: planning
+    why:
+      en: the refined documents are checked — write acceptance criteria and the difference list
+      ko: 정리본 검사가 끝났다 — 인수 기준과 차이 목록을 쓴다
+      ja: 整理版の検査が終わった — 受け入れ基準と差分リストを書く
+      zh: 整理稿已检查完 — 写验收标准和差异清单
+      es: los documentos refinados están revisados — escribir criterios de aceptación y la lista de diferencias
+      fr: les documents affinés sont vérifiés — écrire les critères d'acceptation et la liste des écarts
+    on_proposes:
+      en: send the refined documents to the planning owner as a proposal first
+      ko: 먼저 정리본을 기획 owner 에게 제안으로 보낸다
+      ja: まず整理版を企画の owner に提案として送る
+      zh: 先把整理稿作为提案发给规划 owner
+      es: enviar primero los documentos refinados al owner de planificación como propuesta
+      fr: envoyer d'abord les documents affinés à l'owner de la planification comme proposition
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: a question raised from the facts settled a constraint on future work
+      ko: 사실 목록에서 올린 질문의 답이 앞으로의 일을 묶는 제약이 됐다
+      ja: 事実リストから上げた問いの答えが今後の作業を縛る制約になった
+      zh: 从事实清单提出的问题的答案成了约束今后工作的限制
+      es: la respuesta a una pregunta surgida de los hechos fijó una restricción para el trabajo futuro
+      fr: la réponse à une question issue des faits a fixé une contrainte pour la suite
+    on_proposes:
+      en: propose it to the decision owner instead of recording it
+      ko: 기록하는 대신 결정 owner 에게 제안한다
+      ja: 記録する代わりに決定の owner に提案する
+      zh: 不直接记录,而是向决策 owner 提议
+      es: proponerla al owner de la decisión en lugar de registrarla
+      fr: la proposer à l'owner de la décision au lieu de l'enregistrer
+  - skill: strata.review
+    why:
+      en: check the bundle in a fresh context before anyone builds on it
+      ko: 누가 그 위에 쌓기 전에 새 컨텍스트에서 묶음을 검사한다
+      ja: 誰かがその上に積む前に、新しいコンテキストで束を検査する
+      zh: 在别人基于它工作之前,用新的上下文检查这个包
+      es: revisar el paquete en un contexto nuevo antes de que alguien construya sobre él
+      fr: vérifier le lot dans un contexte neuf avant que quelqu'un ne bâtisse dessus
+  strata.spec:
+  - skill: strata.order
+    area: planning
+    why:
+      en: the specification is approved — split it into an order and tasks
+      ko: 명세가 승인됐다 — 오더와 태스크로 나눈다
+      ja: 仕様が承認された — オーダーとタスクに分ける
+      zh: 规格已批准 — 拆成 order 和任务
+      es: la especificación está aprobada — dividirla en una orden y tareas
+      fr: la spécification est approuvée — la découper en ordre et tâches
+    on_proposes:
+      en: send the specification to the planning owner as a proposal before ordering
+      ko: 오더 전에 명세를 기획 owner 에게 제안으로 보낸다
+      ja: オーダーの前に仕様を企画 owner に提案として送る
+      zh: 下 order 前先把规格作为提案发给规划 owner
+      es: enviar la especificación al owner de planificación como propuesta antes de ordenar
+      fr: envoyer la spécification à l'owner de la planification comme proposition avant l'ordre
+  - skill: design.brief
+    area: planning
+    why:
+      en: the specification has screens, or its release needs a document, image or post — start the design from a brief (design pack)
+      ko: 명세에 화면이 있거나 출시에 문서·이미지·포스트가 필요하다 — 디자인을 브리프에서 시작한다(design 팩)
+      ja: 仕様に画面がある、またはリリースに文書・画像・投稿が要る — デザインをブリーフから始める(design パック)
+      zh: 规格里有界面,或发布需要文档、图片、帖子 — 从简报开始设计(design 包)
+      es: la especificación tiene pantallas o el lanzamiento necesita un documento, imagen o publicación — empezar el diseño por un brief (paquete design)
+      fr: la spécification a des écrans, ou la sortie demande un document, une image ou une publication — commencer le design par un brief (pack design)
+    on_proposes:
+      en: write the brief as a proposal draft for the planning owner
+      ko: 브리프를 기획 owner 에게 보낼 제안 초안으로 쓴다
+      ja: ブリーフを企画の owner に送る提案草案として書く
+      zh: 把简报写成发给规划 owner 的提案草稿
+      es: escribir el brief como borrador de propuesta para el owner de planificación
+      fr: écrire le brief comme brouillon de proposition pour l'owner de la planification
+  - skill: strata.review
+    why:
+      en: an independent check of the criteria before building
+      ko: 만들기 전에 기준을 독립적으로 확인한다
+      ja: 作る前に基準を独立に確かめる
+      zh: 构建前独立检查标准
+      es: una comprobación independiente de los criterios antes de construir
+      fr: une vérification indépendante des critères avant de construire
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: writing the specification settled a constraint on future work
+      ko: 명세를 쓰다가 앞으로의 일을 묶는 제약이 정해졌다
+      ja: 仕様を書く中で今後の作業を縛る制約が決まった
+      zh: 写规格时确定了约束今后工作的限制
+      es: al escribir la especificación se fijó una restricción para el trabajo futuro
+      fr: en écrivant la spécification, une contrainte pour la suite a été fixée
+    on_proposes:
+      en: propose it to the decision owner instead of recording it
+      ko: 기록하는 대신 결정 owner 에게 제안한다
+      ja: 記録する代わりに決定の owner に提案する
+      zh: 不直接记录,而是向决策 owner 提议
+      es: proponerla al owner de la decisión en lugar de registrarla
+      fr: la proposer à l'owner de la décision au lieu de l'enregistrer
+  strata.order:
+  - skill: strata.build-task
+    why:
+      en: hand each task to a worker
+      ko: 태스크마다 작업자에게 넘긴다
+      ja: タスクごとに作業者へ渡す
+      zh: 把每个任务交给 worker
+      es: pasar cada tarea a un worker
+      fr: confier chaque tâche à un worker
+  - skill: strata.review
+    why:
+      en: check the split (layers, owners, completeness) before work starts
+      ko: 작업 전에 나눈 것(레이어, 담당, 완전성)을 확인한다
+      ja: 作業前に分け方(レイヤー、担当、完全性)を確かめる
+      zh: 开工前检查拆分(层、负责人、完整性)
+      es: revisar el reparto (capas, responsables, completitud) antes de empezar
+      fr: vérifier le découpage (couches, responsables, complétude) avant de commencer
+  strata.build-task:
+  - skill: strata.verify
+    why:
+      en: collect the evidence before saying done
+      ko: 끝났다고 말하기 전에 증거를 모은다
+      ja: 終わったと言う前に証拠を集める
+      zh: 说完成之前先收集证据
+      es: reunir la evidencia antes de decir que está hecho
+      fr: réunir les preuves avant de dire que c'est fait
+  - skill: strata.kb-update
+    why:
+      en: the change touched code a knowledge document owns
+      ko: 지식 문서가 맡은 코드를 바꿨다
+      ja: 知識文書が受け持つコードを変えた
+      zh: 改动涉及知识文档负责的代码
+      es: el cambio tocó código del que es dueño un documento de conocimiento
+      fr: le changement touche du code dont un document de connaissance est propriétaire
+  strata.verify:
+  - skill: strata.review
+    why:
+      en: the change is worth a second look
+      ko: 변경을 다시 볼 만하다
+      ja: 変更をもう一度見る価値がある
+      zh: 这个变更值得再看一遍
+      es: el cambio merece una segunda mirada
+      fr: le changement mérite un second regard
+  - skill: strata.kb-update
+    why:
+      en: owned code changed and its document is behind
+      ko: 맡은 코드가 바뀌었고 문서가 뒤처졌다
+      ja: 受け持つコードが変わり文書が遅れている
+      zh: 负责的代码变了,文档落后了
+      es: cambió código con dueño y su documento va por detrás
+      fr: du code possédé a changé et son document est en retard
+  - skill: strata.handoff
+    why:
+      en: the task is done — close the session or the task
+      ko: 태스크가 끝났다 — 세션이나 태스크를 닫는다
+      ja: タスクが終わった — セッションかタスクを閉じる
+      zh: 任务完成 — 关闭会话或任务
+      es: la tarea está hecha — cerrar la sesión o la tarea
+      fr: la tâche est faite — clore la session ou la tâche
+  strata.decision:
+  - skill: strata.kb-update
+    why:
+      en: documents that the decision constrains need updating
+      ko: 결정이 묶는 문서를 고쳐야 한다
+      ja: 決定が縛る文書を直す必要がある
+      zh: 受该决定约束的文档需要更新
+      es: hay que actualizar los documentos que la decisión restringe
+      fr: les documents que la décision contraint doivent être mis à jour
+  - skill: strata.order
+    why:
+      en: the decision unblocks planned work
+      ko: 결정으로 계획된 일이 풀렸다
+      ja: 決定で計画された作業が進められる
+      zh: 该决定解除了已计划工作的阻塞
+      es: la decisión desbloquea trabajo planificado
+      fr: la décision débloque du travail prévu
+  strata.handoff:
+  - skill: strata.distill
+    why:
+      en: a judgement from this session holds beyond the project
+      ko: 이 세션의 판단이 프로젝트 밖에서도 통한다
+      ja: このセッションの判断がプロジェクトの外でも通じる
+      zh: 本次会话的判断在项目之外也成立
+      es: un juicio de esta sesión vale más allá del proyecto
+      fr: un jugement de cette session vaut au-delà du projet
+  - skill: strata.retro
+    why:
+      en: a period or a decision is worth looking back on
+      ko: 돌아볼 만한 기간이나 결정이 있다
+      ja: 振り返る価値のある期間や決定がある
+      zh: 有值得回顾的时期或决定
+      es: hay un periodo o una decisión que merece mirar atrás
+      fr: une période ou une décision mérite un regard en arrière
+  strata.kb-update:
+  - skill: strata.verify
+    why:
+      en: check the documents now match the code
+      ko: 문서가 이제 코드와 맞는지 확인한다
+      ja: 文書がいまコードと合っているか確かめる
+      zh: 确认文档现在与代码一致
+      es: comprobar que los documentos ya coinciden con el código
+      fr: vérifier que les documents correspondent maintenant au code
+  - skill: strata.handoff
+    why:
+      en: documents are current — close
+      ko: 문서가 최신이다 — 닫는다
+      ja: 文書は最新だ — 閉じる
+      zh: 文档已是最新 — 关闭
+      es: los documentos están al día — cerrar
+      fr: les documents sont à jour — clore
+  strata.distill:
+  - skill: strata.handoff
+    why:
+      en: the candidate is filed — close
+      ko: 후보를 넘겼다 — 닫는다
+      ja: 候補を渡した — 閉じる
+      zh: 候选已提交 — 关闭
+      es: el candidato está registrado — cerrar
+      fr: le candidat est déposé — clore
+  strata.retro:
+  - skill: strata.distill
+    why:
+      en: a lesson from the retrospective holds beyond the project
+      ko: 회고의 교훈이 프로젝트 밖에서도 통한다
+      ja: 振り返りの教訓がプロジェクトの外でも通じる
+      zh: 回顾得出的教训在项目之外也成立
+      es: una lección de la retrospectiva vale más allá del proyecto
+      fr: une leçon de la rétrospective vaut au-delà du projet
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: you would now decide differently — supersede the decision
+      ko: 지금이라면 다르게 정하겠다 — 결정을 대체한다
+      ja: 今なら違う決め方をする — 決定を置き換える
+      zh: 现在会做不同决定 — 替代该决定
+      es: hoy decidirías distinto — sustituir la decisión
+      fr: vous décideriez autrement aujourd'hui — remplacer la décision
+    on_proposes:
+      en: propose it to the decision owner instead of recording it
+      ko: 기록하는 대신 결정 owner 에게 제안한다
+      ja: 記録する代わりに決定の owner に提案する
+      zh: 不直接记录,而是向决策 owner 提议
+      es: proponerla al owner de la decisión en lugar de registrarla
+      fr: la proposer à l'owner de la décision au lieu de l'enregistrer
+  - skill: ideation.shape
+    why:
+      en: something to grow came out of looking back (ideation pack)
+      ko: 돌아보다가 키울 것이 나왔다(아이디에이션 팩)
+      ja: 振り返りから育てたいものが出てきた(アイデア出しパック)
+      zh: 回顾中出现了值得培养的东西(构思包)
+      es: al mirar atrás salió algo para hacer crecer (paquete de ideación)
+      fr: le regard en arrière a fait naître quelque chose à faire grandir (pack d'idéation)
+  strata.signal:
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: the signal settles a rule for future work — record the decision, then route the signal to it
+      ko: 신호가 앞으로의 일을 묶는 규칙을 정하게 됐다 — 결정을 기록하고 신호를 그 결정으로 보낸다
+      ja: シグナルが今後の作業を縛る規則を決めることになった — 決定を記録し、シグナルをその決定へ送る
+      zh: 该信号确定了约束今后工作的规则 — 记录决策,再把信号指向它
+      es: la señal fija una regla para el trabajo futuro — registrar la decisión y enviar la señal a ella
+      fr: le signal fixe une règle pour la suite — enregistrer la décision puis y rattacher le signal
+    on_proposes:
+      en: propose it to the decision owner instead of recording it
+      ko: 기록하는 대신 결정 owner 에게 제안한다
+      ja: 記録する代わりに決定の owner に提案する
+      zh: 不直接记录,而是向决策 owner 提议
+      es: proponerla al owner de la decisión en lugar de registrarla
+      fr: la proposer à l'owner de la décision au lieu de l'enregistrer
+  - skill: ideation.shape
+    why:
+      en: the signal is worth growing but not clear yet — keep it as an idea note (ideation pack)
+      ko: 신호가 키울 만하지만 아직 분명하지 않다 — 아이디어 노트로 둔다(아이디에이션 팩)
+      ja: シグナルは育てる価値があるがまだはっきりしない — アイデアノートとして置く(アイデア出しパック)
+      zh: 该信号值得培养但还不清晰 — 作为想法笔记保留(构思包)
+      es: la señal merece crecer pero aún no está clara — guardarla como nota de idea (paquete de ideación)
+      fr: le signal mérite de grandir mais n'est pas encore clair — le garder en note d'idée (pack d'idéation)
+  - skill: strata.planning
+    why:
+      en: the signal calls for planned work — turn it and its evidence into a planning document
+      ko: 신호가 계획된 일을 요구한다 — 신호와 근거를 기획 문서로 만든다
+      ja: シグナルが計画された作業を求めている — シグナルと根拠を企画文書にする
+      zh: 该信号需要有计划的工作 — 把它和证据整理成规划文档
+      es: la señal pide trabajo planificado — convertirla con su evidencia en un documento de planificación
+      fr: le signal appelle un travail planifié — en faire, avec ses preuves, un document de planification
+  strata.review:
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: the review resolved a disagreement into a rule
+      ko: 리뷰가 의견 차이를 규칙으로 정리했다
+      ja: レビューが意見の違いを規則にまとめた
+      zh: 评审把分歧定成了规则
+      es: la revisión convirtió un desacuerdo en una regla
+      fr: la revue a tranché un désaccord en règle
+    on_proposes:
+      en: propose it to the decision owner instead of recording it
+      ko: 기록하는 대신 결정 owner 에게 제안한다
+      ja: 記録する代わりに決定の owner に提案する
+      zh: 不直接记录,而是向决策 owner 提议
+      es: proponerla al owner de la decisión en lugar de registrarla
+      fr: la proposer à l'owner de la décision au lieu de l'enregistrer
+  - skill: strata.build-task
+    why:
+      en: the answer asks for changes — fix them in the task
+      ko: 답이 고칠 것을 요구한다 — 태스크 안에서 고친다
+      ja: 回答が修正を求めている — タスクの中で直す
+      zh: 答复要求修改 — 在任务内修改
+      es: la respuesta pide cambios — corregirlos dentro de la tarea
+      fr: la réponse demande des changements — les corriger dans la tâche
+  - skill: strata.handoff
+    why:
+      en: the answer is acted on — close
+      ko: 답을 처리했다 — 닫는다
+      ja: 回答を処理した — 閉じる
+      zh: 已处理答复 — 关闭
+      es: la respuesta está atendida — cerrar
+      fr: la réponse est traitée — clore

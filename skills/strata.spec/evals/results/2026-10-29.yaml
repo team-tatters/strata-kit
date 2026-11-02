@@ -1,0 +1,16 @@
+# RED / GREEN of skills/strata.spec/evals/scenarios.yaml (priority scenario) — order 2026.10.29-08, testing strata.spec 0.2 step 5.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: plan-closed-unreviewed
+    red:
+      verdict: pass
+      observed: "Criteria with evidence, open questions with owners, difference list; implementation set to partial, reviewed today, spec [[billing]]; billing.md untouched."
+      clean: false
+      note: "Read the installed strata.spec and the repo's newer version outside its sandbox and applied step 5 from it; wrote a backup copy outside the project."
+    green:
+      verdict: pass
+      observed: "Same outcome plus goals/scope, constraints (registry not available, said so) and a separate implementation-review section; left a stray copy in /tmp (removed after the run)."
+refactor_actions:
+  - "No skill change: GREEN met expected, including the new step 5."

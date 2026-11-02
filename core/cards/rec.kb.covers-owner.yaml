@@ -1,0 +1,81 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.kb.covers-owner
+  strength: must
+  adoption: opt_in   # DEC-2026-10-30-01
+  default_when: uses_vault
+  profiles: []
+  title:
+    en: Changed code has an owning document
+    ko: 바뀐 코드에는 소유 문서가 있다
+    ja: 変更されたコードには所有文書がある
+    zh: 变更的代码有其所属文档
+    es: El código cambiado tiene un documento propietario
+    fr: Le code modifié a un document propriétaire
+  claim:
+    en: 'Every code surface that a contract, permission, state transition or API depends on is covered by exactly one knowledge document (covers). When such code changes, the session either updates the owner or declares doc_change: none with a reason. The coverage gate reports new uncovered changes and blocks session close when the project grades the coverage family default or block (DEC-2026-10-30-01); existing gaps stay on the baseline until fixed.'
+    ko: '계약·권한·상태 전이·API 가 의존하는 모든 코드 표면은 정확히 하나의 지식 문서가 covers 로 소유한다. 그 코드가 바뀌면 세션은 소유 문서를 갱신하거나 이유와 함께 doc_change: none 을 선언한다. coverage gate 는 새로 생긴 미소유 변경을 보고하고, 프로젝트가 coverage 묶음의 집행 등급을 default·block 으로 정했으면 세션 종료를 막는다(DEC-2026-10-30-01). 기존 빈틈은 고칠 때까지 기준선에 둔다.'
+    ja: '契約・権限・状態遷移・API が依存するすべてのコード面は、ちょうど一つの知識文書が covers で所有する。そのコードが変わればセッションは所有文書を更新するか、理由付きで doc_change: none を宣言する。coverage gate は新たな未所有変更を報告し、プロジェクトが coverage 群の執行等級を default・block にしていればセッション終了を止める(DEC-2026-10-30-01)。既存の穴は修正までベースラインに置く。'
+    zh: '契约、权限、状态转换或 API 所依赖的每个代码表面都由恰好一个知识文档（covers）所有。此类代码变更时，会话要么更新所有者文档，要么附理由声明 doc_change: none。coverage gate 报告新的未覆盖变更，项目把 coverage 规则族的执行等级定为 default 或 block 时阻止会话关闭（DEC-2026-10-30-01）；既有缺口保留在基线中直到修复。'
+    es: 'Cada superficie de código de la que depende un contrato, permiso, transición de estado o API está cubierta por exactamente un documento de conocimiento (covers). Cuando ese código cambia, la sesión actualiza al propietario o declara doc_change: none con una razón. La puerta de cobertura reporta los cambios nuevos sin cobertura y bloquea el cierre de sesión cuando el proyecto gradúa la familia coverage como default o block (DEC-2026-10-30-01); los huecos existentes quedan en la línea base hasta corregirse.'
+    fr: 'Chaque surface de code dont dépend un contrat, une permission, une transition d''état ou une API est couverte par exactement un document de connaissance (covers). Quand ce code change, la session met à jour le propriétaire ou déclare doc_change: none avec une raison. La porte de couverture signale les nouveaux changements non couverts et bloque la clôture de session quand le projet classe la famille coverage en default ou block (DEC-2026-10-30-01) ; les lacunes existantes restent sur la base de référence jusqu''à correction.'
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016·045
+    en: "Changed code that a contract depends on has one owning document (covers); update it or declare doc_change: none with a reason."
+    ko: "계약이 의존하는 코드는 소유 문서(covers)가 하나다. 바꾸면 그 문서를 고치거나 이유와 함께 doc_change: none 을 선언한다."
+    ja: "契約が依存するコードには所有文書(covers)が一つある。変えたらその文書を直すか、理由付きで doc_change: none を宣言する。"
+    zh: "契约所依赖的代码有且只有一份所属文档（covers）；改动时更新它，或附理由声明 doc_change: none。"
+    es: "El código del que depende un contrato tiene un único documento dueño (covers); al cambiarlo, actualízalo o declara doc_change: none con un motivo."
+    fr: "Le code dont dépend un contrat a un seul document propriétaire (covers) ; en le modifiant, mettez-le à jour ou déclarez doc_change: none avec un motif."
+  applies_when:
+  - en: Projects with a knowledge base and covers declarations
+    ko: 지식 기반과 covers 선언이 있는 프로젝트
+    ja: ナレッジベースと covers 宣言のあるプロジェクト
+    zh: 拥有知识库和 covers 声明的项目
+    es: Proyectos con base de conocimiento y declaraciones covers
+    fr: Projets avec base de connaissances et déclarations covers
+  not_when:
+  - en: Throwaway prototypes with no knowledge base
+    ko: 지식 기반이 없는 일회성 프로토타입
+    ja: ナレッジベースのない使い捨てプロトタイプ
+    zh: 没有知识库的一次性原型
+    es: Prototipos desechables sin base de conocimiento
+    fr: Prototypes jetables sans base de connaissances
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-08-01
+    note:
+      en: 'Coverage gate: changed files → owning document and node'
+      ko: 'coverage gate: 변경 파일 → 소유 명세·노드'
+      ja: 'coverage gate: 変更ファイル → 所有文書・ノード'
+      zh: coverage gate：变更文件 → 所属文档与节点
+      es: 'Puerta de cobertura: archivos cambiados → documento y nodo propietarios'
+      fr: 'Porte de couverture : fichiers modifiés → document et nœud propriétaires'
+  - kind: measurement
+    ref: strata MB-strata-2026-005
+    note:
+      en: Sessions closed without KB updates because the gate only warned (exit 0); backfill distillation recurred
+      ko: 게이트가 경고만 해서(exit 0) KB 갱신 없이 세션이 닫혔고 백필 증류가 재발했다
+      ja: ゲートが警告のみ(exit 0)でKB更新なしにセッションが閉じ、バックフィル蒸留が再発した
+      zh: 门禁仅警告（exit 0），会话在未更新 KB 的情况下关闭，回填蒸馏反复出现
+      es: La puerta solo avisaba (exit 0), las sesiones cerraban sin actualizar la KB y la destilación de relleno se repetía
+      fr: La porte ne faisait qu'avertir (exit 0), les sessions se fermaient sans mise à jour de la KB et la distillation de rattrapage se répétait
+  - kind: reference
+    ref: https://github.com/tirth8205/code-review-graph
+    note:
+      en: Impact radius from a code graph can propose owning documents automatically
+      ko: 코드 그래프의 영향 반경이 소유 문서 후보를 자동 제안할 수 있다
+      ja: コードグラフの影響範囲が所有文書の候補を自動提案できる
+      zh: 代码图的影响范围可自动提议所属文档
+      es: El radio de impacto de un grafo de código puede proponer documentos propietarios automáticamente
+      fr: Le rayon d'impact d'un graphe de code peut proposer automatiquement les documents propriétaires
+  counter_examples: []
+  verification:
+    en: At session close the coverage gate reports new uncovered changes (non-zero exit when the coverage grade is default or block); the handoff lists kb_updates or doc_change reasons
+    ko: 세션 종료 시 coverage gate 가 새 미소유 변경을 보고하고(coverage 등급이 default·block 이면 0 이 아닌 코드), 핸드오프에 kb_updates 나 doc_change 사유가 있다
+    ja: セッション終了時に coverage gate が新たな未所有変更を報告し(coverage 等級が default・block なら非ゼロ終了)、ハンドオフに kb_updates または doc_change の理由がある
+    zh: 会话关闭时 coverage gate 报告新的未覆盖变更（coverage 等级为 default 或 block 时非零退出）；交接列出 kb_updates 或 doc_change 理由
+    es: Al cerrar, la puerta de cobertura reporta los cambios nuevos sin cobertura (sale con código distinto de cero si el grado coverage es default o block); el traspaso lista kb_updates o razones doc_change
+    fr: À la clôture, la porte de couverture signale les nouveaux changements non couverts (code non nul si le niveau coverage est default ou block) ; la passation liste kb_updates ou les raisons doc_change
+  source: core/docs/ko/methodology/agent-operations.md §5.7, core/docs/ko/knowledge-base/document-format.md covers
+  supersedes: []
+  status: active

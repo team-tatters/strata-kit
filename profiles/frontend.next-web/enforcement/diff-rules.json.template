@@ -1,0 +1,171 @@
+{
+  "$comment": "Default set of Strata frontend diff rules. Applied to new lines only. files/exclude are globs (**, *). A project sets exclude to match its Foundation paths and legacy zone. A rule with an exception is turned off by @strata:{exception} {reason} until {date} on the same line or the line just above (a reason is required; valid until the date).",
+  "exclude": [
+    "**/__tests__/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",
+    "**/mock/**",
+    "**/mocks/**"
+  ],
+  "rules": [
+    {
+      "id": "no-http-verb-hook",
+      "pattern": "\\b(const|function)\\s+use(Fetch|Get|Post|Put|Patch|Delete)[A-Z]\\w*",
+      "message": "Do not use an HTTP verb in a new hook's name — use{Entity}Query / use{Entity}{Action}Mutation (naming-convention DataState) — calling existing hooks is allowed"
+    },
+    {
+      "id": "no-forbidden-component-suffix",
+      "pattern": "(?:\\b(?:function|const|let|var|class)\\s+|\\bas\\s+)[A-Z]\\w*(?:Block|Container|Partial)\\b",
+      "joinNext": true,
+      "files": [
+        "**/*.tsx",
+        "**/*.jsx"
+      ],
+      "message": "Do not end a new component name with Block, Container or Partial — a Feature Block is {UseCase}Section (by shape: Panel, Dialog, Table), and the render half is {Domain}{Purpose}View (naming-convention Feature_Block.forbidden_suffixes, DEC-2026-11-01-19)"
+    },
+    {
+      "id": "no-inline-query-key",
+      "pattern": "queryKey\\s*:\\s*\\[",
+      "exclude": [
+        "**/*.keys.ts",
+        "**/keys.ts",
+        "**/queryKeys.ts"
+      ],
+      "message": "Create queryKey literals only in the key factory, one per feature (domain) ({domain}.keys.ts) (frontend-query-state.md, DEC-2026-10-31-06)",
+      "joinNext": true
+    },
+    {
+      "id": "no-inline-query-key-variable",
+      "pattern": "\\b(?:const|let|var)\\s+\\w*[kK]ey\\w*\\s*(?::[^=]+)?=\\s*\\[",
+      "fileContains": "queryKey",
+      "exclude": [
+        "**/*.keys.ts",
+        "**/keys.ts",
+        "**/queryKeys.ts"
+      ],
+      "message": "Do not build a query key array in a variable and pass it to queryKey — keys are created only in the key factory, one per feature (domain) ({domain}.keys.ts) (frontend-query-state.md, DEC-2026-10-31-06)"
+    },
+    {
+      "id": "no-component-invalidate",
+      "pattern": "invalidateQueries\\s*\\(",
+      "files": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "exclude": [
+        "**/use*Mutation.ts",
+        "**/use*Mutation.tsx",
+        "**/useMutation*.ts",
+        "**/useMutation*.tsx",
+        "**/queryClient.ts",
+        "**/query-client.ts"
+      ],
+      "message": "Call invalidateQueries only inside a mutation hook (use{Entity}{Action}Mutation) — when that hook declares the keys it affects (meta.invalidates or an explicit list in the hook), keys of other domains and exact detail keys are allowed too. Do not call it directly from components or ordinary modules. The global MutationCache that handles meta.invalidates goes in the queryClient file (frontend-query-state.md, DEC-2026-10-31-06)"
+    },
+    {
+      "id": "no-arbitrary-design-value",
+      "pattern": "(?<![\\w-])-?(?:p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|text|leading|rounded(?:-(?:tl|tr|br|bl|ss|se|es|ee|[trblse]))?|(?:drop-|inset-|text-)?shadow|z)-\\[(?![^\\]]*var\\(--)(?!(?:[a-z-]+:)?--)[^\\]\\s]+\\]",
+      "files": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.css",
+        "**/*.scss"
+      ],
+      "exclude": [
+        "**/tokens/**",
+        "**/foundation/**",
+        "**/tailwind*.ts"
+      ],
+      "exception": "token-exception",
+      "message": "Do not use raw arbitrary values in spacing, font size, line height, radius, shadow or z-index utilities — use an alias token class or a variable reference (p-[--space-3], p-(--space-3), p-[var(--space-3)]) (core/docs/en/architecture/frontend-design-contract.md, DEC-2026-10-31-05). For an intended exception such as a computed or measured value, put '@strata:token-exception {reason} until YYYY-MM-DD' on the same line or the line just above (no effect if the reason is empty or it has expired)",
+      "computed": true
+    },
+    {
+      "id": "no-arbitrary-color-value",
+      "pattern": "(?<![\\w-])(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|from|via|to|divide|placeholder|decoration|accent|caret|shadow)-\\[(?:color:)?(?:#[0-9a-fA-F]{3,8}\\b|(?:rgb|hsl)a?\\(|okl(?:ch|ab)\\(|color-mix\\()",
+      "files": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.css",
+        "**/*.scss"
+      ],
+      "exclude": [
+        "**/tokens/**",
+        "**/foundation/**",
+        "**/tailwind*.ts"
+      ],
+      "exception": "token-exception",
+      "message": "Do not use raw color arbitrary values (bg-[#fff], text-[rgb(…)]) in color utilities — use an alias color class or bg-[var(--…)] (core/docs/en/architecture/frontend-design-contract.md, DEC-2026-10-31-05). For an intended exception such as a computed or measured value, put '@strata:token-exception {reason} until YYYY-MM-DD' on the same line or the line just above (no effect if the reason is empty or it has expired)",
+      "computed": true
+    },
+    {
+      "id": "no-raw-style-value",
+      "pattern": "(?<![\\w.$-])(?:color|background(?:Color)?|border(?:Top|Right|Bottom|Left)?Color|outlineColor|fill|stroke|margin(?:Top|Right|Bottom|Left|Inline|Block|InlineStart|InlineEnd|BlockStart|BlockEnd)?|padding(?:Top|Right|Bottom|Left|Inline|Block|InlineStart|InlineEnd|BlockStart|BlockEnd)?|gap|rowGap|columnGap|fontSize|lineHeight|border(?:(?:Top|Bottom)(?:Left|Right)|(?:Start|End)(?:Start|End))?Radius|boxShadow|textShadow|zIndex)\\s*:\\s*(?:-?\\d*\\.?\\d*[1-9]\\d*(?![\\w.(])|['\\\"`](?![^'\\\"`]*var\\()[^'\\\"`]*?(?:(?:#[0-9a-fA-F]{3,8}\\b|(?:rgb|hsl)a?\\(|okl(?:ch|ab)\\(|color-mix\\()|(?<![\\w.])\\d*\\.?\\d*[1-9]\\d*(?:px|rem|em)\\b))",
+      "files": [
+        "**/*.ts",
+        "**/*.tsx"
+      ],
+      "exclude": [
+        "**/tokens/**",
+        "**/foundation/**",
+        "**/tailwind*.ts"
+      ],
+      "exception": "token-exception",
+      "message": "Do not use raw values for design properties of a style object (color, margin/padding/gap, fontSize/lineHeight, borderRadius, boxShadow, zIndex) — use 'var(--…)' or a token constant. Computed geometry such as width, height and position is not covered (DEC-2026-10-31-05). For an intended exception such as a computed or measured value, put '@strata:token-exception {reason} until YYYY-MM-DD' on the same line or the line just above (no effect if the reason is empty or it has expired)",
+      "computed": true
+    },
+    {
+      "id": "no-raw-css-value",
+      "pattern": "(?<![\\w-])(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left|inline|block))?-color|outline-color|fill|stroke|margin(?:-[a-z-]+)?|padding(?:-[a-z-]+)?|gap|row-gap|column-gap|font-size|line-height|border(?:-[a-z]+)*-radius|box-shadow|text-shadow|z-index)\\s*:(?![^;]*var\\()[^;]*?(?:(?:#[0-9a-fA-F]{3,8}\\b|(?:rgb|hsl)a?\\(|okl(?:ch|ab)\\(|color-mix\\()|(?<![\\w.#-])\\d*\\.?\\d*[1-9]\\d*(?:px|rem|em)?(?![\\w.%(-]))",
+      "files": [
+        "**/*.css",
+        "**/*.scss"
+      ],
+      "exclude": [
+        "**/tokens/**",
+        "**/foundation/**",
+        "**/tailwind*.ts"
+      ],
+      "exception": "token-exception",
+      "message": "Do not use raw values in CSS design property declarations — use var(--alias). Token definitions (--x: …) belong in Foundation (DEC-2026-10-31-05). For an intended exception such as a computed or measured value, put '@strata:token-exception {reason} until YYYY-MM-DD' on the same line or the line just above (no effect if the reason is empty or it has expired)",
+      "computed": true
+    },
+    {
+      "id": "no-primitive-token-class",
+      "pattern": "(?<![\\w-])(?:bg|text|border(?:-[xytrblse])?|ring(?:-offset)?|outline|fill|stroke|from|via|to|divide|placeholder|decoration|accent|caret|shadow)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|cool-neutral|warm-neutral)-\\d{2,3}\\b",
+      "files": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.css",
+        "**/*.scss"
+      ],
+      "exclude": [
+        "**/tokens/**",
+        "**/foundation/**",
+        "**/ui/src/primitives/variants/**"
+      ],
+      "exception": "token-exception",
+      "message": "T1 (palette scale) classes are not allowed in components — use alias classes (bg-surface-*, text-*-muted …) (frontend-tokens.md). Adjust the pattern to the project's palette names"
+    },
+    {
+      "id": "token-exception-expiry",
+      "pattern": "@strata:token-exception\\b.*\\buntil\\s+(\\d{4}-\\d{2}-\\d{2})",
+      "expiryGroup": 1,
+      "includeComments": true,
+      "files": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.css",
+        "**/*.scss"
+      ],
+      "message": "token-exception expired — promote it to an alias (DEC) or remove the value (core/docs/en/conventions/strata-markers.md)",
+      "scope": "tracked"
+    },
+    {
+      "id": "no-any",
+      "pattern": "(:\\s*any\\b|<any>|as\\s+any\\b)",
+      "message": "No any in new code"
+    }
+  ]
+}

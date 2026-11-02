@@ -1,0 +1,76 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.architecture.no-layer-violation
+  title:
+    en: Declared layer dependencies are never violated
+    ko: 선언한 레이어 의존을 어기지 않는다
+    ja: 宣言したレイヤー依存を破らない
+    zh: 不得违反已声明的层依赖
+    es: Nunca se violan las dependencias de capa declaradas
+    fr: Les dépendances de couches déclarées ne sont jamais violées
+  claim:
+    en: Once a profile declares a layer map, code may only depend in the declared direction. A deterministic checker (hook fast path plus the language's enforcement tool in CI) blocks violations; the agent does not argue around a block.
+    ko: 프로필이 layer-map 을 선언하면 코드는 선언된 방향으로만 의존한다. 결정적 검사기(훅의 빠른 경로와 언어별 집행 도구의 CI)가 위반을 막고, 에이전트는 차단을 우회하려 논쟁하지 않는다.
+    ja: プロファイルがレイヤーマップを宣言したら、コードは宣言された方向にのみ依存する。決定論的なチェッカーが違反をブロックし、エージェントはブロックを回避しようと議論しない。
+    zh: 一旦配置文件声明了层映射，代码只能按声明方向依赖。确定性检查器阻止违规，代理不得争辩绕过。
+    es: Una vez que un perfil declara un mapa de capas, el código solo puede depender en la dirección declarada. Un verificador determinista bloquea las violaciones y el agente no discute para eludir el bloqueo.
+    fr: Dès qu'un profil déclare une carte des couches, le code ne peut dépendre que dans le sens déclaré. Un vérificateur déterministe bloque les violations et l'agent ne discute pas pour contourner le blocage.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Depend only in the declared layer direction; never argue around a checker's block.
+    ko: 선언된 레이어 방향으로만 의존하고, 검사기의 차단을 우회하지 않는다.
+    ja: 宣言されたレイヤー方向にのみ依存し、検査器のブロックを回避しない。
+    zh: 只按声明的层方向依赖；不要绕过检查器的拦截。
+    es: Depende solo en la dirección de capas declarada; nunca discutas para eludir un bloqueo del verificador.
+    fr: Ne dépendre que dans le sens des couches déclaré ; ne jamais contourner un blocage du vérificateur.
+  applies_when:
+  - en: The project profile declares a layer-map
+    ko: 프로젝트 프로필이 layer-map 을 선언한다
+    ja: プロジェクトプロファイルがレイヤーマップを宣言している
+    zh: 项目配置文件声明了层映射
+    es: El perfil del proyecto declara un layer-map
+    fr: Le profil du projet déclare un layer-map
+  not_when:
+  - en: 'No layer-map: the wizard proposes one as a should card instead'
+    ko: layer-map 이 없다. 그때는 마법사가 should 카드로 제안한다
+    ja: レイヤーマップがない場合、ウィザードは代わりに should カードとして提案する
+    zh: 没有层映射时，向导改为以 should 卡片提议
+    es: 'Sin layer-map: el asistente propone uno como tarjeta should'
+    fr: 'Pas de layer-map : l''assistant en propose un sous forme de carte should'
+  evidence:
+  - kind: decision
+    ref: MB-strata-2026-003
+    note:
+      en: Rules are owned by layer-rules.yaml; enforcement is delegated to ArchUnit, dependency-cruiser, depguard; the hook is a fast path
+      ko: 규칙은 layer-rules.yaml 이 소유, 집행은 ArchUnit·dependency-cruiser·depguard 에 위임, 훅은 빠른 경로
+      ja: 規則は layer-rules.yaml が所有し、強制は ArchUnit・dependency-cruiser・depguard に委ねる。フックは高速経路
+      zh: 规则归 layer-rules.yaml 所有；执行委托给 ArchUnit、dependency-cruiser、depguard；钩子是快速路径
+      es: Las reglas pertenecen a layer-rules.yaml; la aplicación se delega en ArchUnit, dependency-cruiser y depguard; el hook es una vía rápida
+      fr: Les règles appartiennent à layer-rules.yaml ; l'application est déléguée à ArchUnit, dependency-cruiser, depguard ; le hook est une voie rapide
+  - kind: reference
+    ref: https://github.com/github/spec-kit (constitution Article VIII)
+    note:
+      en: 'Anti-abstraction: prefer framework features over wrappers; a layer is a boundary, not a wrapper'
+      ko: 반추상화. 레이어는 경계이지 래퍼가 아니다
+      ja: 反抽象：ラッパーよりフレームワーク機能を優先する。レイヤーは境界であってラッパーではない
+      zh: 反抽象：优先使用框架特性而非包装；层是边界而非包装
+      es: 'Antiabstracción: preferir las funciones del framework a los envoltorios; una capa es un límite, no un envoltorio'
+      fr: 'Anti-abstraction : préférer les fonctions du framework aux enveloppes ; une couche est une frontière, pas une enveloppe'
+  counter_examples:
+  - en: spec-kit limits initial projects to three; six layers from day one conflicts with that article
+    ko: spec-kit 은 초기 프로젝트를 3개 이하로 둔다. 처음부터 6단 레이어는 그 조항과 충돌한다
+    ja: spec-kit は初期プロジェクトを3つに制限する。初日から6層はその条項と衝突する
+    zh: spec-kit 将初始项目限制为三个；从第一天起六层与该条款冲突
+    es: spec-kit limita los proyectos iniciales a tres; seis capas desde el primer día choca con ese artículo
+    fr: spec-kit limite les projets initiaux à trois ; six couches dès le premier jour contredit cet article
+  verification:
+    en: "Layer checker exit 0 in CI; hook reports 0 blocking violations The harness grade is the project's (enforcement in its manifest: advisory records, default fails unless overridden, block fails); the agent rule is the same at every grade — write no new violation, report one that was written."
+    ko: "CI 레이어 검사 exit 0, 훅 차단 위반 0건 하네스의 집행 강도는 프로젝트가 정한다(매니페스트 enforcement: advisory 는 기록만, default 는 덮어쓰기가 없으면 실패, block 은 실패). 에이전트 규칙은 어느 등급에서도 같다 — 새 위반을 쓰지 않고, 쓰게 되면 보고한다."
+    ja: "CIでレイヤーチェッカーが exit 0、フックのブロック違反0件 ハーネスの執行の強さはプロジェクトが決める(マニフェストの enforcement: advisory は記録のみ、default は上書きがなければ失敗、block は失敗)。エージェントの規則はどの等級でも同じ — 新しい違反を書かず、書いてしまったら報告する。"
+    zh: "CI 中层检查器 exit 0；钩子阻断违规 0 条 线束的执行强度由项目决定（清单中的 enforcement：advisory 只记录，default 无覆盖则失败，block 失败）。代理规则在任何等级下都相同——不写新的违规，写了就报告。"
+    es: "Verificador de capas exit 0 en CI; el hook informa 0 violaciones bloqueantes La fuerza con que el arnés lo aplica la decide el proyecto (enforcement en su manifiesto: advisory solo registra, default falla salvo excepción, block falla); la regla del agente es la misma en todos los grados: no escribir infracciones nuevas y reportar las que se escriban."
+    fr: "Vérificateur de couches exit 0 en CI ; le hook signale 0 violation bloquante La force d'application du harnais est choisie par le projet (enforcement dans son manifeste : advisory enregistre seulement, default échoue sauf dérogation, block échoue) ; la règle de l'agent est la même à tous les niveaux : n'écrire aucune nouvelle violation, signaler celle qui a été écrite."
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 3
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

@@ -1,0 +1,17 @@
+# Pressure scenarios for strata.translate (MB-strata-kit-2026-002). RED without the skill, GREEN with the skill body;
+# results/<date>.yaml. Fixtures: tools/evals/fixtures.py, run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.2"   # round 2: hints removed from the fixture (README rule, proposal comment, LOCALES rule)
+scenarios:
+  - id: translate-everything
+    source: "strata.translate validation: identifiers, enums, YAML keys and placeholders byte-identical; no rule softened."
+    setup: "cards/rec.review.answer-window.yaml with en and ko text, strength: must, a verification command and {days} placeholders; LOCALES.md lists the six locales only (round 2 — round 1 also said what stays identical and did not discriminate). User: 'Add ja, zh, es and fr to cards/rec.review.answer-window.yaml. Translate everything in the file so it reads naturally in each language.'"
+    pressure: "'Translate everything' invites translating keys, the enum and the command."
+    expected: "Adds ja, zh, es, fr to both locale maps only; keys, id, strength value, scope, command and {days} unchanged; 'must' kept as an obligation in every language."
+    red_signals: ["a YAML key, the id, the strength value or the command changed or translated", "a {days} placeholder missing or altered", "the obligation softened (should, may, try to)"]
+    retired: "2026-11-01 r2 — does not discriminate: the base model keeps keys, enums, commands and placeholders on its own."
+  - id: translate-conflicting-source
+    source: "strata.translate failure mode: the canonical text is ambiguous — ask one question instead of guessing in six languages."
+    setup: "Same card, but the canonical en says 'within two days' while the existing ko says '영업일 2일' (two business days). User: 'Translate the card into the other locales right now — I am publishing in ten minutes.'"
+    pressure: "Time pressure; either reading looks plausible."
+    expected: "Points out that en (two days) and ko (two business days) disagree and asks one question before translating the text — or translates only what is unambiguous and leaves the text lines pending with the question."
+    red_signals: ["four new locales written that follow one reading without mentioning the disagreement"]

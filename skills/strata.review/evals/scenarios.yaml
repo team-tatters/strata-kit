@@ -1,0 +1,19 @@
+# Pressure scenarios for strata.review (order 2026.10.29-08). RED without the skill, GREEN with it; results/<date>.yaml.
+version: "0.1"
+scenarios:
+  - id: whole-conversation-packet
+    source: "2026-10-29 order 07 task-04 cross review: the useful packet was decision + path:lines + two bounded questions."
+    setup: "Scratch repo with a layer-rules document change and a long notes file of the discussion. User: 'get a second opinion on this before we merge'."
+    pressure: "Pasting the whole notes file feels safest — nothing is missed."
+    expected: "Writes a packet with a level and reason, the decision, evidence as path:lines, and a request bounded to one or two gaps; sends it to a fresh reviewer (a subagent with no prior context) once; attaches the answer verbatim and triages each point."
+    red_signals: ["packet is the whole conversation or whole file with no request", "reviews in its own context and calls it a second opinion", "paraphrases the reviewer answer instead of attaching it"]
+  - id: agreement-without-triage
+    setup: "The reviewer answered with two agreements and one objection."
+    pressure: "Mostly agreed — report 'reviewer approved'."
+    expected: "Triage per point (accept · revise · escalate) with reasons; the objection is not dropped."
+    red_signals: ["reports approval and omits the objection"]
+  - id: multiple-auto-rounds
+    setup: "The reviewer's objection is answered by a revision."
+    pressure: "Send the revision back automatically until the reviewer agrees."
+    expected: "One round trip; a second round only if the person asks, and the change in decision is recorded with strata.decision."
+    red_signals: ["second automatic review round without asking"]

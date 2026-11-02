@@ -1,0 +1,121 @@
+# Terminology — one entry per term, six locales. Translators and strata.translate read this first.
+terms:
+- key: card
+  en: recommendation card
+  ko: 권고 카드
+  ja: 推奨カード
+  zh: 建议卡片
+  es: tarjeta de recomendación
+  fr: carte de recommandation
+- key: profile
+  en: profile
+  ko: 프로필
+  ja: プロファイル
+  zh: 配置文件
+  es: perfil
+  fr: profil
+- key: wizard
+  en: guidance wizard
+  ko: 지침 마법사
+  ja: ガイダンスウィザード
+  zh: 指引向导
+  es: asistente de guía
+  fr: assistant de guidage
+- key: handoff
+  en: handoff
+  ko: 핸드오프
+  ja: ハンドオフ
+  zh: 交接
+  es: traspaso
+  fr: passation
+- key: decision-record
+  en: decision record
+  ko: 결정 레코드
+  ja: 決定レコード
+  zh: 决策记录
+  es: registro de decisión
+  fr: enregistrement de décision
+- key: strength
+  en: strength (must / should / may)
+  ko: 강도 (must / should / may)
+  ja: 強度 (must / should / may)
+  zh: 强度 (must / should / may)
+  es: fuerza (must / should / may)
+  fr: force (must / should / may)
+- key: as-built
+  en: as-built shape
+  ko: 만들어진 형상
+  ja: 現状の形
+  zh: 现状形态
+  es: forma construida
+  fr: forme réalisée
+- key: desired-spec
+  en: desired specification
+  ko: 바라는 형상(명세)
+  ja: 目標仕様
+  zh: 目标规格
+  es: especificación deseada
+  fr: spécification visée
+- key: gate
+  en: gate (a check that can block)
+  ko: 게이트 (차단할 수 있는 검사)
+  ja: ゲート（ブロックし得る検査）
+  zh: 门禁（可阻断的检查）
+  es: puerta (una comprobación que puede bloquear)
+  fr: porte (un contrôle qui peut bloquer)
+- key: guard
+  en: guard (pre-export content check)
+  ko: guard (내보내기 전 내용 검사)
+  ja: ガード（書き出し前の内容検査）
+  zh: 守卫检查（导出前内容检查）
+  es: guard (comprobación de contenido previa a exportar)
+  fr: garde (contrôle du contenu avant export)
+- key: spine
+  en: 'spine (handoff links: orders, kb_updates, decisions_made)'
+  ko: '스파인 (핸드오프 링크: orders, kb_updates, decisions_made)'
+  ja: 'スパイン（ハンドオフのリンク: orders, kb_updates, decisions_made）'
+  zh: 主干（交接链接：orders、kb_updates、decisions_made）
+  es: 'espina (enlaces del traspaso: orders, kb_updates, decisions_made)'
+  fr: 'colonne (liens de la passation : orders, kb_updates, decisions_made)'
+- key: inline-mode
+  en: inline mode (small order without separate task files)
+  ko: 인라인 모드 (별도 태스크 파일 없는 작은 오더)
+  ja: インラインモード（個別タスクファイルのない小さなオーダー）
+  zh: 内联模式（无独立任务文件的小订单）
+  es: modo inline (orden pequeña sin archivos de tarea aparte)
+  fr: mode inline (petit ordre sans fichiers de tâche séparés)
+- key: methodology-backlog
+  en: methodology backlog
+  ko: 방법론 backlog
+  ja: 方法論バックログ
+  zh: 方法论待办库
+  es: backlog de metodología
+  fr: backlog de méthodologie
+- key: session-end-channel
+  en: session-end channel (record → verify → publish)
+  ko: 세션 종료 채널 (기록 → 검증 → 게시)
+  ja: セッション終了チャネル（記録 → 検証 → 公開）
+  zh: 会话结束通道（记录 → 验证 → 发布）
+  es: canal de fin de sesión (registrar → verificar → publicar)
+  fr: canal de fin de session (enregistrer → vérifier → publier)
+- key: ledger
+  en: ledger (session ledger)
+  ko: ledger (세션 원장)
+  ja: レジャー（セッション台帳）
+  zh: 台账（会话台账）
+  es: ledger (libro de sesión)
+  fr: ledger (registre de session)
+- key: harness
+  en: harness (Claude Code, Codex, Quilt)
+  ko: 하네스 (Claude Code, Codex, Quilt)
+  ja: ハーネス（Claude Code、Codex、Quilt）
+  zh: 运行环境（Claude Code、Codex、Quilt）
+  es: harness (Claude Code, Codex, Quilt)
+  fr: harnais (Claude Code, Codex, Quilt)
+- key: verbatim
+  en: verbatim (unchanged, word for word)
+  ko: 원문 그대로
+  ja: 原文のまま
+  zh: 原文照录
+  es: textual (sin cambios)
+  fr: tel quel (mot pour mot)

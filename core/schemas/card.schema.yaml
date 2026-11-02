@@ -1,0 +1,42 @@
+# Recommendation card schema (Layer 1, tool-agnostic)
+# One card = one file under core/cards/<id>.yaml. Ids and enums are English only;
+# human text fields are locale maps (see LOCALES.md).
+version: "0.1"
+
+localized_text: &localized_text
+  type: map
+  keys: [en, ko, ja, zh, es, fr]
+  required: [en, ko]          # must: en and ko before the card is active
+  recommended: [ja, zh, es, fr]  # should: fall back to en with a warning
+
+card:
+  id:            { type: string, pattern: "^rec\\.[a-z0-9-]+(\\.[a-z0-9-]+)+$" }   # rec.<area>.<name>
+  title:         *localized_text
+  claim:         *localized_text
+  short_claim:   *localized_text   # optional; must cards: one-line summary for the always-loaded entry view (MB-strata-kit-2026-016)
+  strength:      { enum: [must, should, may] }
+  adoption:      { enum: [opt_in, conditional] }   # a must card outside the constitution (DEC-2026-10-29-14, DEC-2026-10-30-01):
+  #   opt_in      the wizard asks; adopted → must in that project; on by default when the user's adopt list, the profile's
+  #               cards_default or default_when names it; declining records a reason
+  #   conditional the wizard loads it as must without asking whenever `condition` holds for the project
+  condition:     { enum: [uses_vault, uses_quilt, domain_work] }   # conditional only: the fact that makes the card apply
+  default_when:  { enum: [uses_vault, uses_quilt, domain_work] }   # opt_in only: the fact that turns the default on
+  # every must card is either a constitution article, opt_in or conditional — a must with no delivery path is an error
+  # must   : never negotiated by the wizard (absolute rules, secrets, decision records)
+  # should : on by default; a project may waive it with waived_reason recorded in its registry
+  # may    : advice
+  applies_when:  { type: list, items: *localized_text }
+  not_when:      { type: list, items: *localized_text }
+  evidence:
+    type: list
+    min_items: 1                 # a card without evidence cannot be proposed by the wizard
+    items:
+      kind: { enum: [reference, decision, measurement] }
+      ref:  { type: string }     # URL, DEC id, or measurement note id
+      note: *localized_text
+  counter_examples: { type: list, items: *localized_text }   # grows from user pushback in the wizard
+  verification:  *localized_text   # how a project proves compliance (command, gate, or review step)
+  profiles:      { type: list, items: string }   # profile ids that include this card by default; empty = core
+  supersedes:    { type: list, items: string }   # card ids this card replaces
+  status:        { enum: [draft, active, superseded, withdrawn] }
+  source:        { type: string }  # where the rule comes from: a kit path (core/docs, core/rules, …) or a DEC id

@@ -1,0 +1,71 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# toc.yaml — topic node tree (source of truth for the human-readable table of contents)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# Location: vault/projects/{project-name}/_meta/toc.yaml
+#
+# What this file is:
+#   A tree that splits the project's knowledge into units people understand (features, topics).
+#   Each node is the key that gathers the current state (specification), policy (constraints), decisions and work history.
+#   A document declares which nodes it belongs to in frontmatter `nodes:`, not by its directory.
+#
+# Rules (the format rules are defined by the topic_nodes section of the global taxonomy.yaml):
+#   - node id = the path from the root ancestor, joined with dots (.). e.g. order.checkout-v2.collaborator
+#   - each segment is kebab-case. The key name is the segment.
+#   - nodes do not create directories. They are independent of where documents sit.
+#   - a node id never changes once created. To rename a node, change only its label.
+#     If the id must change, keep the old id in aliases (the resolver reads documents' nodes: through aliases).
+#   - the depth cap is depth_limit. When a feature goes past 4 levels, split it into documents, not nodes.
+#
+# Node attributes:
+#   label     — human-readable name (required)
+#   order     — display order among siblings (required)
+#   summary   — one-line description (optional). Shown as-is at the top of the node page
+#   aliases   — old ids or aliases for search and reverse lookup (optional)
+#   owner     — owning role or person (optional)
+#   status    — active (default) | retired. A retired node still gets a page, marked "retired"
+#   children  — child nodes (optional)
+#   match     — hints for backfilling and candidate extraction (optional). Used only by the node backfill planner when it proposes document-to-node candidates (not a source of truth)
+#       kb_paths:   ["knowledge-base/domain/order/"] project-relative path prefix — a document located here is a candidate for this node
+#       keywords:   ["refunds", "Refunds"]            case-insensitive search in the title, topic, tags and first 40 body lines
+#       code_paths: ["service/order-api/"]           repository path prefix hint for covers candidates
+#
+# node pages (generated only): projects/{project-name}/nodes/{node-id}.md
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+version: "1.0"
+project: "{project-name}"
+depth_limit: 4
+
+nodes:
+  # Example (an order project) — in a real project, delete this and fill in your own.
+  #
+  # order:
+  #   label: "Orders"
+  #   order: 1
+  #   summary: "Order, payment and refund handling"
+  #   children:
+  #     checkout-v2:
+  #       label: "Checkout v2"
+  #       order: 1
+  #       summary: "The order container generation. Includes the organization structure and collaborator policy"
+  #       children:
+  #         collaborator:
+  #           label: "Collaborators"
+  #           order: 1
+  #           aliases: ["workspace-collaborator", "collaborator invite"]
+  #     refunds:
+  #       label: "Refunds"
+  #       order: 2
+  #       children:
+  #         calculation:
+  #           label: "Refund amount calculation"
+  #           order: 1
+  # common-api:
+  #   label: "Common API"
+  #   order: 2
+  #   children:
+  #     membership:
+  #       label: "Membership and permissions"
+  #       order: 1
+  {}

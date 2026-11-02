@@ -1,0 +1,91 @@
+# Backend Go — Projection of the Conceptual Model
+
+> Canonical: strata-kit `profiles/backend.go-service/docs/en/backend-go.md` (2026-10-29, DEC-2026-10-29-06)
+> Conceptual model: `core/docs/en/architecture/backend-cqrs.md` — the meaning of the layers, the dependency direction, and the ban on same-tier references are defined there. This document only decides how Go expresses them.
+
+## Summary
+
+- The unit of encapsulation in Go is the **package**. So the layers are not spread out into directories (`internal/component/`, `internal/data/`, ...). The **feature (domain) package comes first**, and the layers show up inside it as **role files**. What the Go community avoids is not CQRS but "a directory per layer and an interface per struct".
+- Reference stack: standard `net/http` (Go 1.22 pattern routing), `pgx`, `sqlc` (generates typed query functions from SQL), `log/slog`. A framework (gin, echo) is optional and the projection is the same.
+- Interfaces are defined **on the consumer side** and kept small ("accept interfaces, return structs"). This is the same as the port-ownership principle of hexagonal architecture.
+- Boundaries are enforced by the compiler (no import cycles), the `internal/` directory, and `depguard` (golangci-lint).
+
+## Layout
+
+```
+cmd/api/main.go                 Route assembly — server start, dependency wiring (hand-written DI)
+internal/
+  platform/                     LM1 — db pool, transaction helpers, config (pgxpool, slog)
+  kit/                          L1 — pure functions, error codes, page types (no framework imports)
+  order/                        one feature package = one domain
+    order.go                    L1 (domain) — entity types, value objects, pure calculation
+    store.go                    L2 lower tier — queries and persistence wrapping the sqlc-generated Queries (Repository/Template role)
+    command.go                  L2 upper tier — CommandService: create/update/delete inside a transaction
+    query.go                    L2 upper tier — QueryService: read-only, returns DTOs directly
+    coordinate.go               LM2 — combines L2 for the same concern (only when needed)
+    usecase.go                  L3 — CompositeService: use case
+    http.go                     Route — handler: validation, auth context, response conversion, calls only usecase
+    queries.sql / db/           sqlc input and generated output
+  payment/ …
+```
+
+| Conceptual layer | In Go | Name |
+|---|---|---|
+| L1 | the `internal/kit` package, types and pure functions of a feature package | `PageRequest`, `func Convert(...)` |
+| LM1 | `internal/platform` | `NewPool`, `WithTx` |
+| L2 lower tier | `store.go` — sqlc `Queries` wrapper | `type store struct{ q *db.Queries }` (lowercase: hidden outside the package) |
+| L2 upper tier | `command.go` · `query.go` | `type CommandService struct`, `type QueryService struct` |
+| LM2 | `coordinate.go` or an `internal/<concern>` package | `type PaymentCoordinator struct` |
+| L3 | `usecase.go` | `type CommandCompositeService struct` (the package is the domain, so `order.CommandCompositeService`) |
+| Route | `http.go`, `cmd/api` | `func (h *Handler) CreateOrder(w, r)` |
+
+- Because the files share one package, the Go compiler cannot block references between files. **The ban on same-tier references is kept by review and linters**: L2 upper-tier types do not hold each other as fields, and `store` does not know the service types.
+- The lower tier (`store`) and the generated sqlc code use **lowercase types** so that nothing outside the package (other domains, handlers) can use them directly. The only things other packages may use are the service and use-case types.
+- Avoid stutter: `order.CommandService`, not `order.OrderService`.
+
+## Dependencies and Interfaces
+
+```go
+// internal/order/usecase.go — L3
+type CommandCompositeService struct {
+    cmd      *CommandService
+    payments PaymentAuthorizer          // other domains come in as a small interface defined on the consumer side
+}
+
+type PaymentAuthorizer interface {     // port: owned by the consumer (order)
+    Authorize(ctx context.Context, orderID int64, amount Money) error
+}
+
+func (s *CommandCompositeService) PlaceOrder(ctx context.Context, in PlaceOrderInput) (OrderID, error) {
+    id, err := s.cmd.Create(ctx, in.toNew())
+    if err != nil { return 0, err }
+    return id, s.payments.Authorize(ctx, int64(id), in.Total)
+}
+```
+
+- Domain packages never import each other (L3 ↔ L3 is forbidden). What is needed comes in as a consumer-side interface, and `cmd/api/main.go` wires in the implementation.
+- Do not create an interface per struct in advance. Interfaces exist only at boundaries that need substitution (test doubles, alternative implementations).
+
+## Commands and Queries
+
+- Writes: `CommandService` methods run inside `platform.WithTx(ctx, pool, func(q *db.Queries) error {...})`. Transactions live only in the L2 upper tier.
+- Reads: `QueryService` returns the query functions generated by sqlc (joins included) directly as DTOs. It does not have to pass through domain types.
+
+## Enforcement
+
+| What | Tool |
+|---|---|
+| No imports between domain packages; `kit` imports nothing | `golangci-lint` `depguard` rules (by package path) or `go-arch-lint` |
+| Blocking exposure outside the package | lowercase identifiers, `internal/` |
+| Circular dependencies | the compiler |
+| Formatting and static checks | `gofmt`, `go vet`, `staticcheck` |
+| Tests | `go test ./...` (store against a real PG via testcontainers) |
+
+## Markers
+
+In Go, the marker goes in the godoc comment without the `@` (`core/rules/naming-convention.yaml` markers.language_format.go, `core/docs/en/conventions/strata-markers.md`):
+
+```go
+// strata:layer L2-QueryService
+type QueryService struct{ … }
+```

@@ -1,0 +1,15 @@
+# RED / GREEN of skills/strata.kb-update/evals/scenarios.yaml (priority scenario) — order 2026.10.29-08.
+run: 2026-10-29 (round 2)
+model: claude-sonnet (general-purpose subagent)
+environment_note: "Subagents inherit the user memory, the global and workspace CLAUDE.md (cwd strata-kit), the installed strata-kit plugin (skills, strata-reviewer agent) and env vars such as STRATA_KIT. A RED run is therefore not a no-skill baseline; contamination is marked per run."
+results:
+  - scenario: stale-owner-after-change
+    red:
+      verdict: partial
+      observed: "Rewrote the rounding statement in place and bumped updated, but left sources empty."
+      red_signals_hit: ["no sources"]
+    green:
+      verdict: pass
+      observed: "In-place rewrite, updated bumped, sources set to the file and commit; said the index rebuild and link check could not run."
+refactor_actions:
+  - "No skill change: GREEN met expected."

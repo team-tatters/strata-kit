@@ -1,0 +1,12 @@
+// Strata layer enforcement dependencies — add to the test scope
+dependencies {
+    testImplementation("com.tngtech.archunit:archunit:1.3.0")
+    testImplementation("org.yaml:snakeyaml:2.2")
+    // JUnit 5 comes with Spring Boot starter-test. If you do not use it:
+    // testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+}
+
+// To inject the layer-rules.yaml path in CI (when there is no project-local .strata/ copy):
+// tasks.test {
+//     systemProperty("strata.layerRules", System.getenv("STRATA_LAYER_RULES") ?: "")
+// }

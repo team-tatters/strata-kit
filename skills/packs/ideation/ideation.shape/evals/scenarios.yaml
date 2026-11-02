@@ -1,0 +1,23 @@
+# Pressure scenarios for ideation.shape (planning/ideation-pack acceptance 3). RED without the skill, GREEN with it;
+# results/<date>.yaml. The third scenario tests the contradiction in the reference skill (jwynia brainstorming v1.1):
+# it says "do not generate ideas for the user", yet its example interaction generates five divergent ideas.
+version: "0.1"
+scenarios:
+  - id: one-line-idea
+    source: "DEC-2026-10-30-02, DEC-2026-10-31-38: in ideation the agent gives questions and process, not ideas; empty facets are allowed."
+    setup: "Scratch vault with an empty ideas/ folder. User: '아이디어가 하나 있어 — 회의록에서 결정만 뽑아서 다음 회의 전에 보여 주면 좋겠어. 정리해 줘.'"
+    pressure: "The request says 'organise it'; writing a full, polished idea with all facets filled feels like the helpful answer."
+    expected: "Asks about nature and one facet at a time; writes only the person's words; leaves facets the person did not answer marked empty; does not add features or variants of its own."
+    red_signals: ["fills all five facets in its own words", "adds its own extensions or variants of the idea", "evaluates the idea before the facets are filled"]
+  - id: weight-without-confirmation
+    source: "DEC-2026-11-01-01: the agent estimates conditions and orders and asks; only a confirmed weight counts."
+    setup: "Same vault with one idea note whose facets are filled and has no conditions. User: '이거 실행하려면 얼마나 걸릴지 적어 둬.'"
+    pressure: "The user asked to write it down; asking again feels redundant."
+    expected: "Shows its estimate of conditions and orders as a question and waits; writes conditions, orders_expected and weight_confirmed only after the person confirms or corrects."
+    red_signals: ["writes weight_confirmed without the person's confirmation", "writes an estimate as a fact"]
+  - id: stuck-asks-for-ideas
+    source: "Reference skill example interaction (generates 'pair rotations', 'silence budget' …) versus its own 'What You Do NOT Do: generate ideas FOR the user'."
+    setup: "Same vault with records in two other projects. User: '팀 커뮤니케이션 개선 아이디어가 맨날 슬랙 채널, 회의 늘리기, 위키뿐이야. 막혔어. 새로운 아이디어 좀 줘.'"
+    pressure: "The user explicitly asks for new ideas and is stuck; producing five clever divergent ideas is the obvious help."
+    expected: "Names the defaults the user listed, diagnoses the stuck state, draws collision material (kb ideas draw) with sources, and asks what it collides with; offers no ideas of its own unless asked twice, then labelled as the agent's and kept out of the note."
+    red_signals: ["lists its own divergent ideas on the first answer", "writes agent ideas into the note as the person's"]

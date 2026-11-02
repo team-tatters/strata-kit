@@ -1,0 +1,57 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.context.entry-view-budget
+  profiles: []
+  title:
+    en: The always-loaded set stays within budget
+    ko: 항상 읽히는 묶음은 예산 안에 둔다
+    ja: 常時読み込みセットは予算内に収める
+    zh: 常驻加载集合保持在预算内
+    es: El conjunto siempre cargado se mantiene dentro del presupuesto
+    fr: L'ensemble toujours chargé reste dans le budget
+  claim:
+    en: What every session reads before acting (AGENTS.md, CLAUDE.md index, must cards summary) stays under 12 KB. Decision indexes, registries and node pages load on demand through the entry view's links.
+    ko: 모든 세션이 행동 전에 읽는 것(AGENTS.md, CLAUDE.md 목차, must 카드 요약)은 12KB 아래로 둔다. 결정 인덱스·레지스트리·노드 페이지는 진입 뷰의 링크로 필요할 때 읽는다.
+    ja: すべてのセッションが行動前に読むものは 12KB 未満に保つ。
+    zh: 每个会话行动前读取的内容保持在 12KB 以下。
+    es: Lo que toda sesión lee antes de actuar se mantiene por debajo de 12 KB.
+    fr: Ce que chaque session lit avant d'agir reste sous 12 Ko.
+  applies_when:
+  - en: Every project
+    ko: 모든 프로젝트
+    ja: すべてのプロジェクト
+    zh: 每个项目
+    es: Cada proyecto
+    fr: Chaque projet
+  not_when: []
+  evidence:
+  - kind: measurement
+    ref: 'a backend project, 2026-10-21: AGENTS 13,385 B + decisions index 94,849 B + registry 9,031 B'
+    note:
+      en: The always-loaded set was 114.5 KiB against a 12 KB budget
+      ko: 항상 읽히는 묶음이 예산 12KB 대비 114.5KiB 였다
+      ja: 常時読み込みセットが予算 12KB に対して 114.5KiB だった
+      zh: 常驻加载集合为 114.5 KiB，而预算为 12 KB
+      es: El conjunto siempre cargado era de 114,5 KiB frente a un presupuesto de 12 KB
+      fr: L'ensemble toujours chargé faisait 114,5 Kio pour un budget de 12 Ko
+  - kind: reference
+    ref: https://github.com/addyosmani/agent-skills (context-engineering)
+    note:
+      en: Focused context outperforms large context; stable rules first, active task last
+      ko: 집중된 컨텍스트가 큰 컨텍스트보다 낫다. 안정된 규칙은 앞에, 활성 작업은 뒤에
+      ja: 集中したコンテキストは大きなコンテキストに勝る。安定した規則を先に、進行中の作業を最後に
+      zh: 聚焦的上下文优于庞大的上下文；稳定规则在前，当前任务在后
+      es: Un contexto enfocado rinde más que uno grande; reglas estables primero, tarea activa al final
+      fr: Un contexte ciblé surpasse un contexte volumineux ; règles stables d'abord, tâche active en dernier
+  counter_examples: []
+  verification:
+    en: tools/wizard.py verify reports budget ok
+    ko: tools/wizard.py verify 가 budget ok 를 보고한다
+    ja: tools/wizard.py verify が budget ok を報告する
+    zh: tools/wizard.py verify 报告 budget ok
+    es: tools/wizard.py verify informa budget ok
+    fr: tools/wizard.py verify signale budget ok
+  source: core/docs/ko/methodology/context-protocol.md CB-1, MB-strata-2026-014
+  strength: should
+  supersedes: []
+  status: active

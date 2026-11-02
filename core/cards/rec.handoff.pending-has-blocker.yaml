@@ -1,0 +1,64 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.handoff.pending-has-blocker
+  title:
+    en: Every pending item names its blocker and what unblocks it
+    ko: 미결 항목에는 막힌 이유와 풀리는 조건을 적는다
+    ja: 未決項目には阻害要因と解除条件を書く
+    zh: 每个待办项都写明阻碍及解除条件
+    es: Cada pendiente nombra su bloqueo y qué lo desbloquea
+    fr: Chaque élément en attente nomme son blocage et ce qui le lève
+  claim:
+    en: A handoff's pending item carries blocker and unblocked_by. Writing only 'waiting' is forbidden, because the next session then cannot tell what it is waiting for and the item just rolls over.
+    ko: 핸드오프의 미결 항목은 blocker 와 unblocked_by 를 함께 가진다. '대기' 만 적는 것은 금지한다. 다음 세션이 무엇을 기다리는지 모르면 미결이 이월만 된다.
+    ja: ハンドオフの未決項目は blocker と unblocked_by を伴う。「待ち」だけを書くことは禁止する。
+    zh: 交接中的待办项必须同时写明 blocker 和 unblocked_by；只写“等待”是禁止的。
+    es: Un pendiente del traspaso lleva blocker y unblocked_by. Escribir solo 'esperando' está prohibido.
+    fr: Un élément en attente de la passation porte blocker et unblocked_by. Écrire seulement « en attente » est interdit.
+  short_claim:   # 진입 뷰(생성본 Must 절)에 싣는 한 줄 요약 — MB-strata-kit-2026-016
+    en: Every pending handoff item carries blocker and unblocked_by.
+    ko: 핸드오프의 미결 항목에는 blocker 와 unblocked_by 를 함께 적는다.
+    ja: ハンドオフの未決項目には blocker と unblocked_by を併記する。
+    zh: 交接中的每个待办项都写明 blocker 和 unblocked_by。
+    es: Cada elemento pendiente del traspaso lleva blocker y unblocked_by.
+    fr: Chaque élément en attente de la passation porte blocker et unblocked_by.
+  applies_when:
+  - en: Every handoff and ledger close
+    ko: 모든 핸드오프와 ledger close
+    ja: すべてのハンドオフと ledger close
+    zh: 每次交接与 ledger close
+    es: Cada traspaso y cierre de ledger
+    fr: Chaque passation et clôture de ledger
+  not_when: []
+  evidence:
+  - kind: decision
+    ref: DEC-2026-09-30-02
+    note:
+      en: Absolute rule 9
+      ko: 절대 규칙 9
+      ja: 絶対規則9
+      zh: 绝对规则 9
+      es: Regla absoluta 9
+      fr: Règle absolue 9
+  - kind: reference
+    ref: https://github.com/obra/superpowers (writing-plans)
+    note:
+      en: Plans are written for a reader with no context; a pending item is a plan for the next session
+      ko: 계획은 맥락 없는 독자를 위해 쓴다. 미결 항목은 다음 세션을 위한 계획이다
+      ja: 計画は文脈を持たない読み手のために書く。未決項目は次のセッションのための計画である
+      zh: 计划是为没有上下文的读者写的；待办项是给下一会话的计划
+      es: Los planes se escriben para un lector sin contexto; un pendiente es un plan para la siguiente sesión
+      fr: Les plans s'écrivent pour un lecteur sans contexte ; un élément en attente est un plan pour la session suivante
+  counter_examples: []
+  verification:
+    en: session-ledger validate rejects a pending item without blocker/unblocked_by
+    ko: session-ledger validate 가 blocker·unblocked_by 없는 미결을 거부한다
+    ja: session-ledger validate が blocker/unblocked_by のない未決項目を拒否する
+    zh: session-ledger validate 拒绝没有 blocker/unblocked_by 的待办项
+    es: session-ledger validate rechaza un pendiente sin blocker/unblocked_by
+    fr: session-ledger validate rejette un élément en attente sans blocker/unblocked_by
+  source: core/docs/ko/methodology/execution-modes.md 절대 규칙 9
+  strength: must
+  profiles: []
+  supersedes: []
+  status: active

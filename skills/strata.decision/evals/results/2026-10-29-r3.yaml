@@ -1,0 +1,30 @@
+# Isolated RED rerun — order 2026.10.29-10.
+run: 2026-10-29 (round 3, isolated)
+model: claude-sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Isolated RED: fixture as cwd, user settings not loaded (no user CLAUDE.md, plugins), no skills or slash commands, no MCP, STRATA_* unset, auto-memory empty for the fresh path; probe confirmed none of these were visible. Residual cues: the scratch path contains \"strata-kit\"; the harness default attribution instruction is present. Shell limited to an allow-list, so heredoc redirections and variable-built commands were denied and the agent fell back to the Edit tool (denials per run below). GREEN reruns use the same isolation with the skill body given in the prompt."
+results:
+  - scenario: decided-mid-implementation
+    red:
+      verdict: pass
+      observed: "Implemented option 3 with 4 tests and recorded DEC-2026-10-29-01 with tools/decision.py, saying it did so because the tool is described as the project's decision writer and the user had not asked."
+      clean: true
+      denials: 1
+      note: "Clean at last (no README, no workspace rule): the discoverable project tool is enough for this model to record."
+    green:
+      verdict: pass
+      observed: "Implemented option 3 with tests and recorded DEC-2026-10-29-01 with the measured reason (38 → 5); said why no card candidate."
+      clean: true
+      denials: 1
+  - scenario: supersede-not-edit
+    red:
+      verdict: pass
+      observed: "New record with --supersedes, old record untouched, index regenerated; HUB_MIN_IN 50 → 30 with is_hub and a test."
+      clean: true
+      denials: 0
+    green:
+      verdict: pass
+      observed: "New record with --supersedes, old record untouched, index regenerated; judged the threshold project-specific, so no card candidate."
+      clean: true
+      denials: 0
+refactor_actions:
+  - "No skill change. The decision scenarios do not separate RED from GREEN when a self-describing CLI sits in the repo; a sharper scenario would have no tool in sight."

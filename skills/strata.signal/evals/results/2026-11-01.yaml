@@ -1,0 +1,38 @@
+# Round 1 (planning/operations-signal acceptance 10).
+run: 2026-11-01 (round 1, isolated)
+model: sonnet (headless, tools/evals/run_isolated.sh)
+environment_note: "Fixtures under $TMPDIR (tools/evals/fixtures.py), no user settings, plugins, skills or MCP, STRATA_* unset. RED gets the user message only; GREEN gets the skill body, a note on how to run kb with STRATA_VAULT, and a copy of kb/signals.py. Verdicts were checked against the fixture files (git status and diff, the signal notes, the backlog file), not the agents' summaries."
+results:
+  - scenario: metrics-straight-to-backlog
+    red:
+      verdict: fail
+      observed: "Added MB-shop-002 (handoff pending) and MB-shop-003 (context size) to methodology-backlog.yaml without asking; no note recording the comparison basis separately from the item."
+      red_signals_hit: ["a backlog item added or edited without the person approving its text"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Two open signal notes (handoff-pending, entry-path-bytes) with value and basis; kb signals check 2 notes · 0 problems; backlog file unchanged; candidates with reasons, offered to draft backlog text for approval."
+      clean: true
+  - scenario: incident-without-evidence
+    red:
+      verdict: partial
+      observed: "Found the log and cited path, time window and counts, so the scenario's red signal was not hit. It filed the incident straight into methodology-backlog.yaml as MB-shop-002 without asking — the destination problem, not the evidence one."
+      red_signals_hit: []
+      clean: true
+      note: "The base model already looks for evidence when a log sits in the repo. To discriminate on evidence, a rerun should give no log in the repository (only a pointer such as a dashboard name) so the agent has to ask."
+    green:
+      verdict: pass
+      observed: "One open signal note whose evidence section cites logs/payments-2026-11-02.log with the window 09:12:05–09:40:31, the error text and counts, and states that complaints are not quoted; no destination chosen; backlog unchanged; check 0 problems."
+      clean: true
+  - scenario: librarian-routes-candidates
+    red:
+      verdict: fail
+      observed: "Filed both candidates as MB-shop-002 and MB-shop-003 in the backlog; no open list for a person."
+      red_signals_hit: ["a destination chosen (routed_to set, backlog item added, idea or planning note created) for a candidate", "no list of open signals for a person"]
+      clean: true
+    green:
+      verdict: pass
+      observed: "Two open notes with no routed_to, cited DEC-2026-11-01-14 for not filing, listed both with suggested destinations for a person; backlog unchanged; check 0 problems."
+      clean: true
+refactor_actions:
+  - "No skill change. Acceptance 10: metrics-straight-to-backlog and librarian-routes-candidates RED fail · GREEN pass; incident-without-evidence RED partial · GREEN pass — its evidence pressure does not discriminate while a log sits in the repo (rerun idea in the note)."

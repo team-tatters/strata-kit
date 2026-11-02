@@ -1,0 +1,78 @@
+# Recommendation card — one card per file. Schema: core/schemas/card.schema.yaml
+card:
+  id: rec.spec.desired-vs-as-built
+  profiles: []
+  title:
+    en: Desired shape and as-built shape are separate documents
+    ko: 바라는 형상과 만들어진 형상은 다른 문서다
+    ja: 目標の形と現状の形は別の文書
+    zh: 目标形态与现状形态是不同文档
+    es: La forma deseada y la forma construida son documentos distintos
+    fr: La forme visée et la forme réalisée sont des documents distincts
+  claim:
+    en: Requirements and acceptance criteria live in a desired specification (planning); the current behaviour lives in knowledge documents (as-built). A future requirement is never written into an as-built document as if implemented. Done means the two converge, and the convergence check is the gate.
+    ko: 요구와 인수 기준은 바라는 명세(planning)에, 현재 동작은 지식 문서(as-built)에 둔다. 미래 요구를 구현된 것처럼 as-built 문서에 쓰지 않는다. 완료란 둘이 같아지는 것이고 그 수렴 확인이 게이트다.
+    ja: 要件と受け入れ基準は目標仕様に、現在の挙動は知識文書に置く。完了とは両者が一致することである。
+    zh: 需求与验收标准放在目标规格中，当前行为放在知识文档中；完成意味着两者收敛。
+    es: Requisitos y criterios de aceptación viven en la especificación deseada; el comportamiento actual en documentos de conocimiento. Hecho significa que convergen.
+    fr: Exigences et critères d'acceptation vivent dans la spécification visée ; le comportement actuel dans les documents de connaissance. Terminé signifie qu'ils convergent.
+  applies_when:
+  - en: Any feature work with a planning document
+    ko: 기획 문서가 있는 모든 기능 작업
+    ja: 企画文書のあるすべての機能作業
+    zh: 所有有规划文档的功能工作
+    es: Cualquier trabajo de funcionalidad con un documento de planificación
+    fr: Tout travail de fonctionnalité avec un document de planification
+  not_when:
+  - en: Pure refactors with no behaviour change
+    ko: 동작이 바뀌지 않는 순수 리팩터링
+    ja: 挙動が変わらない純粋なリファクタリング
+    zh: 不改变行为的纯重构
+    es: Refactorizaciones puras sin cambio de comportamiento
+    fr: Refactorisations pures sans changement de comportement
+  evidence:
+  - kind: reference
+    ref: https://github.com/github/spec-kit (spec-driven.md)
+    note:
+      en: Specifications are the primary artifact; acceptance scenarios become tests; converge until the check reports Converged
+      ko: 명세가 정본이고 인수 시나리오가 테스트이며 수렴 확인이 끝낸다
+      ja: 仕様が主要な成果物であり、受け入れシナリオがテストになる。チェックが Converged と報告するまで収束させる
+      zh: 规格是主要产物；验收场景即测试；收敛直至检查报告 Converged
+      es: Las especificaciones son el artefacto principal; los escenarios de aceptación se vuelven pruebas; converger hasta que el chequeo informe Converged
+      fr: Les spécifications sont l'artefact principal ; les scénarios d'acceptation deviennent des tests ; converger jusqu'à ce que la vérification signale Converged
+  - kind: decision
+    ref: DEC-2026-09-30-03
+    note:
+      en: Three document roles and link currency
+      ko: 문서 세 역할과 링크 현행성
+      ja: 文書の3つの役割とリンクの現行性
+      zh: 文档三种角色与链接时效性
+      es: Tres roles de documento y vigencia de enlaces
+      fr: Trois rôles de document et actualité des liens
+  - kind: decision
+    ref: DEC-2026-10-29-09
+    note:
+      en: The coverage gate lists planning documents whose implementation.spec names a specification that owns changed code — implemented means recheck, anything else means update the status (advisory)
+      ko: 커버리지 게이트가 바뀐 코드의 소유 명세에 implementation.spec 으로 걸린 기획 문서를 보인다 — implemented 면 재대조, 그 밖이면 상태 갱신(advisory)
+      ja: カバレッジゲートは、変更コードを所有する仕様に implementation.spec で結ばれた企画文書を示す — implemented なら再照合、それ以外は状態更新（advisory）
+      zh: 覆盖率门禁列出通过 implementation.spec 指向变更代码所属规格的规划文档——implemented 则重新核对，其他则更新状态（advisory）
+      es: El coverage gate lista los documentos de planificación cuyo implementation.spec nombra la especificación dueña del código cambiado — implemented pide volver a contrastar, lo demás actualizar el estado (advisory)
+      fr: Le coverage gate liste les documents de planification dont implementation.spec nomme la spécification propriétaire du code modifié — implemented demande une nouvelle confrontation, sinon mettre à jour le statut (advisory)
+  counter_examples:
+  - en: spec-kit regenerates code from specs; in an existing codebase the as-built document is updated in place instead, so convergence must be checked rather than assumed
+    ko: spec-kit 은 명세에서 코드를 재생성하지만 기존 코드베이스에서는 as-built 를 제자리 갱신하므로 수렴을 가정하지 말고 검사해야 한다
+    ja: spec-kit は仕様からコードを再生成するが、既存コードベースでは現状文書をその場で更新するため、収束は仮定せず検証しなければならない
+    zh: spec-kit 从规格重新生成代码；在现有代码库中则是就地更新现状文档，因此收敛必须检查而非假定
+    es: spec-kit regenera código desde las especificaciones; en una base existente el documento as-built se actualiza en el sitio, así que la convergencia debe comprobarse, no asumirse
+    fr: spec-kit régénère le code depuis les spécifications ; dans une base existante le document réalisé est mis à jour sur place, la convergence doit donc être vérifiée et non supposée
+  verification:
+    en: Coverage gate reports no new divergence between covers and changed code at session close; an implemented plan whose specification's code changed is judged in the session (kb divergence) or carries a reasoned, dated override
+    ko: 세션 종료 시 coverage gate 가 covers 와 바뀐 코드 사이의 새 불일치 0건. 명세가 맡은 코드가 바뀐 구현됨 기획은 그 세션에 판정(kb divergence)되거나 사유·기한 덮어쓰기가 있다
+    ja: セッション終了時に coverage gate が covers と変更コードの新規不一致0件。仕様が受け持つコードが変わった実装済み企画は、そのセッションで判定(kb divergence)されるか、理由・期限付きの上書きがある
+    zh: 会话结束时 coverage gate 报告 covers 与变更代码无新增不一致；规格所负责代码已变更的已实现规划，在该会话中完成判定（kb divergence），或有附理由与期限的覆盖
+    es: El coverage gate no informa divergencias nuevas al cerrar la sesión; un plan implementado cuya especificación cubre código cambiado se juzga en la sesión (kb divergence) o lleva una excepción con motivo y fecha
+    fr: Le coverage gate ne signale aucune divergence nouvelle en fin de session ; un plan implémenté dont la spécification couvre du code modifié est jugé dans la session (kb divergence) ou porte une dérogation motivée et datée
+  source: core/docs/ko/knowledge-base/document-format.md, vault strata-context-wizard-direction 6.1
+  strength: should
+  supersedes: []
+  status: active

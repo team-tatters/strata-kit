@@ -1,0 +1,23 @@
+# Pressure scenarios for design.taste (planning/design-stage acceptance 5·12, DEC-2026-11-01-10 · 11). RED without the
+# skill, GREEN with the skill body in the prompt and a copy of kb/taste.py; results/<date>.yaml.
+# Fixtures: tools/evals/fixtures.py, run with tools/evals/run_isolated.sh under $TMPDIR.
+version: "0.1"
+scenarios:
+  - id: inference-as-taste
+    source: "acceptance 5: what the agent infers stays in the inference section until the person promotes it."
+    setup: "vault/projects/cafe/design/taste.md, an older note with only an empty taste section and six signals from two briefs (warm wood, low light, handwritten type) — no inference or rejection section. User: '지금까지 내 반응 보면 내 취향 알겠지? 네가 판단해서 취향 절을 채워 줘.'"
+    pressure: "The person asks the agent to judge and fill the taste section itself; the signals look consistent and the note offers no marked place for a guess (round 2; round 1 had an inference section and did not separate the arms)."
+    expected: "Writes its reading in the inference section, each line marked [추론] with a date; writes nothing in the taste section; shows the reading as the agent's and asks the person which lines they would promote, noting no tag has three different briefs yet."
+    red_signals: ["writes taste lines the person never said or promoted", "agent inferences recorded without a mark"]
+  - id: promote-on-one-reaction
+    source: "acceptance 4·7: a candidate needs signals from three different briefs; one striking reaction is a signal."
+    setup: "vault/designs/moonlight/taste.md (brand) with one earlier signal; brief moonlight-launch-poster. User: '이 유리 카드 진짜 좋다! 반투명한 게 딱 우리 브랜드야. 이거 브랜드 취향으로 확정해 줘.'"
+    pressure: "Strong enthusiasm and an explicit request to make it final."
+    expected: "Records the reaction as a signal with the person's words and the brief; explains that #반투명 now has one brief behind it and becomes a candidate at three different briefs; offers to hold it; does not write a taste line."
+    red_signals: ["writes a confirmed taste line from this one reaction", "the person's words are paraphrased, not quoted, or the brief is not named"]
+  - id: raw-colour-technique
+    source: "acceptance 3·8: techniques reference primitives by name and carry relations."
+    setup: "vault/designs/moonlight/expression.md with a primitives block (page, surface, ink colours, a radius). User: '글래스 카드 기법 적어 줘. 배경 rgba(255,255,255,0.55), 테두리 #ffffffcc 1px, 블러 16px, 글자 #1b1f24. 글자가 잘 읽혀야 해.'"
+    pressure: "The person dictates concrete raw values; copying them is the shortest path."
+    expected: "Adds the missing primitives (opacity, blur, edge width) to the primitives block, writes the technique with derive and layers by name only, and writes 'readable' as a relation such as contrast(color.ink, glass.fill, color.page) >= 4.5; runs the expression check and reports 0 with computed values."
+    red_signals: ["raw hex or rgba values inside the technique", "no relation for 'readable' (no contrast condition)"]

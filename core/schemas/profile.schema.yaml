@@ -1,0 +1,29 @@
+# Profile manifest schema (Layer 1, tool-agnostic) — profiles/<id>/profile.yaml
+# A profile is a language or framework family: how the wizard detects it, which layer story it declares,
+# which tools enforce it and which cards it turns on by default. Ids and enums are English only;
+# human text fields are locale maps (see LOCALES.md). Checked by tools/cards_check.py.
+version: "0.1"
+
+localized_text: &localized_text
+  type: map
+  keys: [en, ko, ja, zh, es, fr]
+  required: [en, ko]
+  recommended: [ja, zh, es, fr]
+
+profile:
+  id:             { type: string, pattern: "^[a-z]+(\\.[a-z0-9-]+)+$" }   # <family>.<name>; equals the folder name
+  title:          *localized_text
+  status:         { enum: [draft, active, superseded, withdrawn] }
+  detect:                          # any one match proposes the profile (tools/wizard.py diagnose); {} = the fallback profile
+    type: map
+    keys: [any_files, any_glob, any_content, languages]
+    any_files:    { type: list, items: string }                 # file names at the project root
+    any_glob:     { type: list, items: string }                 # glob patterns from the project root
+    any_content:  { type: list, items: { type: list, items: string, length: 2 } }   # [file, substring]
+    languages:    { type: list, items: string }
+  layers:         { type: string }  # the layer story in one line; "none declared; …" when the profile has none
+  enforcement:    { type: list, items: string }   # tools that enforce the layers (templates under profiles/<id>/enforcement/)
+  cards_default:  { type: list, items: string }   # card ids (core/cards/<id>.yaml) turned on with the profile
+  cards_excluded: { type: list, items: string }   # card ids this profile never proposes
+  source:         { type: string }  # kit paths the profile is distilled from, comma separated; each must exist (a trailing (note) is allowed)
+  note:           *localized_text

@@ -1,0 +1,122 @@
+/**
+ * Strata layer rule generator — a pure function. (rules, layerMap, options) → dependency-cruiser IConfiguration
+ * depcruise-layers.cjs reads the files and passes them to this function. A project copies this file as is and changes only the loader.
+ */
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+const union = (arr) => (arr.length ? `(${arr.map(escapeRe).join('|')})` : null);
+
+module.exports = function buildLayerRules(rules, layerMap, options) {
+  // layer-map names it as variant or frontend_variant (the same keys as the edit hook, MB-strata-kit-2026-035)
+  const variantName = layerMap.variant || layerMap.frontend_variant || rules.frontend.default_variant || 'web';
+  const variant = rules.frontend.variants[variantName];
+  if (!variant) throw new Error(`layer-rules has no frontend.variants.${variantName}`);
+  const layerNames = Object.keys(variant.layers);
+
+  // Mapping list (order kept). A layer with a _ prefix is "not checked", but as an earlier mapping it still shadows other layers.
+  const mappings = (layerMap.mappings || []).map((m, i) => ({ i, path: m.path, layer: m.layer }));
+  const layerMappings = (layer) => mappings.filter((m) => m.layer === layer);
+  const legacy = ((layerMap.zones && layerMap.zones.legacy) || []);
+  const exceptions = (layerMap.exceptions || []).filter((e) => e.status !== 'retired');
+  // An exception lifts only one (from_path → to_layer): collect the allowed to_layer per from_path, and check that file
+  // against the remaining banned layers in a separate rule — fixes the defect where one exception lifted every banned target of the file (MB-strata-kit-2026-035)
+  const waived = new Map();
+  for (const e of exceptions) {
+    if (!e.from_path || !e.to_layer) continue;
+    if (!waived.has(e.from_path)) waived.set(e.from_path, new Set());
+    waived.get(e.from_path).add(e.to_layer);
+  }
+  const layerOfPath = (p) => (mappings.find((m) => p.includes(m.path)) || {}).layer;
+
+  /** `to` regex: the union of the mappings of banned layer set B; pathNot = mappings of layers outside B that come before B's last mapping */
+  const toFor = (banned) => {
+    const bm = mappings.filter((m) => banned.includes(m.layer));
+    if (bm.length === 0) return null;
+    const lastIdx = Math.max(...bm.map((m) => m.i));
+    const shadow = mappings.filter((m) => !banned.includes(m.layer) && m.i < lastIdx);
+    return { path: union(bm.map((m) => m.path)), ...(shadow.length ? { pathNot: union(shadow.map((m) => m.path)) } : {}) };
+  };
+
+  const forbidden = [];
+  for (const layer of layerNames) {
+    const def = variant.layers[layer];
+    const allowed = new Set([...(def.can_reference || []), layer]);   // inside the same layer is always allowed
+    const banned = layerNames.filter((l) => !allowed.has(l));
+    const to = toFor(banned);
+    if (!to) continue;
+    for (const m of layerMappings(layer)) {
+      // from: this one mapping. Earlier other-layer mappings (including unchecked _ layers), the legacy zone and exceptions are left out
+      const shadow = mappings.filter((x) => x.i < m.i && x.layer !== layer).map((x) => x.path);
+      const exc = [...waived.keys()].filter((fp) => layerOfPath(fp) === layer);
+      const pathNot = union([...shadow, ...legacy, ...exc]);
+      forbidden.push({
+        name: `layer:${layer}`,
+        comment: `${layer} may not reference ${banned.join(', ')} (can_reference: ${(def.can_reference || []).join(', ') || 'none'}) — mapping "${m.path}"`,
+        severity: 'error',
+        from: { path: escapeRe(m.path), ...(pathNot ? { pathNot } : {}) },
+        to,
+      });
+    }
+  }
+
+  for (const [fromPath, allowedTargets] of waived) {
+    const layer = layerOfPath(fromPath);
+    const def = layer && variant.layers[layer];
+    if (!def) continue;
+    const allowed = new Set([...(def.can_reference || []), layer, ...allowedTargets]);
+    const to = toFor(layerNames.filter((l) => !allowed.has(l)));
+    if (!to) continue;
+    forbidden.push({
+      name: `layer:${layer}`,
+      comment: `exception file "${fromPath}" of ${layer} — banned layers outside the exception (${[...allowedTargets].join(', ')}) stay banned`,
+      severity: 'error',
+      from: { path: escapeRe(fromPath), ...(legacy.length ? { pathNot: union(legacy) } : {}) },
+      to,
+    });
+  }
+
+  // transport ({name}.service) is imported only by DataState adapters — components, Route Surfaces and shared hooks see only the adapter
+  // (layer-rules web DataState rules, frontend-query-state.md). Another transport inside the same DataState is allowed too
+  const transport = layerMap.transport_pattern || '\\.service\\.(ts|tsx|js|jsx)$';
+  const ds = layerMappings('DataState').map((m) => m.path);
+  forbidden.push({
+    name: 'layer:transport-adapter-only',
+    comment: 'transport ({name}.service) is imported only by DataState adapters (use*Query, use*Mutation)',
+    severity: 'error',
+    from: { pathNot: union([...ds, ...legacy, ...[...waived].filter(([, t]) => t.has('DataState')).map(([fp]) => fp)]) || '^$' },
+    to: { path: transport },
+  });
+
+  // A target inside the project that no mapping covers — its layer is unknown, so it is reported, not blocked (warn). Widen a mapping or move it to a _ layer
+  const all = union(mappings.map((m) => m.path));
+  if (all) {
+    forbidden.push({
+      name: 'layer:unmapped-target',
+      comment: 'the target is in no layer-map mapping — its layer cannot be determined',
+      severity: 'warn',
+      from: { path: all, ...(legacy.length ? { pathNot: union(legacy) } : {}) },
+      to: { pathNot: [all, 'node_modules', '\\.(css|scss|sass|less|svg|png|jpe?g|gif|webp|json|md)$'], dependencyTypesNot: ['npm', 'npm-dev', 'npm-optional', 'npm-peer', 'npm-bundled', 'npm-no-pkg', 'npm-unknown', 'core', 'unknown', 'undetermined'] },
+    });
+  }
+
+  // domain = one directory right below the feature root (DEC-2026-11-01-19). The root is layer-map feature_root, or if absent the part of layer-rules
+  // Feature_Block.domain_slice ('src/features/(*)/') before '(*)' — fixes the defect where the isolation rule silently dropped out when it was absent (cross-check 2026-11-01)
+  const slice = (variant.layers.Feature_Block || {}).domain_slice;
+  const featureRoot = layerMap.feature_root || (typeof slice === 'string' && slice.includes('(*)') ? slice.split('(*)')[0] : null);
+  if (featureRoot && layerMappings('Feature_Block').length) {
+    const root = escapeRe(featureRoot);
+    const fb = layerMappings('Feature_Block');
+    const lastIdx = Math.max(...fb.map((m) => m.i));
+    const shadow = mappings.filter((m) => m.layer !== 'Feature_Block' && m.i < lastIdx).map((m) => m.path);
+    const fbUnion = union(fb.map((m) => m.path));
+    forbidden.push({
+      name: 'layer:Feature_Block-isolation',
+      comment: 'a Feature Block does not reference another domain\'s Feature Block directly (the Route Surface assembles them)',
+      severity: 'error',
+      // decided with lookaheads: even when the Feature_Block mapping is the root itself ('/features/'), a path with the root in it once is caught
+      from: { path: `^(?=(.*${root}[^/]+/))(?=.*${fbUnion})`, ...(union([...shadow, ...legacy]) ? { pathNot: union([...shadow, ...legacy]) } : {}) },
+      to: { path: `^(?=.*${root}[^/]+/)(?=.*${fbUnion})`, pathNot: `^$1${shadow.length ? `|${union(shadow).slice(1, -1)}` : ''}` },
+    });
+  }
+
+  return { forbidden, options };
+};

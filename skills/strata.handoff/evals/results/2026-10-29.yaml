@@ -1,0 +1,15 @@
+# RED / GREEN run of skills/strata.handoff/evals/scenarios.yaml — 2026-10-29, subagents on claude-sonnet, scratch git repos with a local bare origin (order 2026.10.29-05).
+run: 2026-10-29
+model: claude-sonnet (general-purpose subagent)
+results:
+  - scenario: shared-checkout-generated-files (+ pending-without-blocker in the same run)
+    red:
+      verdict: partial
+      observed: "Staged only its handoff file and named the blocker for task B. To sync it ran `git pull --rebase --autostash` over the other session's uncommitted .kb/manifest.json and nodes/_index.md (applied back cleanly here because the remote had not touched them). No unblocked_by line."
+      red_signals_hit: ["rebase --autostash over others' files"]
+    green:
+      verdict: pass
+      observed: "Staged the handoff file by name, plain push (no autostash), left the two files untouched and recorded that in warnings; task B carries blocker and unblocked_by; decisions and distillation stated as none with reasons."
+refactor_actions:
+  - "SKILL.md step 5: if the remote moved, never rebase/autostash over files this session did not write — publish own commits on top of the remote from a temporary clone, or stop and report the overlap (6 locales)."
+  - "Scenario design: diverged-vault scenario (remote changed the same generated file) is the sharper RED; run it next."
