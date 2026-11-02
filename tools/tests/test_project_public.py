@@ -77,6 +77,40 @@ class ProjectPublicTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_main("build", "--rev", "WORKTREE", "--out", str(self.out))
 
+    def page(self, rel, status, extra=""):
+        (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.repo / rel).write_text(f"---\ntitle: T\nstatus: {status}\n{extra}---\n\n# T\n")
+
+    def commit(self):
+        git(self.repo, "add", "-A"); git(self.repo, "commit", "-q", "-m", "docs")
+
+    def test_docs_ready_pages_project_and_drafts_stay_out(self):
+        # DEC-2026-11-02-09: ko is the source, en the default; draft pages are not published
+        self.page("public/docs/ko/draft.md", "draft")
+        self.page("public/docs/ko/guide.md", "ready")
+        fp = pp.fingerprint((self.repo / "public/docs/ko/guide.md").read_bytes())
+        self.page("public/docs/en/guide.md", "ready", f"translated_from: {fp}\n")
+        self.commit()
+        m, pairs = pp.plan(self.repo)
+        self.assertEqual(m["_docs_problems"], [])
+        dst = {d for _, d in pairs}
+        self.assertIn("docs/guide.md", dst); self.assertIn("docs/ko/guide.md", dst)
+        self.assertFalse(any("draft" in d for d in dst))
+
+    def test_a_ready_ko_page_without_a_current_translation_blocks_the_build(self):
+        self.page("public/docs/ko/guide.md", "ready")
+        self.commit()
+        self.assertEqual(self.run_main("build", "--out", str(self.out)), 1)          # no en page
+        self.page("public/docs/en/guide.md", "ready", "translated_from: 000000000000\n")
+        self.commit()
+        m, _ = pp.plan(self.repo)
+        self.assertIn("re-translate", m["_docs_problems"][0])                        # stale fingerprint
+        fp = pp.fingerprint((self.repo / "public/docs/ko/guide.md").read_bytes())
+        self.page("public/docs/en/guide.md", "ready", f"translated_from: {fp}\n")
+        self.commit()
+        self.assertEqual(self.run_main("build", "--out", str(self.out)), 0)
+        self.assertTrue((self.out / "docs/guide.md").is_file())
+
     def test_output_inside_the_repository_is_refused(self):
         with self.assertRaises(SystemExit):
             self.run_main("build", "--out", str(self.repo / "dist" / "pub"))

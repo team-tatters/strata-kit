@@ -24,6 +24,12 @@ Author: n0roo · License: [MIT](LICENSE)
 - **Records in files, not in the chat.** Decision records (one file each, written by a CLI), session handoffs with
   blockers, test-time verification evidence.
 
+## Documentation
+
+Reference tables generated from the sources: [cards](docs/reference/cards.md) · [skills](docs/reference/skills.md) ·
+[commands](docs/reference/cli.md) · [profiles](docs/reference/profiles.md) (Korean: `docs/ko/reference/`). Guides and
+concept pages are being written. The full methodology reference for agents is in `core/docs/en/`.
+
 ## Layout
 
 ```text
