@@ -48,6 +48,8 @@ def _env_config(today: str) -> str:
     alias = re.sub(r"[^a-z0-9-]+", "-", (os.environ.get("STRATA_ENV") or platform.node().split(".")[0] or "this-machine").lower()).strip("-") or "this-machine"
     values = {"MACHINE_ALIAS": alias, "MACHINE_DESC": "registered by kb vault-init", "OS": platform.system().lower() or "unknown",
               "SHELL": Path(os.environ.get("SHELL", "sh")).name, "DATE": today}
+    from kb.machine import current_fingerprint   # MB-strata-kit-2026-049
+    values["FINGERPRINT"] = current_fingerprint() or ""
     text = (TEMPLATES / "env-config.yaml.template").read_text(encoding="utf-8")
     return re.sub(r"\{\{(\w+)\}\}", lambda m: values.get(m.group(1), m.group(0)), text)
 

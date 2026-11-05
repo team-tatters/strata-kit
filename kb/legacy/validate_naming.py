@@ -83,9 +83,8 @@ def load_project_layer_map(project_root):
     """프로젝트별 layer_map (기계 판독용). repo .strata 에 없으면 Tier P(detached 는 vault) — 오더 2026.10.29-02 task-04."""
     if not project_root:
         return None
-    from kb.legacy.check_layer_violation import _layer_map_path
-    path = _layer_map_path(project_root)
-    return _read_yaml(path) if path else None
+    from kb.legacy.check_layer_violation import load_project_layer_map as load_translated
+    return load_translated(project_root)   # the same file and the same kit names as check-layer (MB-strata-kit-2026-018)
 
 
 def _normalize_project_type(project_type, rules):

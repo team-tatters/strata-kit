@@ -1,0 +1,32 @@
+package {{BASE_PACKAGE}}.architecture
+
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Test
+
+/**
+ * Warning mode for the two bytecode boundary checks (opt-in). Needs StrataBoundaryRulesTest and StrataWarnings next
+ * to it, and runs only with -Dstrata.warningMode=true — which also skips the failing tests in StrataBoundaryRulesTest.
+ *
+ * Evaluates the same rules (StrataBoundaryRulesTest.directDatasourceRule · feignWriteRule) under their check ids, so
+ * warnings.yaml and the baseline name them as layer-rules.yaml `boundaries:` does. Boundary exemptions from the layer
+ * map still apply. Classes under the layer map's `excluded:` are counted per module next to the baseline, like the layer
+ * rule's — separate from exemptions: an exemption waives a violation, `excluded:` only sets it aside. Wrap it with
+ * `python3 -m kb enforce run --family boundaries …` (README).
+ */
+class StrataBoundaryWarningsTest {
+
+    @Test
+    fun `boundaries - warnings ratcheted against the frozen baseline`() {
+        assumeTrue(StrataWarnings.warningMode, "failing gate: StrataBoundaryRulesTest checks these rules (set -Dstrata.warningMode=true for warning mode)")
+        StrataWarnings.run(
+            family = "boundaries",
+            rules = mapOf(
+                StrataBoundaryRulesTest.DIRECT_DATASOURCE to StrataBoundaryRulesTest.directDatasourceRule(includeExcluded = true),
+                StrataBoundaryRulesTest.FEIGN_WRITE to StrataBoundaryRulesTest.feignWriteRule(includeExcluded = true),
+            ),
+            classes = StrataBoundaryRulesTest.classes,
+            excluded = StrataBoundaryRulesTest::isExcluded,
+            moduleOf = StrataBoundaryRulesTest::moduleOf,
+        )
+    }
+}

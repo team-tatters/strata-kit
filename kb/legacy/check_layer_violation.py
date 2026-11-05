@@ -7,9 +7,15 @@ Strata PostToolUse Hook: 레이어 의존성 위반 검사
   2. Hook:   stdin으로 Claude Code 공식 JSON 입력 — tool_input.file_path 사용
              (https://code.claude.com/docs/en/hooks)
 
+  3. Audit:  python3 -m kb check-layer --audit [--project DIR] [--json]
+             레이어 맵 전체를 저장소 코드 파일과 대조한다 — 어느 파일에도 걸리지 않는 mapping, 어느 mapping 에도
+             걸리지 않는 코드 파일 (MB-strata-kit-2026-057), 그리고 맵이 덮는 비율 (제외 범위를 뺀 코드 파일 중 맵에 걸린 몫)
+
 종료 코드:
-  0 — 위반 없음 또는 검증 불가
+  0 — 위반 없음 또는 검증 불가 (검증 불가는 알린다 — 레이어 맵이 있는데 파일이 어느 mapping 에도 걸리지 않으면
+      '판정 불가' 로 알린다, MB-strata-kit-2026-057)
   2 — 위반 발견 (Claude에게 피드백 전달)
+  3 — (--audit) 판정 불가: 선언이 코드와 맞지 않음
 
 규칙 위치 우선순위:
   1. strata-kit core/rules/layer-rules.yaml
@@ -72,6 +78,7 @@ def zone_and_exceptions(file_path, layer_map):
         problems.append("exceptions 가 항목 목록이 아님")
         exc = []
     live = [e for e in exc if e.get("status") != "retired" and e.get("from_path") and e.get("from_path") in file_path]
+    problems += [p for p in (m.get("_problems") or []) if isinstance(p, str)]   # layer-name translation (MB-strata-kit-2026-018)
     return in_legacy, live, problems
 
 
@@ -104,12 +111,17 @@ def load_layer_rules(strata_root, project_root):
     return None
 
 
+REPO_LAYER_MAPS = (os.path.join(".strata", "layer-map.yaml"), os.path.join("archunit", "layer-map.yaml"))
+
+
 def _layer_map_path(project_root):
-    """repo .strata/layer-map.yaml, 없으면 Tier P(detached 는 vault projects/<p>/strata/) — 오더 2026.10.29-02 task-04.
+    """repo .strata/layer-map.yaml, 그다음 repo archunit/layer-map.yaml(CI 의 ArchUnit 검사가 읽는 저장소 정본,
+    MB-strata-kit-2026-018), 둘 다 없으면 Tier P(detached 는 vault projects/<p>/strata/) — 오더 2026.10.29-02 task-04.
     detached 전환(한 백엔드 프로젝트, 2026-10-28) 뒤 repo 에 맵이 없어 훅이 조용히 아무것도 검사하지 않던 결함."""
-    path = os.path.join(project_root, ".strata", "layer-map.yaml")
-    if os.path.exists(path):
-        return path
+    for rel in REPO_LAYER_MAPS:
+        path = os.path.join(project_root, rel)
+        if os.path.exists(path):
+            return path
     try:
         from kb.legacy.strata_paths import resolve_tier_p
         tier = resolve_tier_p(project_root)
@@ -121,14 +133,68 @@ def _layer_map_path(project_root):
 
 
 def load_project_layer_map(project_root):
-    """프로젝트별 layer_map (기계 판독용). 없으면 None."""
+    """프로젝트별 layer_map (기계 판독용). 없으면 None. 맵이 자기 레이어 이름을 layers 절로 정의하면 kit 이름으로 바꿔 돌려준다."""
     if not project_root:
         return None
     path = _layer_map_path(project_root)
     if not path:
         return None
     with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        m = yaml.safe_load(f)
+    if isinstance(m, dict) and isinstance(m.get("layers"), dict) and m["layers"]:
+        m = translate_layer_map(m, load_layer_rules(find_strata_root(), project_root))
+    return m
+
+
+def _level(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def translate_layer_map(m, rules):
+    """A layer map with its own layer names (MB-strata-kit-2026-018 — a repo's archunit/layer-map.yaml names layers
+    identifier + level: component_L1 · inherit_LM1 · data_L2 · coordinate_LM2 · composite_L3 · controller_L4) is mapped onto
+    the kit: each name declared under `layers:` becomes the kit layer of the same `level` in the project's stack (a kit
+    name is kept as is). mappings·exceptions.to_layer use the kit names; `excluded:` joins zones.legacy (not
+    direction-checked, as CI does not check it). The kit rules stay the source of truth: a declared can_reference that
+    differs from the kit layer's, or a level no kit layer has, is reported in `_problems` (the agent is told, nothing blocks).
+    Names not declared under `layers:` (infra) are left as they are and so stay unchecked."""
+    own = m["layers"]
+    kit_layers = (_compat_stack(rules, m.get("project_type") or "backend").get("layers") or {}) if rules else {}
+    by_level = {_level(c.get("level")): n for n, c in kit_layers.items() if isinstance(c, dict) and _level(c.get("level")) is not None}
+    names, problems = {}, []
+    for name, cfg in own.items():
+        if name in kit_layers:
+            names[name] = name
+            continue
+        lvl = _level(cfg.get("level")) if isinstance(cfg, dict) else None
+        kit = by_level.get(lvl) if lvl is not None else None
+        if kit is None:
+            problems.append(f"layers.{name} 의 level({cfg.get('level') if isinstance(cfg, dict) else None}) 에 맞는 kit 레이어 없음 — 검사하지 않음")
+            continue
+        names[name] = kit
+    for name, kit in names.items():
+        cr = own[name].get("can_reference") if isinstance(own[name], dict) else None
+        if isinstance(cr, list):
+            got = sorted(names.get(x, x) for x in cr)
+            want = sorted(kit_layers[kit].get("can_reference") or [])
+            if got != want:
+                problems.append(f"layers.{name}.can_reference 가 kit {kit} 와 다름(맵 {got} · kit {want}) — kit 규칙으로 검사")
+    out = dict(m)
+    out["mappings"] = [{**x, "layer": names.get(x.get("layer"), x.get("layer"))} if isinstance(x, dict) else x for x in (m.get("mappings") or [])]
+    if isinstance(m.get("exceptions"), list):
+        out["exceptions"] = [{**e, "to_layer": names.get(e.get("to_layer"), e.get("to_layer"))} if isinstance(e, dict) else e for e in m["exceptions"]]
+    excluded = m.get("excluded")
+    if isinstance(excluded, list) and excluded:
+        zones = dict(m.get("zones") or {}) if isinstance(m.get("zones"), dict) else {}
+        legacy = zones.get("legacy") if isinstance(zones.get("legacy"), list) else []
+        zones["legacy"] = list(legacy) + [x for x in excluded if x not in legacy]
+        out["zones"] = zones
+    out["_layer_names"] = names
+    out["_problems"] = problems
+    return out
 
 
 # PreToolUse: 아직 쓰이지 않은 내용으로 검사한다 (경로 → 쓰일 내용)
@@ -489,7 +555,158 @@ def _content_before(file_path):
     return r.stdout if r.returncode == 0 else ""
 
 
+CODE_EXT = (".kt", ".kts", ".java", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".py", ".swift")
+AUDIT_SKIP_DIRS = {".git", "build", "out", "target", "node_modules", ".gradle", ".idea", "dist", ".next", "vendor",
+                   "__pycache__", ".venv", "venv", "coverage", ".strata", ".claude", ".codex"}
+_TEST_PARTS = ("/src/test/", "/src/testFixtures/", "/src/androidTest/", "/src/integrationTest/", "/src/intTest/",
+               "/__tests__/", "/__mocks__/", "/e2e/")
+_TEST_DIRS = ("/test/", "/tests/")   # a test tree outside a src/main source set (python · go · js); a package named test inside src/main is code
+_TEST_SUFFIX = (".test.", ".spec.", "_test.go", "Test.kt", "Tests.kt", "Test.java", "Tests.java", "IT.kt", "IT.java")
+
+
+def is_layer_code(path):
+    """A source file the layer map is expected to place: code, not tests, build scripts, configs or generated output."""
+    norm = "/" + path.replace("\\", "/").lstrip("/")
+    if not norm.endswith(CODE_EXT):
+        return False
+    base = norm.rsplit("/", 1)[-1]
+    if base.endswith((".gradle.kts", ".config.js", ".config.ts", ".config.mjs", ".config.cjs")) or base in ("setup.py", "conftest.py"):
+        return False
+    if any(p in norm for p in _TEST_PARTS) or ("/src/main/" not in norm and any(p in norm for p in _TEST_DIRS)) or any(base.endswith(s) or s in base for s in _TEST_SUFFIX if s.startswith(".")) \
+            or any(base.endswith(s) for s in _TEST_SUFFIX if not s.startswith(".")):
+        return False
+    if any(f"/{d}/" in norm for d in AUDIT_SKIP_DIRS):
+        return False
+    return True
+
+
+def _map_mappings(layer_map):
+    return [m for m in ((layer_map or {}).get("mappings") or []) if isinstance(m, dict) and m.get("path")]
+
+
+def out_of_scope(file_path, layer_map):
+    """zones.legacy or the top-level excluded: list (a map without its own layers: keeps excluded: apart)."""
+    if zone_and_exceptions(file_path, layer_map)[0]:
+        return True
+    ex = (layer_map or {}).get("excluded")
+    return isinstance(ex, list) and any(isinstance(x, str) and x and x in file_path for x in ex)
+
+
+def unmapped_notice(file_path, project_root):
+    """판정 불가 notice for a code file no mapping places while the project has a layer map (MB-strata-kit-2026-057):
+    the hook used to exit 0 silently — indistinguishable from a clean check. None when there is nothing to say."""
+    try:
+        layer_map = load_project_layer_map(project_root)
+    except Exception:  # noqa: BLE001 — an unreadable map is reported by the paths that read it
+        return None
+    if not _map_mappings(layer_map) or not is_layer_code(os.path.relpath(os.path.abspath(file_path), project_root)):
+        return None
+    if os.path.relpath(os.path.abspath(file_path), project_root).startswith(".."):
+        return None
+    if out_of_scope(os.path.abspath(file_path), layer_map):
+        return None
+    return (f"⚠ Strata 레이어: 판정 불가 — {os.path.relpath(os.path.abspath(file_path), project_root)} 는 레이어 맵의 어느 mapping 에도 "
+            "걸리지 않아 검사하지 않았습니다 (선언이 코드와 맞지 않음). 레이어가 있는 코드면 layer-map 에 mapping 을, "
+            "검사 밖이면 excluded 에 더하세요. 전체 대조: python3 -m kb check-layer --audit")
+
+
+def _code_files(project_root):
+    """Repo-relative code files: git's tracked and untracked-not-ignored files, else a directory walk."""
+    r = subprocess.run(["git", "-C", project_root, "ls-files", "-co", "--exclude-standard"], capture_output=True, text=True)
+    if r.returncode == 0 and r.stdout.strip():
+        top = subprocess.run(["git", "-C", project_root, "rev-parse", "--show-prefix"], capture_output=True, text=True).stdout.strip()
+        files = [f[len(top):] if top and f.startswith(top) else f for f in r.stdout.splitlines()]
+    else:
+        files = []
+        for root, dirs, names in os.walk(project_root):
+            dirs[:] = sorted(d for d in dirs if d not in AUDIT_SKIP_DIRS and not d.startswith("."))
+            files += [os.path.relpath(os.path.join(root, n), project_root) for n in names]
+    return sorted(f for f in files if is_layer_code(f))
+
+
+def audit(project_root):
+    """The layer map against the repository's code files: mappings that match no file, code files no mapping places
+    (outside zones.legacy / excluded). A mapping or a map that matches nothing is 'indeterminate' — the rule it
+    declares evaluates nothing, which must not read as clean (MB-strata-kit-2026-057)."""
+    layer_map = load_project_layer_map(project_root)
+    report = {"map": _layer_map_path(project_root), "mappings": [], "files": 0, "mapped": 0, "excluded": 0,
+              "unmapped": [], "indeterminate": []}
+    if layer_map is None:
+        report["indeterminate"].append("레이어 맵 없음 (.strata/layer-map.yaml · archunit/layer-map.yaml · Tier P)")
+        return report
+    maps = _map_mappings(layer_map)
+    files = _code_files(project_root)
+    report["files"] = len(files)
+    hits = [0] * len(maps)
+    for rel in files:
+        absf = os.path.join(project_root, rel)
+        matched = [i for i, m in enumerate(maps) if m["path"] in absf]
+        for i in matched:
+            hits[i] += 1
+        if matched:
+            report["mapped"] += 1
+        elif out_of_scope(absf, layer_map):
+            report["excluded"] += 1
+        else:
+            report["unmapped"].append(rel)
+    for m, n in zip(maps, hits):
+        report["mappings"].append({"path": m["path"], "layer": m.get("layer"), "files": n})
+        if n == 0:
+            report["indeterminate"].append(f"mapping '{m['path']}' ({m.get('layer')}) 가 어느 코드 파일에도 걸리지 않음")
+    if not maps:
+        report["indeterminate"].append("레이어 맵에 mappings 가 없음")
+    elif files and report["mapped"] == 0:
+        report["indeterminate"].append("레이어 맵이 어느 코드 파일에도 걸리지 않음 — 경로 표기가 저장소와 다른지 확인")
+    if not files:
+        report["indeterminate"].append("코드 파일을 찾지 못함 — --project 가 저장소 루트인지 확인")
+    report["coverage"] = coverage_ratio(report["mapped"], len(report["unmapped"]), report["excluded"])
+    return report
+
+
+def coverage_ratio(mapped, unmapped, excluded):
+    """Share of the in-scope code (all code files minus the excluded scope) a mapping places (MB-strata-kit-2026-057 step 2)."""
+    in_scope = mapped + unmapped
+    return {"in_scope": in_scope, "mapped": mapped, "unmapped": unmapped, "excluded": excluded,
+            "percent": round(100.0 * mapped / in_scope, 1) if in_scope else 0.0}
+
+
+def coverage_line(cov):
+    """One line people and kb enforce both read: '[strata] coverage: 레이어 맵이 덮는 비율 82% (미대응 41파일, …)'."""
+    return (f"[strata] coverage: 레이어 맵이 덮는 비율 {cov['percent']:.0f}% (미대응 {cov['unmapped']}파일, "
+            f"대상 {cov['in_scope']}파일 = 코드 {cov['in_scope'] + cov['excluded']} − 제외 범위 {cov['excluded']})")
+
+
+def render_audit(report):
+    out = [f"check-layer audit — {report['map'] or '레이어 맵 없음'}",
+           f"  코드 파일 {report['files']} · 맵에 걸림 {report['mapped']} · 제외 범위 {report['excluded']} · 미대응 {len(report['unmapped'])}"]
+    if report.get("coverage"):
+        out.append(coverage_line(report["coverage"]))
+    for m in report["mappings"]:
+        out.append(f"  {m['files']:>6}  {m['path']}  → {m['layer']}")
+    if report["unmapped"]:
+        out.append("== 어느 mapping 에도 걸리지 않는 코드 파일 (편집 훅이 검사하지 않음)")
+        out += [f"  {f}" for f in report["unmapped"][:20]] + ([f"  … 외 {len(report['unmapped']) - 20}"] if len(report["unmapped"]) > 20 else [])
+    if report["indeterminate"]:
+        out.append("== 판정 불가 — 선언이 코드와 맞지 않음 (깨끗함이 아님)")
+        out += [f"[strata] indeterminate: {x}" for x in report["indeterminate"]]
+    return "\n".join(out)
+
+
+def audit_main(argv):
+    import argparse
+    ap = argparse.ArgumentParser(prog="kb check-layer --audit")
+    ap.add_argument("--project", default=None)
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args(argv)
+    root = os.path.abspath(a.project) if a.project else find_project_root()
+    report = audit(root)
+    print(json.dumps(report, ensure_ascii=False, indent=2) if a.json else render_audit(report))
+    return 3 if report["indeterminate"] else 0
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--audit":
+        sys.exit(audit_main(sys.argv[2:]))
     file_path, project_type = parse_inputs(sys.argv)
     if not file_path:
         sys.exit(0)
@@ -519,6 +736,9 @@ def main():
 
     layer_name, layer_config, active_layers = identify_layer(file_path, rules, project_type, project_root)
     if not layer_name:
+        notice = unmapped_notice(file_path, project_root)
+        if notice:
+            notify_agent(notice)
         sys.exit(0)
 
     # 검증 제외 마커 (_infrastructure, _pending 등)
@@ -527,13 +747,16 @@ def main():
 
     # Core rules가 없으면 의존성 검증 자체 불가
     if not rules or not layer_config:
+        if rules and file_path.endswith(CODE_EXT):
+            notify_agent(f"⚠ Strata 레이어: 판정 불가 — {file_path} 는 레이어 {layer_name} 에 대응하지만 kit 규칙에 그 레이어가 없어 "
+                         "검사하지 않았습니다 (선언이 kit 규칙과 맞지 않음).")
         sys.exit(0)
 
     layer_map = load_project_layer_map(project_root) or {}
     in_legacy, live_exc, problems = zone_and_exceptions(file_path, layer_map)
     if problems:
         # 읽지 못한 존·예외는 없는 것으로 보고 기존대로 검사한다 — 그 사실은 알린다 (DEC-2026-09-30-03)
-        notify_agent("⚠ Strata layer-map 의 " + ", ".join(problems) + " — 존·예외 없이 검사했습니다.")
+        notify_agent("⚠ Strata layer-map 의 " + ", ".join(problems) + " — 읽지 못한 존·예외는 없는 것으로 보고 검사했습니다.")
     feature_root = layer_map.get("feature_root") if isinstance(layer_map.get("feature_root"), str) else None
     if feature_root is None:
         # 없으면 layer-rules 의 domain_slice('src/features/(*)/') 접두 — CI 템플릿과 같은 뜻 (DEC-2026-11-01-19)

@@ -10,7 +10,7 @@
 
 ## 流程
 
-1. 记录：写下 completed（附文件和证据）、in_progress（每项的 blocker 和 unblocked_by）、decisions_made（DEC id）、判断过程（问过用户什么、怎么答的，被推翻的判断及原因，几行即可，写在同名一节 — DEC-2026-10-30-03）、事实与假设（已确认的事实及用什么确认、未确认的推测、已放弃的假设及放弃理由 — 因对话超过令牌警戒线或同一假设的尝试两次受阻而以重启信号结束的会话必须填写；DEC-2026-10-31-11，session-splitting 5.1）、warnings、next_session。证据：交接文件。
+1. 记录：写下 completed（附文件和证据）、in_progress（每项的 blocker 和 unblocked_by；只有某一台机器能解除的项再写 machine——env-config.yaml 中的 alias；MB-strata-kit-2026-049）、decisions_made（DEC id）、判断过程（问过用户什么、怎么答的，被推翻的判断及原因，几行即可，写在同名一节 — DEC-2026-10-30-03）、事实与假设（已确认的事实及用什么确认、未确认的推测、已放弃的假设及放弃理由 — 因对话超过令牌警戒线或同一假设的尝试两次受阻而以重启信号结束的会话必须填写；DEC-2026-10-31-11，session-splitting 5.1）、warnings、next_session。证据：交接文件。
 2. 主线：填写 orders 和 kb_updates 链接。证据：frontmatter。
 3. 提炼：列出要提炼进个人核心的候选，或写“无”并附理由。证据：候选部分。
 4. 记忆：运行 `python3 -m kb hygiene --memory`，查看本会话写入或修改的记忆条目。对进行状态类条目（手头的工作、下一步、未提交、受阻之处），提议移到本交接的 in_progress 或 warnings；对人确认仍然正确的条目，把 `verified` 改为今天。从记忆中移除是移动之后另行询问的问题：只针对人逐条批准的条目，方式是把文件移到 `_archive/`、写上 `retired` 和 `retired_reason` 并删去索引行，绝不直接删除（context-protocol 第 7 节，DEC-2026-10-31-16·17）。证据：提议和人的回答，或“本会话未写入记忆”。

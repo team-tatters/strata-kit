@@ -1,0 +1,31 @@
+package {{BASE_PACKAGE}}.architecture
+
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Test
+
+/**
+ * Warning mode for the layer direction rule (opt-in, brownfield adoption). Needs StrataLayerMapTest and
+ * StrataWarnings next to it, and runs only with -Dstrata.warningMode=true — which also skips the failing direction
+ * test in StrataLayerMapTest, so the two never gate at once.
+ *
+ * Evaluates StrataLayerMapTest.layerDirectionRule() — the same rule the failing gate checks — with the layer map's
+ * `excluded:` origins counted per module instead of listed. Violations go to violations/warnings.yaml; the run fails
+ * only when a count is above violations/frozen/baseline.yaml (StrataWarnings). Wrap it for an advisory grade with
+ * `python3 -m kb enforce run --family layers …` (README).
+ */
+class StrataLayerWarningsTest {
+
+    @Test
+    fun `layer dependency direction - warnings ratcheted against the frozen baseline`() {
+        assumeTrue(StrataWarnings.warningMode, "failing gate: StrataLayerMapTest checks this rule (set -Dstrata.warningMode=true for warning mode)")
+        println(StrataLayerMapTest.coverageLine())   // how much of the code the ratcheted rule sees (MB-strata-kit-2026-057)
+        StrataWarnings.run(
+            family = "layers",
+            rules = mapOf("layers.direction" to StrataLayerMapTest.layerDirectionRule(includeExcluded = true)),
+            classes = StrataLayerMapTest.classes,
+            excluded = StrataLayerMapTest::isExcluded,
+            moduleOf = StrataLayerMapTest::moduleOf,
+            indeterminate = StrataLayerMapTest.unmatchedMappings().map { "mapping '${it.path}' (${it.layer}) matches no class" },
+        )
+    }
+}

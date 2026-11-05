@@ -50,7 +50,7 @@ vault/
 ├── .local/              Per-machine settings (.gitignore)
 │   └── resolved-paths.yaml
 ├── .gitignore
-├── env-config.yaml      List of registered machine aliases (no paths)
+├── env-config.yaml      Registered machine aliases with fingerprints (hash of the OS machine id, no paths)
 │
 ├── _index/              MOC (Map of Content)
 │   ├── projects.md      Project list + links

@@ -23,7 +23,8 @@ PROJECT_NAME=$(basename "$PROJECT_ROOT")
 HANDOFF_DIR="$STRATA_VAULT/projects/$PROJECT_NAME/sessions"
 DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date +%Y-%m-%dT%H:%M:%S)
-MACHINE="${STRATA_ENV:-unknown}"
+# 이 기계 별칭: STRATA_ENV, 없으면 ~/.strata/config.yaml machine.alias (MB-strata-kit-2026-049)
+MACHINE=$("${STRATA_PYTHON:-python3}" -c 'import sys; sys.path.insert(0, sys.argv[1]); from kb.machine import current_alias; print(current_alias()[0] or "unknown")' "$(cd "$(dirname "$0")/../.." && pwd)" 2>/dev/null || echo "${STRATA_ENV:-unknown}")
 KIT=$(cd "$(dirname "$0")/../.." && pwd)
 
 mkdir -p "$HANDOFF_DIR"

@@ -81,7 +81,7 @@ class _Repo:
         # TS: workspace package name → dir, package roots (dirs with package.json)
         self.pkg_dirs: dict[str, str] = {}
         self.pkg_roots: set[str] = set()
-        self.defs: dict[str, list[tuple[str, int, str]]] = defaultdict(list)   # symbol → [(file, line, type)]
+        self.defs: dict[str, list[tuple[str, int, str, bool]]] = defaultdict(list)   # symbol → [(file, line, type, top-level)]
         self._load()
 
     def _load(self) -> None:
@@ -108,15 +108,17 @@ class _Repo:
                 self.pkg_files[pkg].append(rel)
                 for dm in JVM_DEF_RE.finditer(text):
                     name = dm.group(2)
-                    self.defs[name].append((rel, text.count("\n", 0, dm.start()) + 1, dm.group(1)))
+                    kw = dm.start(1)   # `^\s*` may start on an earlier blank line: the keyword's own line is the definition
+                    top = text[text.rfind("\n", 0, kw) + 1] not in " \t"   # indented → nested in another type (AppConsts.UserGroup)
+                    self.defs[name].append((rel, text.count("\n", 0, kw) + 1, dm.group(1), top))
                     self.fqn[f"{pkg}.{name}" if pkg else name].append(rel)
                     self.pkg_symbols[pkg][name].append(rel)
             elif lang in ("ts", "js"):
                 for dm in TS_DEF_RE.finditer(text):
-                    self.defs[dm.group(1)].append((rel, text.count("\n", 0, dm.start()) + 1, "export"))
+                    self.defs[dm.group(1)].append((rel, text.count("\n", 0, dm.start()) + 1, "export", True))
             elif lang == "python":
                 for dm in PY_DEF_RE.finditer(text):
-                    self.defs[dm.group(2)].append((rel, text.count("\n", 0, dm.start()) + 1, dm.group(1)))
+                    self.defs[dm.group(2)].append((rel, text.count("\n", 0, dm.start()) + 1, dm.group(1), True))
 
     def _tracked(self, basename: str) -> list[str]:
         try:
@@ -320,9 +322,9 @@ class CodeGraph:
             out.nodes.append(Node(id=code_id(p, "paths", d + "/"), kind="code", project=p, path=d + "/", title=d.split("/")[-1],
                                   status="active", payload={"kind": "dir", "files": n}))
         for name, defs in repo.defs.items():
-            files = sorted({f for f, _, _ in defs})
+            files = sorted({f for f, _, _, _ in defs})
             out.nodes.append(Node(id=code_id(p, "symbols", name), kind="code", project=p, path=files[0], title=name, status="active",
-                                  payload={"kind": "symbol", "files": files, "defs": [{"file": f, "line": ln, "type": t} for f, ln, t in defs][:20]}))
+                                  payload={"kind": "symbol", "files": files, "defs": [{"file": f, "line": ln, "type": t, "top": top} for f, ln, t, top in defs][:20]}))
             for f in files:
                 edges.add(Edge(code_id(p, "symbols", name), code_id(p, "paths", f), "member_of", "extracted", "def"))
         out.edges.extend(sorted(edges, key=lambda e: (e.src, e.dst, e.kind, e.source_ref)))

@@ -1,28 +1,49 @@
 # strata-kit
 
-strata-kit is a methodology kit for AI coding agents (Claude Code first, Codex and other harnesses that read
-`AGENTS.md` and `SKILL.md`). It keeps the rules of working as **recommendation cards** with claims and evidence,
-the procedures as **skills** the agent follows, per-stack **profiles**, and a **guidance wizard** that generates each
-project's instructions from those cards and keeps them current. Underneath sits a small knowledge-base engine that
-records decisions, handoffs and measurements in a Markdown vault and checks that specifications and code converge.
+strata-kit is a methodology for working with AI coding agents, packaged as a kit. Its centre is the record: every
+step of the work is written to a plain Markdown folder (the vault), each topic keeps one document that is updated
+in place, and every new session, agent or person starts from those same documents. That is what keeps the work
+consistent and lets it continue across sessions, instead of starting over with every chat.
+
+It runs on Claude Code first, and on Codex and any other agent that reads `AGENTS.md` and `SKILL.md`, including
+agents you run yourself with an API key.
 
 Author: n0roo · License: [MIT](LICENSE)
 
+## Who it is for
+
+Mainly developers who work with a coding agent, and most of all engineers who carry a project from plan to
+production on their own. Planners, designers and operators take part through the same records: planning documents
+and specifications, decisions, and operational signals. The kit does not yet have a full workflow of its own for
+those roles, and it has not yet been used by a whole team.
+
 ## What it gives you
 
-- **Cards, not prose rules.** Each card has a claim, a strength (`must` · `should` · `may`), when it applies and when
-  it does not, evidence, counter-examples and how to verify it. `must` is not negotiated; `should` can be switched
-  off with a recorded reason. A constitution lists the eight articles every project carries.
-- **Skills that end in evidence.** 15 core skills (entry and routing, init wizard, planning, specification, order,
-  build task, verify, review, decision, knowledge update, handoff, distil, translate, retrospective, operations
-  signal), in six locales, plus optional packs (ideation, design).
+- **Records that stay current.** The vault keeps three kinds of record. The work log (sessions, tasks, test
+  evidence) is only ever added to. Living docs describe how things are now, one per topic, updated in place and
+  citing the work log they came from. The index (decision lists, topic pages) is generated from the other two and
+  never edited by hand. Decisions are written by a CLI, one file each, and change only through a record that
+  replaces them. Each session ends with a handoff that names what is open and what blocks it.
 - **Specifications that converge.** Planning documents link to as-built specifications; specifications own code
   through `covers`; a coverage gate reports changed code with no owner and implemented plans whose code moved,
   graded per project (`advisory` · `default` · `block`), with a baseline for gaps that predate adoption.
+- **A method you can learn without an agent.** The conventions (layers by role and names by language, plan before
+  specification before code, decisions and handoffs in files) are written for agents, but people can learn and
+  use them the same way.
+- **Cards, not prose rules.** Each card has a claim, a strength (`must` · `should` · `may`), when it applies and when
+  it does not, evidence, counter-examples and how to verify it. `must` is not negotiated; `should` can be switched
+  off with a recorded reason. Eight base rules apply to every project.
+- **Skills that end in evidence.** 15 core skills (entry and routing, init wizard, planning, specification, order,
+  build task, verify, review, decision, knowledge update, handoff, distil, translate, retrospective, operations
+  signal), in six locales, plus optional packs (ideation, design). Each skill says when to use it, what evidence
+  ends it, and the excuses an agent reaches for when it wants to skip a step, with the answer to each. Six roles
+  (builder, worker, reviewer, supporter, operator, librarian) each have what they may and may not do.
+- **Hooks where the app has them, plain files where it does not.** In Claude Code, hooks and cards steer the flow:
+  a session-start header shows the project, its `must` cards and the next action read from files, and a hook
+  saves state before the context is compacted. Where there are no hooks, the same guidance and skills are plain
+  `AGENTS.md` and `SKILL.md` files, and the knowledge-base engine is a command-line tool and an MCP server.
 - **Graded checks around the checkers you already have.** `kb enforce run` wraps an existing checker (a layer test,
   dependency-cruiser, a lint) and records every run, so a rule family can be promoted once its numbers are known.
-- **Records in files, not in the chat.** Decision records (one file each, written by a CLI), session handoffs with
-  blockers, test-time verification evidence.
 
 ## Documentation
 
@@ -33,7 +54,7 @@ concept pages are being written. The full methodology reference for agents is in
 ## Layout
 
 ```text
-core/       constitution, recommendation cards, roles, schemas, layer and naming rules, docs (six locales)
+core/       base rules (constitution/), recommendation cards, roles, schemas, layer and naming rules, docs (six locales)
 profiles/   per-stack bundles: card selection, layer-map and checker templates, conventions
 skills/     SKILL.md procedures and registry.yaml (the routing table the entry skill reads); packs/
 kb/         knowledge-base engine: store, search, gates, decision CLI, MCP server

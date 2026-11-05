@@ -30,7 +30,7 @@ updated: YYYY-MM-DD           # 마지막 수정일
 updated_by: {git user}@{machine}  # 마지막 갱신자 — 쓰기 훅이 git identity 와 머신 alias 로 스탬프 (DEC-2026-09-09-05)
 page_order: 1                 # 카테고리 내 문서 순서 (KB 색인용)
 author: builder | worker | manual  # 작성 주체
-machine: {alias}              # 작성 머신 (env-config.yaml의 alias)
+machine: {alias}              # 작성 머신 — 이 기계의 별칭(STRATA_ENV, env-config.yaml). 다른 기계를 적은 세션 기록은 vault-git 이 거부
 superseded_by: "[[새 문서]]"   # status: superseded 일 때 (대체된 쪽 → 대체한 쪽)
 supersedes: ["[[이전 결정]]"]   # decision — 이 결정이 대체하는 이전 결정 (superseded_by의 반대 방향)
 covers: {paths, symbols, endpoints, tables}  # specification·concept — 이 문서가 정본인 코드 표면

@@ -196,6 +196,32 @@ class CoverageTest(unittest.TestCase):
         finally:
             del os.environ["KB_NO_REFRESH"]
 
+    def test_ensure_fresh_store_sees_a_source_written_right_after_the_build(self):
+        # a gate run, a file fix and the next gate run can fall within one second; the edit must not be missed
+        from datetime import datetime
+        from kb.engine import ensure_fresh_store
+        store_path = Path(self.tmp.name) / "store.sqlite"
+        s = ensure_fresh_store(store_path, self.vault, project_dirs=[])
+        built = datetime.fromisoformat(s.revision().built_at).timestamp(); s.close()
+        p = self.vault / "projects" / "demo" / "knowledge-base" / "quick.md"
+        w(p, "---\ntitle: Q\nid: kb-demo-q\ntype: concept\ncreated: 2026-10-01\n---\n## 개념\nq\n")
+        os.utime(p, (built + 0.2, built + 0.2))
+        s = ensure_fresh_store(store_path, self.vault, project_dirs=[])
+        self.assertIsNotNone(s.get("doc:projects/demo/knowledge-base/quick.md")); s.close()
+
+    def test_ensure_fresh_store_ignores_a_source_older_than_the_build_start(self):
+        # a source last written just before the build began is in the store — no needless rebuild
+        from datetime import datetime
+        from kb.engine import ensure_fresh_store
+        store_path = Path(self.tmp.name) / "store.sqlite"
+        s = ensure_fresh_store(store_path, self.vault, project_dirs=[])
+        rev1 = s.revision(); s.close()
+        built = datetime.fromisoformat(rev1.built_at).timestamp()
+        for p in (self.vault / "projects").rglob("*.md"):
+            os.utime(p, (built - 0.001, built - 0.001))
+        s = ensure_fresh_store(store_path, self.vault, project_dirs=[])
+        self.assertEqual(s.revision(), rev1); s.close()
+
 
 if __name__ == "__main__":
     unittest.main()

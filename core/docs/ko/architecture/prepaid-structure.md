@@ -42,6 +42,8 @@
 
 모놀리스에서 서비스를 떼어 낼 때 레이어 코드는 거의 그대로 옮겨진다. 남는 비용은 아래 세 곳에서 생긴다. 이 세 곳은 처음부터 규칙으로 정해 둔다.
 
+기계 규칙은 `core/rules/layer-rules.yaml` 의 `boundaries:` 절에 있다(DEC-2026-11-05-02). 프로젝트는 레이어 맵의 `boundaries:` 절에 모듈마다 어느 DB 에 쓰는지, DB 짝마다 어느 읽기 창구가 정본인지, 면제(근거와 함께 결정 또는 일몰 조건)를 적는다. 데이터 소유와 FDW 읽기 창구는 Liquibase changelog 와 엔티티 매핑을 읽는 `python3 -m kb boundaries check` 가, 서비스의 DataSource 직접 생성과 리스너 밖 Feign 쓰기 호출은 ArchUnit 템플릿(`profiles/backend.kotlin-spring-cqrs/enforcement/opt-in/`)이 본다. 표는 DB 안에서만 비교한다. 다른 DB 에 같은 이름 표가 있는 것은 위반이 아니다. 처음에는 advisory 로 돌리고, 올릴지는 수치를 본 뒤 프로젝트마다 정한다.
+
 ### 데이터 소유
 
 - 표 하나는 엔티티 모듈 하나가 소유한다. 표의 스키마 변경 이력(changelog)도 그 모듈이 소유한다.

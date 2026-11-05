@@ -2,6 +2,9 @@ package {{BASE_PACKAGE}}.architecture
 
 import org.yaml.snakeyaml.Yaml
 import java.io.File
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.util.Date
 
 /**
  * Loader that reads layer-rules.yaml (the Strata Core SoT) at runtime.
@@ -12,6 +15,29 @@ import java.io.File
  *   2. {projectRoot}/.strata/layer-rules.yaml
  *   3. $STRATA_KIT/core/rules/layer-rules.yaml (the strata-kit source of truth)
  */
+/** A place a boundary check applies to: a class is in it when a package identifier or a path fragment matches. */
+data class StrataScope(val packages: List<String>, val paths: List<String>)
+
+/** layer-map.yaml `boundaries.exemptions:` entry that is honoured (reason + decision or sunset, not retired, sunset not past). */
+data class StrataBoundaryExemption(val id: String, val rule: String, val path: String?, val module: String?) {
+    fun covers(check: String): Boolean = check == rule || check.startsWith("$rule.")
+}
+
+/**
+ * The three boundaries (DEC-2026-11-05-02): check settings from layer-rules.yaml `boundaries:` (kit SoT),
+ * scope overrides and exemptions from the project layer map `boundaries:` section.
+ */
+data class StrataBoundaries(
+    val scopes: Map<String, StrataScope>,
+    val checks: Map<String, Map<String, Any?>>,
+    val exemptions: List<StrataBoundaryExemption>,
+    val ignoredExemptions: List<String>,
+    val projectRoot: File,
+    val layerMap: File?,
+    /** layer map `excluded:` — code being replaced. Not checked one by one; warning mode counts it per module. */
+    val excluded: List<String> = emptyList(),
+)
+
 data class StrataLayer(
     val name: String,
     val level: Double,
@@ -52,6 +78,109 @@ object StrataRules {
                 domainSlice = kotlin["domain_slice"] as? String,
             )
         }
+    }
+
+    /**
+     * Boundary settings. The project layer map is looked up like the edit hooks do:
+     * -Dstrata.layerMap, then .strata/layer-map.yaml, then archunit/layer-map.yaml (walking up from user.dir).
+     * A project without a map (or without a boundaries: section) gets the kit scopes and no exemptions.
+     */
+    fun loadBoundaries(): StrataBoundaries {
+        @Suppress("UNCHECKED_CAST")
+        val root = Yaml().load<Map<String, Any>>(resolveRulesFile().readText()).orEmpty()
+        @Suppress("UNCHECKED_CAST")
+        val kit = root["boundaries"] as? Map<String, Any> ?: error("layer-rules.yaml has no boundaries section")
+
+        val checks = mutableMapOf<String, Map<String, Any?>>()
+        @Suppress("UNCHECKED_CAST")
+        val boundaryRules = (kit["rules"] as? Map<String, Map<String, Any>>).orEmpty()
+        boundaryRules.values.forEach { boundary ->
+            @Suppress("UNCHECKED_CAST")
+            val declared = (boundary["checks"] as? Map<String, Map<String, Any>>).orEmpty()
+            declared.forEach { (id, check) ->
+                @Suppress("UNCHECKED_CAST")
+                val kotlin = (check["kotlin"] as? Map<String, Any?>).orEmpty()
+                checks[id] = kotlin + ("scope" to check["scope"])
+            }
+        }
+
+        val mapFile = resolveLayerMapFile()
+        @Suppress("UNCHECKED_CAST")
+        val mapDoc = mapFile?.let { Yaml().load<Map<String, Any>>(it.readText()) }
+        @Suppress("UNCHECKED_CAST")
+        val project = mapDoc?.get("boundaries") as? Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val excluded = (mapDoc?.get("excluded") as? List<String>).orEmpty()
+
+        @Suppress("UNCHECKED_CAST")
+        fun scopesOf(raw: Any?): Map<String, StrataScope> =
+            (raw as? Map<String, Map<String, Any>>).orEmpty().mapValues { (_, v) ->
+                StrataScope(
+                    packages = (v["packages"] as? List<String>).orEmpty(),
+                    paths = (v["paths"] as? List<String>).orEmpty(),
+                )
+            }
+        val scopes = scopesOf(kit["scopes"]) + scopesOf(project?.get("scopes"))
+
+        val honoured = mutableListOf<StrataBoundaryExemption>()
+        val ignored = mutableListOf<String>()
+        @Suppress("UNCHECKED_CAST")
+        val declaredExemptions = (project?.get("exemptions") as? List<Map<String, Any?>>).orEmpty()
+        declaredExemptions.forEachIndexed { i, e ->
+            val id = e["id"]?.toString() ?: "#$i"
+            if (e["status"] == "retired") return@forEachIndexed
+            val reason = e["reason"]?.toString().orEmpty()
+            val decision = e["decision"]?.toString()
+            val sunset = sunsetDate(e["sunset"])
+            val path = e["path"]?.toString()
+            val module = e["module"]?.toString()
+            when {
+                e["rule"] == null -> ignored.add("$id: no rule")
+                reason.isBlank() -> ignored.add("$id: no reason")
+                decision == null && e["sunset"] == null -> ignored.add("$id: needs decision or sunset")
+                decision == null && sunset != null && sunset.isBefore(LocalDate.now()) -> ignored.add("$id: sunset $sunset has passed")
+                path == null && module == null -> Unit   // table-only exemptions belong to the changelog checker
+                else -> honoured.add(StrataBoundaryExemption(id, e["rule"].toString(), path, module))
+            }
+        }
+
+        val projectRoot = System.getProperty("strata.projectRoot")?.let { File(it) }
+            ?: mapFile?.parentFile?.parentFile
+            ?: File(System.getProperty("user.dir"))
+        return StrataBoundaries(scopes, checks, honoured, ignored, projectRoot, mapFile, excluded)
+    }
+
+    private fun sunsetDate(v: Any?): LocalDate? = when (v) {
+        is Date -> v.toInstant().atZone(ZoneOffset.UTC).toLocalDate()
+        is String -> runCatching { LocalDate.parse(v) }.getOrNull()   // a condition, not a date: honoured until retired
+        else -> null
+    }
+
+    /** The project layer map: -Dstrata.layerMap, then .strata/layer-map.yaml, then archunit/layer-map.yaml (walking up from user.dir). */
+    /**
+     * A layer map path (a mapping or an `excluded:` entry) matches a compiled class path piece by piece: a source path's
+     * src/main/kotlin/ is not in the compiled one, so the fragments around it must appear in order. Same as the edit hook.
+     */
+    fun matchesMapPath(rel: String, path: String): Boolean {
+        val frags = path.split("src/main/kotlin/").filter { it.isNotEmpty() }
+        var cursor = 0
+        for (f in frags) {
+            val i = rel.indexOf(f, cursor)
+            if (i < 0) return false
+            cursor = i + f.length
+        }
+        return frags.isNotEmpty()
+    }
+
+    fun resolveLayerMapFile(): File? {
+        System.getProperty("strata.layerMap")?.let { path ->
+            val f = File(path)
+            require(f.isFile) { "no file at the -Dstrata.layerMap path: $path" }
+            return f
+        }
+        return generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+            .flatMap { sequenceOf(File(it, ".strata/layer-map.yaml"), File(it, "archunit/layer-map.yaml")) }
+            .firstOrNull { it.isFile }
     }
 
     private fun resolveRulesFile(): File {

@@ -8,6 +8,7 @@
   coverage           coverage resolver (resolve · nodes · unowned · docs-to-update · node), reads the store
   coverage-gate      session-end coverage gate (warnings only), reads the store; --covers-candidates writes the impact Inbox
   enforce            per-project enforcement grade around an existing checker: run --family F -- CMD · show (DEC-2026-10-29-17)
+  boundaries         three-boundary checks from Liquibase changelogs and entity mappings: check (DEC-2026-11-05-02)
   link-check         link-currency gate (baseline in .kb/link-baseline.json), reads the store
   skills             the user skill layer (~/.strata/skills: kit packs + local): check · install <pack> · link --harness · next <skill> (DEC-2026-10-31-36·37)
   planning           planning bundles (source/ · audit/ · refined): check · boundary [--list] · impact (DEC-2026-11-01-04·05·16)
@@ -17,13 +18,14 @@
   export             the injection layer as a folder: knowledge · refined planning · decision notes · code-graph summary (DEC-2026-11-01-06)
   ideas              idea notes of the ideation pack ($STRATA_VAULT/ideas/): list · check · tidy · event · draw (DEC-2026-10-31-38)
   signals            operations signal notes (projects/<p>/signals/): list · check · candidates [--write] · route (DEC-2026-11-01-14·17)
+  security           vulnerability subscription·patch core (security/ + projects/<p>/security/): inventory [--all] [--write] (DEC-2026-11-03-02~05)
   indicators         product-flow indicators from a project's read-only commands: collect [--write] · show (DEC-2026-11-01-17)
   divergence         plan-versus-code divergence requests: list · add · judge · count (a person judges; DEC-2026-10-31-35)
   hygiene            vault hygiene report (history status vocabulary · toc gaps · covers gaps · broken references), read-only
   code               graph questions on the code provider: deps · impact · tests-for · symbol (DEC-2026-10-28-05)
   search             kb-search CLI (FTS · --semantic · --hybrid · --toc · --tags · --doc · --stats), reads the store
   embed              compute missing chunk embeddings (bge-m3, local) into the store
-  search-eval        recall@k of fts · dense · hybrid against a query set (vault/_meta/search-eval.yaml)
+  search-eval        recall@k of fts · dense · hybrid (--rerank adds hybrid+rerank) against a query set (vault/_meta/search-eval.yaml)
 
   session tools (ported from strata/scripts, orders 2026.10.29-01 and -11):
   decision           decision record CLI: add · supersede · withdraw · regen-index · list · migrate · check-uncommitted
@@ -31,12 +33,13 @@
   handoff            session handoff skeleton in the vault + gates + vault sync   (handoff <slug> [topic])
   vault-git          vault sync channel: pull · commit-push MSG [PATH...] (listed paths only)
   order              order claim before work starts: claim · release · show <order-id>  (MB-strata-kit-2026-009)
+  machine            this machine's alias and fingerprint against env-config.yaml: show · register · check-session <file>  (MB-strata-kit-2026-049)
   views-publish      librarian, once a day: build-index, then commit-push only node pages and _index/review-needed.md (DEC-2026-10-29-04)
   retro-bundle       retrospective bundle for a period and project → $STRATA_VAULT/outputs/retro/ (DEC-2026-10-30-05)
   sections           body section titles from the taxonomy (sections session)
   pre-compact        PreCompact hook: snapshot the active task into .strata/local/
   validate-naming    PreToolUse hook: naming rules from core/rules (stdin hook JSON or <file> [type])
-  check-layer        PostToolUse hook: layer rules from core/rules + .strata/layer-map.yaml
+  check-layer        PostToolUse hook: layer rules from core/rules + .strata/layer-map.yaml (--audit: the map against the repo)
   stamp              PostToolUse hook: stamp `updated` on vault knowledge docs and check frontmatter against the taxonomy
   atom-notify        hook: show the agent state on an M5Stack Atom Matrix LED over serial (always exit 0)
 
@@ -97,12 +100,18 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "enforce":
         from kb.gates.enforce import main as enforce_main
         return enforce_main(rest)
+    if cmd == "boundaries":
+        from kb.gates.boundaries import main as boundaries_main
+        return boundaries_main(rest)
     if cmd == "retro-bundle":
         from kb.retro import main as retro_main
         return retro_main(rest)
     if cmd == "order":
         from kb.orders import main as order_main
         return order_main(rest)
+    if cmd == "machine":
+        from kb.machine import main as machine_main
+        return machine_main(rest)
     if cmd == "stamp":
         from kb.legacy.frontmatter_stamp import main as stamp_main
         return int(stamp_main(["stamp", *rest]) or 0)
@@ -154,6 +163,9 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "signals":
         from kb.signals import main as signals_main
         return signals_main(rest)
+    if cmd == "security":
+        from kb.security import main as security_main
+        return security_main(rest)
     if cmd == "divergence":
         from kb.gates.divergence import main as divergence_main
         return divergence_main(rest)

@@ -271,5 +271,92 @@ class ResolvedImportsTest(unittest.TestCase):
         self.assertNotIn("useOrders", added.stderr.split("❌")[1].split("예외")[0].split("import:")[-1])
 
 
+REPO_MAP = """version: "2.0"
+project: "demo"
+layers:
+  component_L1: { level: 1, can_reference: [] }
+  inherit_LM1: { level: 1.5, can_reference: [component_L1] }
+  data_L2: { level: 2, can_reference: [component_L1, inherit_LM1] }
+  coordinate_LM2: { level: 2.5, can_reference: [data_L2, component_L1, inherit_LM1] }
+  composite_L3: { level: 3, can_reference: [data_L2, coordinate_LM2, component_L1] }
+  controller_L4: { level: 4, can_reference: [composite_L3, component_L1] }
+excluded:
+  - "svc/old/"
+mappings:
+  - path: "svc/l2/"
+    layer: "data_L2"
+  - path: "svc/l3/"
+    layer: "composite_L3"
+  - path: "svc/infra/"
+    layer: "infra"
+exceptions:
+  - { id: "EX-1", decision: "DEC-1", from_path: "svc/l3/", to_layer: "inherit_LM1" }
+"""
+
+
+class RepoArchunitLayerMapTest(unittest.TestCase):
+    """MB-strata-kit-2026-018: a repo that keeps its layer map at archunit/layer-map.yaml (CI reads it there) with its own
+    layer names (identifier + level: data_L2 ...). The hooks read it before the vault Tier P copy and map each name to
+    the kit layer of the same level, so the kit rules apply; excluded paths are the legacy zone."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name).resolve()
+        self.repo, vault_proj = root / "demo", root / "vault" / "projects" / "demo"
+        (self.repo / ".strata" / "local").mkdir(parents=True)
+        (self.repo / "CLAUDE.md").write_text("# demo\n")
+        (self.repo / "archunit").mkdir()
+        (self.repo / "archunit" / "layer-map.yaml").write_text(REPO_MAP)
+        (vault_proj / "strata").mkdir(parents=True)
+        (vault_proj / "strata" / "layer-map.yaml").write_text('mappings:\n  - { path: "svc/", layer: "_old_copy" }\n')   # the old vault copy
+        (self.repo / ".strata" / "local" / "vault-link.yaml").write_text(f"profile: detached\nvault_project_path: {vault_proj}\n")
+        self.env = {k: v for k, v in os.environ.items() if k != "STRATA_PROJECT_TYPE"}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def hook(self, cmd, payload):
+        return subprocess.run(["python3", str(KB), cmd], input=json.dumps(payload), cwd=self.repo, env=self.env,
+                              capture_output=True, text=True)
+
+    def test_repo_map_wins_over_the_vault_copy_and_names_map_to_kit_layers(self):
+        r = self.hook("check-layer", {"hook_event_name": "PreToolUse", "tool_name": "Write",
+                                      "tool_input": {"file_path": str(self.repo / "svc/l2/OrderQueryService.kt"),
+                                                     "content": "package x\nimport org.jooq.DSLContext\nclass OrderQueryService\n"}})
+        self.assertEqual(r.returncode, 2, r.stderr + r.stdout)
+        self.assertIn("현재 레이어: L2_DataLayer", r.stderr)
+        n = self.hook("validate-naming", {"tool_input": {"file_path": str(self.repo / "svc/l3/OrderFooBar.kt")}})
+        self.assertIn("L3_Composite", n.stdout)
+
+    def test_translation_of_names_zones_and_exceptions(self):
+        import sys
+        sys.path.insert(0, str(KB.parent))
+        from kb.legacy import check_layer_violation as C
+        m = C.load_project_layer_map(str(self.repo))
+        self.assertEqual([x["layer"] for x in m["mappings"]], ["L2_DataLayer", "L3_Composite", "infra"])   # undeclared names stay unchecked
+        self.assertEqual(m["zones"]["legacy"], ["svc/old/"])
+        self.assertEqual(m["exceptions"][0]["to_layer"], "LM1_Inherite")
+        self.assertEqual(m.get("_problems"), [])
+        self.assertEqual(C._layer_map_path(str(self.repo)), str(self.repo / "archunit" / "layer-map.yaml"))
+
+    def test_drift_from_kit_rules_is_reported(self):
+        (self.repo / "archunit" / "layer-map.yaml").write_text(REPO_MAP.replace(
+            "composite_L3: { level: 3, can_reference: [data_L2, coordinate_LM2, component_L1] }",
+            "composite_L3: { level: 3, can_reference: [data_L2, coordinate_LM2, component_L1, inherit_LM1] }").replace(
+            "controller_L4: { level: 4,", "controller_L4: { level: 7,"))
+        import sys
+        sys.path.insert(0, str(KB.parent))
+        from kb.legacy import check_layer_violation as C
+        problems = C.load_project_layer_map(str(self.repo))["_problems"]
+        self.assertEqual(len(problems), 2, problems)
+        self.assertTrue(any("composite_L3" in p and "L3_Composite" in p for p in problems))
+        self.assertTrue(any("controller_L4" in p for p in problems))
+        f = self.repo / "svc/l3/OrderCommandCompositeService.kt"
+        f.parent.mkdir(parents=True); f.write_text("package x\nclass OrderCommandCompositeService\n")
+        r = self.hook("check-layer", {"hook_event_name": "PostToolUse", "tool_name": "Write", "tool_input": {"file_path": str(f)}})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("composite_L3", r.stdout)                                   # the agent is told, the edit is not blocked
+
+
 if __name__ == "__main__":
     unittest.main()

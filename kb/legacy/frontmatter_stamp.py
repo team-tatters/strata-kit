@@ -291,7 +291,12 @@ def updated_by_value(vault: Path) -> str:
     except (OSError, ValueError):
         name = ""
     name = name or os.environ.get("USER") or "unknown"
-    machine = os.environ.get("STRATA_ENV") or socket.gethostname().split(".")[0]
+    try:   # STRATA_ENV, else ~/.strata/config.yaml machine.alias (MB-strata-kit-2026-049)
+        from kb.machine import current_alias
+        machine = current_alias()[0]
+    except Exception:
+        machine = os.environ.get("STRATA_ENV")
+    machine = machine or socket.gethostname().split(".")[0]
     return f"{name}@{machine}"
 
 
@@ -351,6 +356,14 @@ def main(argv: list[str]) -> int:
     taxonomy = load_taxonomy(vault, project)
     node_ids = load_node_ids(vault, project)
     notes.extend(validate(fm, m.group(1), layer, taxonomy, node_ids))
+    if fm.get("type") == "session":   # MB-strata-kit-2026-049: the record names the machine it is written on
+        try:
+            from kb import machine as _mc
+            problem = _mc.session_machine_problem(fm, _mc.current_alias()[0], _mc.head_value(path))
+            if problem:
+                notes.append(problem + " — vault-git commit-push 가 이 파일을 거부한다")
+        except Exception:
+            pass
 
     today = _dt.date.today().isoformat()
     stamp_layer = layer in ("knowledge", "other", "planning") and fm.get("type") not in ("session", "moc", "node", "decision")

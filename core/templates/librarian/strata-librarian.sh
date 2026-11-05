@@ -33,6 +33,7 @@ for pair in ${=LIBRARIAN_PROJECTS}; do
   "$STRATA_PYTHON" kb signals list --project "$id" | sed "s/^/librarian signals $id: /"
 done
 (( ${#paths} )) && step measurements-push "$STRATA_PYTHON" kb vault-git commit-push "librarian daily measurements and signal candidates $(date +%F)" "${paths[@]}"
+step security-daily "$STRATA_PYTHON" kb security daily --commit
 step views-publish "$STRATA_PYTHON" kb views-publish
 echo "=== strata-librarian end $(date -u +%Y-%m-%dT%H:%M:%SZ) failed ${#failed}${failed:+: ${(j:, :)failed}} ==="
 (( ${#failed} == 0 ))

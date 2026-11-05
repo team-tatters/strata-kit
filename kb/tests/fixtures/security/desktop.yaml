@@ -1,0 +1,11 @@
+version: "0.1"
+origin: manual
+updated: 2026-11-03
+owner: tester
+devices:
+  - device: desk-mac
+    environment: desktop
+    os: {name: macOS, version: "26.0.1", build: "25A362", source: apple-security-releases, identifier: none}
+    software:
+      - {name: Docker Desktop, version: "4.46.0", kind: app, source: docker-release-notes, identifier: none}
+      - {name: node, version: "<버전>", kind: runtime, source: nodejs-security-releases, identifier: "pkg:generic/node@22"}

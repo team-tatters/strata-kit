@@ -17,7 +17,8 @@ except ImportError as e:  # pragma: no cover
     raise SystemExit("PyYAML required") from e
 
 from kb import docrules as rules
-from kb.store import Chunk, Edge, Node, ProviderOutput
+from kb.chunking import split_over_tokens
+from kb.store import Chunk, Edge, Node, ProviderOutput, embed_text
 
 DEC_RE = re.compile(r"^DEC-\d{4}-\d{2}-\d{2}-\d{2}$")
 PROJECT_DEC_RE = re.compile(r"^([A-Za-z0-9_.-]+)\s+(DEC-\d{4}-\d{2}-\d{2}-\d{2})$")
@@ -394,10 +395,16 @@ class VaultScanner:
                 locale = str(fm.get("locale") or "")
                 doc_title = str(fm.get("title", ""))
                 doc_tags = " ".join(str(x) for x in tags_raw) if isinstance(tags_raw, list) else str(tags_raw or "")
-                for i, ch in enumerate(legacy.chunk_by_heading(body)):
+                # a section over the encoder window is cut into parts; every other section is kept as is (MB-strata-kit-2026-056)
+                sections = split_over_tokens(legacy.chunk_by_heading(body),
+                                             lambda ch: embed_text(doc_title, ch["heading"], ch["content"]))
+                for i, ch in enumerate(sections):
+                    meta = {"heading_level": ch["heading_level"], "line_start": ch["line_start"],
+                            "line_end": ch["line_end"], "char_count": len(ch["content"])}
+                    if "part" in ch:
+                        meta.update(part=ch["part"], own_chars=ch["own_chars"])
                     out.chunks.append(Chunk(nid, i, ch["content"], locale, heading=ch["heading"], title=doc_title, tags=doc_tags,
-                                            meta={"heading_level": ch["heading_level"], "line_start": ch["line_start"],
-                                                  "line_end": ch["line_end"], "char_count": len(ch["content"])}))
+                                            meta=meta))
 
         # every other markdown file in the vault is a doc node too (link gate scope), without chunks
         discovered = {rel for _, rel, _ in files}

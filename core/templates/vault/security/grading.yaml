@@ -1,0 +1,9 @@
+# 등급 설정 — 저장소(프로젝트) 단위 기본값 + 환경 덮어쓰기 (DEC-2026-11-03-02·04). 바꾸는 명령: python3 -m kb security grading set --project P [--env E] threshold 8.0 --by NAME
+# 등급은 긴급(urgent)·권고(advisory) 둘. urgent ⇔ 기술 심각도(cvss_v4 → cvss_v3 → cna → vendor 중 첫 값) ≥ threshold. 악용 확인(KEV)은 정렬에만 쓴다.
+version: "0.1"
+default:
+  threshold: 9.0
+  severity_order: [cvss_v4, cvss_v3, cna, vendor]
+  due_days: {kev: 3, urgent: 14}
+environments: {}        # 예) prod: {threshold: 8.5}
+history: []             # 명령이 적는다: {at, by, scope, field, from, to}

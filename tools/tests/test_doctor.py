@@ -118,6 +118,14 @@ class DoctorTest(unittest.TestCase):
         self.assertEqual((res["rc"], i["status"], i["override"].get("expired")), (2, "unresolved", True))
         self.assertIn("기한 지난 덮어쓰기: 지남", doctor.render(res))
 
+    def test_opt_in_templates_are_not_install_targets(self):
+        # opt-in/ holds templates a project chooses (boundaries, warning mode — MB-strata-kit-2026-018); only the top level counts
+        want = doctor.enforcement_templates("backend.kotlin-spring-cqrs")
+        self.assertEqual(want, ["StrataLayerMapTest.kt", "StrataLayerRulesTest.kt", "StrataRules.kt"])
+        opt_in = sorted(p.name for p in (doctor.KIT / "profiles/backend.kotlin-spring-cqrs/enforcement/opt-in").glob("*.template"))
+        self.assertEqual(opt_in, ["StrataBoundaryRulesTest.kt.template", "StrataBoundaryWarningsTest.kt.template",
+                                  "StrataLayerWarningsTest.kt.template", "StrataWarnings.kt.template"])
+
     # acceptance 5 — installation from the profile's template names
     def test_enforcement_install(self):
         enf = self.project / ".strata" / "enforcement"; enf.mkdir()

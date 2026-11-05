@@ -783,6 +783,92 @@ frontend:
             - "Store creation (@StateObject) and the .environmentObject chain live here, in one place"
 
 # ============================================================
+# The three boundaries a layer cannot cover (DEC-2026-11-05-02, MB-strata-kit-2026-051)
+# ============================================================
+# Data ownership, cross-domain writes and cross-domain reads (core/docs/<locale>/architecture/prepaid-structure.md).
+# The kit declares the rule ids, the checks and their defaults here; the project declares its facts — which
+# build module writes which database, the canonical read window per database pair, exemptions — in the
+# `boundaries:` section of its layer map, looked up in this order (the edit hooks' order once they read archunit/,
+# MB-strata-kit-2026-018):
+#   repo .strata/layer-map.yaml → repo archunit/layer-map.yaml → Tier P layer-map.yaml
+#
+#   boundaries:
+#     modules:                          # build module directory (repo-relative, or a unique directory name) → database
+#       domain/order-entity: orders
+#       domain/billing-entity: { db: billing, changelogs: [src/main/resources/db/changelog-master.yaml] }
+#     fdw_servers: { orders_fdw: orders }   # foreign server → database it reads (when CREATE SERVER uses a placeholder)
+#     read_windows:                     # a person's decision, per consumer db → provider db: feign | fdw; absent = undecided
+#       billing: { orders: null }
+#     scopes:                           # optional override of the ArchUnit scopes below (same keys)
+#       service: { paths: ["service/"] }
+#     exemptions:
+#       - id: "BX-2026-11-05-01"
+#         rule: "boundary.cross_domain_write.feign_write"   # a check id, or a boundary id covering all of its checks
+#         path: "service/mail-api/"     # any of path · module · table; all given must match
+#         reason: "mail platform: every domain sends through it"
+#         decision: "DEC-2026-11-05-02" # decision or sunset is required (sunset: an ISO date or a condition)
+#         status: "active"              # retired = ignored
+#
+# Grade: advisory to start. Run the checks under `python3 -m kb enforce run --family boundaries -- <checker>`;
+# the family is advisory when the project manifest does not name it (kb/gates/enforce.py FAMILY_DEFAULTS).
+# Promoting it (advisory → default → block) is a decision per project once the numbers are known.
+boundaries:
+  grade: "advisory"
+  map_section: "boundaries"
+  exemption_requires: ["reason", "decision|sunset"]
+  rules:
+    boundary.data_ownership:
+      description: "One table is owned by one entity module of its database; its changelog is that module's. Other modules do not write it."
+      checks:
+        boundary.data_ownership.changelog:
+          tool: "python3 -m kb boundaries check"
+          description: "A table or view created by more than one module of the same database, or a module's changelog altering / writing rows of a table another module of the same database owns. Same-name tables in different databases are not compared."
+        boundary.data_ownership.entity_mapping:
+          tool: "python3 -m kb boundaries check"
+          description: "An @Table/@Entity in one module mapping a table another module of the same database owns."
+        boundary.data_ownership.direct_datasource:
+          tool: "ArchUnit StrataBoundaryRulesTest"
+          description: "Classes in the service scope do not construct their own connection to a database (they would read or write tables they do not own). Also guards cross-domain reads."
+          scope: "service"
+          kotlin:
+            forbidden_constructors:
+              - "com.zaxxer.hikari.HikariDataSource"
+              - "org.springframework.jdbc.core.JdbcTemplate"
+              - "org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate"
+              - "org.jooq.impl.DefaultDSLContext"
+            forbidden_calls:           # DSLContext is an interface: construction is DSL.using(…)
+              - "org.jooq.impl.DSL.using"
+    boundary.cross_domain_write:
+      description: "Two domains' writes are not joined in one transaction or one call chain; the other domain writes on an event."
+      checks:
+        boundary.cross_domain_write.feign_write:
+          tool: "ArchUnit StrataBoundaryRulesTest"
+          description: "A write call (POST·PUT·PATCH·DELETE) on a Feign client is made only from the listener scope (an event consumer), never from a request path."
+          scope: "listener"
+          kotlin:
+            feign_client_annotation: "org.springframework.cloud.openfeign.FeignClient"
+            write_annotations:
+              - "org.springframework.web.bind.annotation.PostMapping"
+              - "org.springframework.web.bind.annotation.PutMapping"
+              - "org.springframework.web.bind.annotation.PatchMapping"
+              - "org.springframework.web.bind.annotation.DeleteMapping"
+            write_request_methods: ["POST", "PUT", "PATCH", "DELETE"]   # @RequestMapping(method = …) and feign @RequestLine("POST …")
+    boundary.cross_domain_read:
+      description: "Each domain reads another domain's data through one window per database pair — a query API (Feign) or a database-level foreign table (FDW) — not both."
+      checks:
+        boundary.cross_domain_read.fdw_window:
+          tool: "python3 -m kb boundaries check"
+          description: "Foreign tables are read windows, never ownership. They are listed per consumer → provider database; when the project has chosen feign as the canonical window for that pair, a foreign table is a finding. With no choice, nothing is judged."
+          canonical_window: "project"   # boundaries.read_windows — the kit does not choose
+  scopes:                           # where ArchUnit applies a check; a class is in scope when any package or path matches
+    service:
+      packages: ["..service..", "..services.."]
+      paths: ["service/"]           # substring of the compiled class path relative to the project root (brownfield modules)
+    listener:
+      packages: ["..listener.."]
+      paths: []
+
+# ============================================================
 # Dependency validation rules (for hook scripts)
 # ============================================================
 validation:

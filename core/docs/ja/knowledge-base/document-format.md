@@ -30,7 +30,7 @@ updated: YYYY-MM-DD           # 最終更新日
 updated_by: {git user}@{machine}  # 最終更新者 — 書き込みフックが git identity とマシン alias でスタンプ（DEC-2026-09-09-05）
 page_order: 1                 # カテゴリ内のドキュメント順（KB 索引用）
 author: builder | worker | manual  # 作成主体
-machine: {alias}              # 作成マシン（env-config.yaml の alias）
+machine: {alias}              # 作成マシン — このマシンの alias（STRATA_ENV、env-config.yaml）。別マシンを記したセッション記録は vault-git が拒否する
 superseded_by: "[[新しいドキュメント]]"   # status: superseded のとき（置き換えられた側 → 置き換えた側）
 supersedes: ["[[以前の決定]]"]   # decision — この決定が置き換える以前の決定（superseded_by の逆方向）
 covers: {paths, symbols, endpoints, tables}  # specification・concept — このドキュメントが正本となるコード面

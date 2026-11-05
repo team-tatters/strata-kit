@@ -3,6 +3,8 @@
 #   pull:        세션 시작 시 — git pull --ff-only. 실패(충돌/오프라인)해도 세션을 차단하지 않는다.
 #   commit-push MSG [PATH...]: handoff/ledger close 시 — 명시 경로만 stage 해 commit + push. 경로가 없으면 추적 중인 변경만 (add -A 금지, 2026-10-28).
 # 항상 exit 0 (훅 원칙: 작업흐름 무저해). 동시 세션은 spinlock으로 직렬화.
+# 예외 하나(MB-strata-kit-2026-049): 올릴 세션 기록(projects/*/sessions/*.md)의 machine 이 이 기계 별칭과 다르면
+# 그 파일을 커밋하지 않고 exit 3 — 다른 기계 이름으로 남은 기록은 되돌리기 어렵다. STRATA_MACHINE_CHECK=warn 이면 경고만.
 #
 # 사용: python -m kb vault-git pull   (strata/scripts/vault-git.sh 에서 이관 (strata-kit 오더 2026.10.29-01 task-03). strata 쪽 같은 이름은 셔틀.)
 # 사용: vault-git.sh pull
@@ -54,6 +56,25 @@ case "$CMD" in
       git -C "$VAULT" add -u 2>/dev/null
       UNTRACKED=$(git -C "$VAULT" ls-files --others --exclude-standard | head -5)
       [ -n "$UNTRACKED" ] && warn "경로 없이 commit-push 호출 — 미추적 파일은 제외됨: $(echo "$UNTRACKED" | tr '\n' ' ')"
+    fi
+    # 세션 기록의 기계 값 (MB-strata-kit-2026-049): 이 기계 별칭이 아니면 그 파일을 빼고 거부한다
+    if [ "$#" -gt 0 ]; then CAND=$(git -C "$VAULT" diff --cached --name-only -- "$@" 2>/dev/null); else CAND=$(git -C "$VAULT" diff --cached --name-only 2>/dev/null); fi
+    REFUSED=""
+    KIT_DIR=$(cd "$(dirname "$0")/../.." && pwd)
+    for f in $(printf '%s\n' "$CAND" | grep -E '^projects/[^/]+/sessions/[^/]+\.md$' || true); do
+      [ -f "$VAULT/$f" ] || continue
+      if ! "${STRATA_PYTHON:-python3}" "$KIT_DIR/kb" machine check-session "$VAULT/$f"; then
+        if [ "${STRATA_MACHINE_CHECK:-}" = "warn" ]; then
+          warn "세션 기록의 machine 이 이 기계와 다름(STRATA_MACHINE_CHECK=warn — 그대로 올림): $f"
+        else
+          git -C "$VAULT" reset --quiet -- "$f" 2>/dev/null
+          REFUSED="$REFUSED $f"
+        fi
+      fi
+    done
+    if [ -n "$REFUSED" ]; then
+      echo "vault-git 거부: 세션 기록의 machine 을 이 기계 별칭으로 고친 뒤 다시 올리세요 —$REFUSED" >&2
+      exit 3
     fi
     # 경로가 있으면 그 경로만 커밋한다 — 다른 세션이 stage 해 둔 파일을 함께 올리지 않는다 (DEC-2026-10-29-04)
     if [ "$#" -gt 0 ]; then STAGED=$(git -C "$VAULT" diff --cached --name-only -- "$@" 2>/dev/null); else STAGED=$(git -C "$VAULT" diff --cached --name-only 2>/dev/null); fi

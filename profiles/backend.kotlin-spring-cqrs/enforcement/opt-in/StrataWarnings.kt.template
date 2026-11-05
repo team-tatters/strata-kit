@@ -1,0 +1,221 @@
+package {{BASE_PACKAGE}}.architecture
+
+import com.tngtech.archunit.core.domain.Dependency
+import com.tngtech.archunit.core.domain.JavaAccess
+import com.tngtech.archunit.core.domain.JavaClass
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.domain.JavaMember
+import com.tngtech.archunit.lang.ArchRule
+import com.tngtech.archunit.lang.ViolationHandler
+import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.Yaml
+import java.io.File
+import java.time.LocalDate
+
+/**
+ * Warning mode for the Strata ArchUnit rules — an opt-in for brownfield adoption (MB-strata-kit-2026-018).
+ *
+ * The default is the failing gate: StrataLayerMapTest and StrataBoundaryRulesTest fail on any violation. A project with
+ * too many existing violations to fix first runs the *same* rules here instead (switch: -Dstrata.warningMode=true,
+ * which also skips the failing tests):
+ *
+ *   - every violation is written to `violations/warnings.yaml` (rule id, class, module, message) — regenerated on every
+ *     run, not tracked;
+ *   - the count per rule id is compared with the frozen baseline `violations/frozen/baseline.yaml` (tracked). The run
+ *     fails only when a count goes above its baseline — a ratchet: fewer is always fine, more is not. A rule id the
+ *     baseline does not name has baseline 0;
+ *   - classes the layer map `excluded:` leaves out (code that is being replaced) are not reported one by one; their
+ *     violation count per module is recorded next to the baseline. It is not ratcheted unless
+ *     -Dstrata.ratchetExcluded=true.
+ *
+ * Both files sit in -Dstrata.violationsDir, else `violations/` next to the layer map (archunit/violations/ for
+ * archunit/layer-map.yaml, .strata/violations/ for .strata/layer-map.yaml). Each family (layers · boundaries) owns its
+ * section of both files, so the two warning tests share them.
+ *
+ * Rewriting the baseline is explicit: -Dstrata.rebaseline=tighten lowers each count to today's (never raises it);
+ * -Dstrata.rebaseline=reset writes today's counts as they are (first adoption, or after the layer map changed — say
+ * why in the commit). With no baseline for the family the run fails and says how to record one.
+ *
+ * Leaving warning mode: once a family's baseline is 0 for every rule and nothing is excluded, the run says so — drop
+ * -Dstrata.warningMode and the failing tests take over again.
+ *
+ * A rule that checks no class (ArchUnit's failOnEmptyShould, left at its default true) and any [indeterminate] reason the
+ * caller passes (a layer-map mapping that matches no class) print `[strata-arch] <family> indeterminate: …`; the run
+ * still ratchets the rest, and `kb enforce run` records it as indeterminate instead of clean (MB-strata-kit-2026-057).
+ *
+ * Console lines start with `[strata-arch] <family>` so `python3 -m kb enforce run` can read them (README).
+ */
+object StrataWarnings {
+
+    data class Warning(val rule: String, val cls: String, val module: String, val message: String)
+
+    data class Outcome(
+        val family: String,
+        val counts: Map<String, Int>,
+        val baseline: Map<String, Int>,
+        val excluded: Map<String, Int>,
+        val excludedBaseline: Map<String, Int>,
+        val over: Map<String, Pair<Int, Int>>,
+    )
+
+    private const val NO_MODULE = "(root)"
+
+    val warningMode: Boolean get() = System.getProperty("strata.warningMode") == "true"
+
+    fun violationsDir(): File =
+        System.getProperty("strata.violationsDir")?.let { File(it) }
+            ?: File((StrataRules.resolveLayerMapFile()?.absoluteFile?.parentFile ?: File(System.getProperty("user.dir"), ".strata")), "violations")
+
+    /**
+     * Evaluates [rules] (rule id → rule) on [classes], writes the family's warnings and enforces the ratchet.
+     * [excluded] marks origin classes that are only counted; [moduleOf] names the build module of a class.
+     */
+    fun run(
+        family: String,
+        rules: Map<String, ArchRule>,
+        classes: JavaClasses,
+        excluded: (JavaClass) -> Boolean = { false },
+        moduleOf: (JavaClass) -> String? = { null },
+        indeterminate: List<String> = emptyList(),
+    ): Outcome {
+        val warnings = mutableListOf<Warning>()
+        val excludedCounts = sortedMapOf<String, Int>()
+        val notJudged = indeterminate.toMutableList()
+        for ((id, rule) in rules) {
+            // ArchUnit's archRule.failOnEmptyShould (default true) throws when the rule checked no class — the declaration
+            // does not match the code. That is not zero warnings: it is reported as indeterminate (MB-strata-kit-2026-057).
+            val result = try {
+                rule.evaluate(classes)
+            } catch (e: AssertionError) {
+                if (e.message?.contains("failed to check any classes") != true) throw e
+                notJudged += "$id checked no classes (its that() matches nothing, or no class was imported)"
+                continue
+            }
+            result.handleViolations(ViolationHandler<Any> { objects, message ->
+                val origin = objects.firstNotNullOfOrNull { originOf(it) }
+                val module = origin?.let(moduleOf) ?: NO_MODULE
+                if (origin != null && excluded(origin)) {
+                    excludedCounts.merge(module, 1, Int::plus)
+                } else {
+                    warnings += Warning(id, origin?.name?.substringBefore('$') ?: "?", module, message)
+                }
+            })
+        }
+        val counts = rules.keys.associateWith { id -> warnings.count { it.rule == id } }.toSortedMap()
+
+        val dir = violationsDir()
+        val baselineFile = File(dir, "frozen/baseline.yaml")
+        val baselineDoc = readYaml(baselineFile)
+        @Suppress("UNCHECKED_CAST")
+        val families = (baselineDoc["families"] as? Map<String, Any>).orEmpty().toMutableMap()
+        @Suppress("UNCHECKED_CAST")
+        val old = families[family] as? Map<String, Any>
+        val mode = System.getProperty("strata.rebaseline")
+
+        var section = old
+        when (mode) {
+            null, "", "false" -> Unit
+            "reset" -> section = sectionOf(counts, excludedCounts)
+            "tighten" -> {
+                checkNotNull(old) { "no baseline for $family to tighten — record one with -Dstrata.rebaseline=reset" }
+                section = sectionOf(
+                    counts.mapValues { (id, n) -> minOf(n, countsOf(old, "checked")[id] ?: 0) },
+                    excludedCounts.mapValues { (m, n) -> minOf(n, countsOf(old, "excluded")[m] ?: 0) },
+                )
+            }
+            else -> error("-Dstrata.rebaseline must be tighten or reset, not '$mode'")
+        }
+        if (section !== old && section != null) {
+            families[family] = section
+            write(baselineFile, "# frozen baseline — StrataWarnings ratchets against it; rewrite only with -Dstrata.rebaseline=tighten|reset\n",
+                linkedMapOf("recorded" to LocalDate.now().toString(), "families" to families.toSortedMap()))
+        }
+
+        val baseline = section?.let { countsOf(it, "checked") }.orEmpty()
+        val excludedBaseline = section?.let { countsOf(it, "excluded") }.orEmpty()
+        val over = counts.filter { (id, n) -> n > (baseline[id] ?: 0) }.mapValues { (id, n) -> n to (baseline[id] ?: 0) }.toMutableMap()
+        val excludedTotal = excludedCounts.values.sum()
+        val excludedBaseTotal = excludedBaseline.values.sum()
+        if (System.getProperty("strata.ratchetExcluded") == "true" && excludedTotal > excludedBaseTotal) {
+            over["excluded"] = excludedTotal to excludedBaseTotal
+        }
+
+        writeWarnings(dir, family, warnings, counts, baseline, excludedCounts, excludedBaseline)
+
+        println("[strata-arch] $family warnings ${warnings.size} (baseline ${baseline.values.sum()}) · excluded $excludedTotal (baseline $excludedBaseTotal)")
+        counts.forEach { (id, n) -> println("[strata-arch]   $id $n / ${baseline[id] ?: 0}") }
+        println("[strata-arch]   written: ${File(dir, "warnings.yaml")}")
+        // a rule that evaluated nothing is judgement impossible, not clean — kb enforce reads these lines
+        notJudged.forEach { println("[strata-arch] $family indeterminate: $it") }
+        if (section == null) {
+            error("no baseline for $family in $baselineFile — record today's counts with -Dstrata.rebaseline=reset and commit the file")
+        }
+        val below = counts.filter { (id, n) -> n < (baseline[id] ?: 0) }
+        if (below.isNotEmpty()) println("[strata-arch] $family below baseline (${below.keys.joinToString()}) — lock it in with -Dstrata.rebaseline=tighten")
+        if (baseline.values.all { it == 0 } && warnings.isEmpty() && excludedTotal == 0) {
+            println("[strata-arch] $family baseline is 0 — leave warning mode: drop -Dstrata.warningMode and the failing tests gate again")
+        }
+        if (over.isNotEmpty()) {
+            val detail = over.entries.joinToString { (id, p) -> "$id ${p.first} > ${p.second}" }
+            println("[strata-arch] $family ratchet exceeded: $detail")
+            throw AssertionError("$family: violations above the frozen baseline ($detail) — fix the new ones; the list is in ${File(dir, "warnings.yaml")}")
+        }
+        return Outcome(family, counts, baseline, excludedCounts, excludedBaseline, over)
+    }
+
+    /** The class a violation starts from: a dependency's origin, an access's owner, a member's owner, or the class. */
+    private fun originOf(o: Any?): JavaClass? = when (o) {
+        is Dependency -> o.originClass
+        is JavaAccess<*> -> o.originOwner
+        is JavaMember -> o.owner
+        is JavaClass -> o
+        else -> null
+    }
+
+    private fun sectionOf(checked: Map<String, Int>, excluded: Map<String, Int>): Map<String, Any> = linkedMapOf(
+        "checked" to checked.toSortedMap(),
+        "excluded" to excluded.toSortedMap(),
+        "excluded_total" to excluded.values.sum(),
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun countsOf(section: Map<String, Any>, key: String): Map<String, Int> =
+        (section[key] as? Map<String, Any?>).orEmpty().mapValues { (_, v) -> (v as? Number)?.toInt() ?: 0 }
+
+    private fun writeWarnings(
+        dir: File, family: String, warnings: List<Warning>, counts: Map<String, Int>, baseline: Map<String, Int>,
+        excluded: Map<String, Int>, excludedBaseline: Map<String, Int>,
+    ) {
+        val file = File(dir, "warnings.yaml")
+        @Suppress("UNCHECKED_CAST")
+        val families = (readYaml(file)["families"] as? Map<String, Any>).orEmpty().toMutableMap()
+        families[family] = linkedMapOf(
+            "summary" to linkedMapOf(
+                "warnings" to warnings.size,
+                "by_rule" to counts.toSortedMap(),
+                "baseline" to baseline.toSortedMap(),
+                "by_module" to warnings.groupingBy { it.module }.eachCount().toSortedMap(),
+                "excluded" to excluded.toSortedMap(),
+                "excluded_baseline" to excludedBaseline.toSortedMap(),
+            ),
+            "warnings" to warnings.sortedWith(compareBy({ it.rule }, { it.module }, { it.cls }, { it.message })).map {
+                linkedMapOf("rule" to it.rule, "class" to it.cls, "module" to it.module, "message" to it.message)
+            },
+        )
+        write(file, "# generated by StrataWarnings on every warning-mode run — do not track (add to .gitignore)\n",
+            linkedMapOf("generated" to LocalDate.now().toString(), "families" to families.toSortedMap()))
+    }
+
+    private fun readYaml(file: File): Map<String, Any> =
+        if (file.isFile) Yaml().load<Map<String, Any>>(file.readText()).orEmpty() else emptyMap()
+
+    private fun write(file: File, header: String, doc: Any) {
+        file.parentFile.mkdirs()
+        val options = DumperOptions().apply {
+            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
+            isAllowUnicode = true
+            width = 200
+        }
+        file.writeText(header + Yaml(options).dump(doc))
+    }
+}

@@ -36,6 +36,40 @@ def _find_file(store: SqliteStore, rel: str, project: str | None) -> str | None:
     return None
 
 
+def symbol_files(store: SqliteStore, symbol_id: str, doc_id: str | None = None) -> dict:
+    """The defining files a covers symbol names (MB-strata-kit-2026-013). Symbol nodes are keyed by simple name, so
+    one name can join unrelated files (a Kotlin service's UserGroup: a data class in UserGroup.kt and two constant objects
+    nested in AppConsts.kt · MessagePropertiesConsts.kt). The candidates are narrowed in this order, each step applied
+    only when it leaves at least one file:
+      1. files under the document's own covers.paths (substring match, as the coverage resolver matches paths)
+      2. files named after the symbol (the coverage resolver's symbol rule: exact file stem)
+      3. files where the symbol is a top-level declaration, not nested in another type
+    More than one file left → ambiguous: every remaining file is returned with ambiguous=True and none is picked."""
+    files = sorted({e.dst.split(":", 3)[3] for e in store.neighbors(symbol_id, kind="member_of", direction="out")})
+    out = {"files": files, "ambiguous": False, "candidates": files}
+    if len(files) <= 1:
+        return out
+    name = symbol_id.split(":", 3)[3]
+    doc = store.get(doc_id) if doc_id else None
+    covers = (doc.payload.get("covers") if doc else None) or {}
+    pats = [str(x) for x in (covers.get("paths") or [])] if isinstance(covers, dict) else []
+    sym = store.get(symbol_id)
+    defs = (sym.payload.get("defs") if sym else None) or []
+    top = {d["file"] for d in defs if d.get("top")}
+    steps = [lambda f: any(p and p in f for p in pats),
+             lambda f: PurePosixPath(f).stem == name,
+             lambda f: f in top]
+    left = files
+    for keep in steps:
+        narrowed = [f for f in left if keep(f)]
+        if narrowed:
+            left = narrowed
+        if len(left) == 1:
+            break
+    out["files"], out["ambiguous"] = left, len(left) > 1
+    return out
+
+
 def _owners(store: SqliteStore, file_id: str) -> list[dict]:
     """Documents whose covers name the file's directory (any ancestor) or a symbol defined in the file."""
     project, rel = file_id.split(":")[1], file_id.split(":", 3)[3]
@@ -52,6 +86,8 @@ def _owners(store: SqliteStore, file_id: str) -> list[dict]:
         for e in store.neighbors(t, kind="covers", direction="in"):
             if e.src in seen:
                 continue
+            if ":symbols:" in t and rel not in symbol_files(store, t, e.src)["files"]:
+                continue   # the document's symbol resolves to another file of the same name
             seen.add(e.src)
             n = store.get(e.src)
             out.append({"doc": e.src.split(":", 1)[1], "title": n.title if n else "", "via": t.split(":", 2)[2]})
@@ -183,8 +219,9 @@ def symbol(store: SqliteStore, name: str, project: str | None) -> list[dict]:
         if project and nid.split(":")[1] != project:
             continue
         n = store.get(nid)
-        covered = [e.src.split(":", 1)[1] for e in store.neighbors(nid, kind="covers", direction="in")]
-        out.append({"project": nid.split(":")[1], "defs": n.payload.get("defs", []), "covered_by": covered})
+        srcs = [e.src for e in store.neighbors(nid, kind="covers", direction="in")]
+        out.append({"project": nid.split(":")[1], "defs": n.payload.get("defs", []), "covered_by": [x.split(":", 1)[1] for x in srcs],
+                    "resolved": {x.split(":", 1)[1]: symbol_files(store, nid, x) for x in srcs}})
     return out
 
 
@@ -254,6 +291,8 @@ def main(argv: list[str] | None = None) -> int:
             for d in r["defs"]:
                 print(f"  {r['project']}: {d['file']}:{d['line']} ({d['type']})")
             print(f"  covered by: {', '.join(r['covered_by']) or '(no document)'}")
+            for doc, res in r["resolved"].items():
+                print(f"    {doc} → {', '.join(res['files'])}" + (" (모호 — covers.paths 로 좁힌다)" if res["ambiguous"] else ""))
         if not result:
             print("  (no such symbol)")
     else:

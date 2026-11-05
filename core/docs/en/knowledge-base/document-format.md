@@ -30,7 +30,7 @@ updated: YYYY-MM-DD           # Last modified date
 updated_by: {git user}@{machine}  # Last updater — the write hook stamps it from the git identity and the machine alias (DEC-2026-09-09-05)
 page_order: 1                 # Document order within a category (for the KB index)
 author: builder | worker | manual  # Who wrote it
-machine: {alias}              # Machine that wrote it (alias in env-config.yaml)
+machine: {alias}              # Machine that wrote it: this machine's alias (STRATA_ENV) in env-config.yaml — vault-git refuses a session record naming another machine
 superseded_by: "[[new document]]"   # When status is superseded (superseded side → superseding side)
 supersedes: ["[[earlier decision]]"]   # decision — the earlier decisions this one supersedes (the opposite direction of superseded_by)
 covers: {paths, symbols, endpoints, tables}  # specification, concept — the code surface this document is canonical for

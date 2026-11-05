@@ -48,7 +48,8 @@ def _dump(obj: Any) -> str:
 @mcp.tool()
 def search_docs(query: str, category: str | None = None, topic: str | None = None, status: str | None = None,
                 project: str | None = None, limit: int = 10, include_content: bool = False,
-                include_history: bool = False, mode: str = "hybrid") -> str:
+                include_history: bool = False, mode: str = "hybrid", context: str = "neighbors",
+                context_chars: int = 1200, rerank: bool = False) -> str:
     """KB 문서를 검색합니다. mode=hybrid(기본 — FTS 와 bge-m3 벡터의 RRF 융합, 표현이 다른 질문에 유리; store 에 임베딩이
     없으면 fts 로 대신하고 결과의 mode 에 적는다) · dense(벡터만) · fts(bm25; 모든 단어가 함께 없으면 일부 단어 일치로,
     지식 문서에 없으면 세션·결정 적중을 연결 문서와 함께).
@@ -56,6 +57,9 @@ def search_docs(query: str, category: str | None = None, topic: str | None = Non
     기본 범위는 지식 문서(knowledge-base·patterns·glossary·overview)다. include_history=True 면 세션·태스크·기획 원문과
     결정·오더 레코드까지 본다. 적중마다 role(knowledge·planning·session·task·order·decision)이 붙고, 지식 문서가 아닌
     적중에는 leads_to(그 세션이 갱신한 문서·결정·주제의 최종형상 문서)가 붙는다.
+
+    include_content=True 면 적중마다 context 가 붙는다: 같은 문서에서 그 청크 주변의 청크(heading·text·seq).
+    청크 하나는 절의 조각일 때가 많아, 앞뒤를 함께 보면 다시 read_document 를 부르지 않아도 된다.
 
     Args:
         query: 검색어 (FTS5 구문 지원: AND, OR, NOT, "phrase", prefix*)
@@ -67,11 +71,17 @@ def search_docs(query: str, category: str | None = None, topic: str | None = Non
         include_content: True 면 청크 본문 포함
         include_history: True 면 작업 이력과 레코드도 검색
         mode: fts · dense · hybrid
+        context: neighbors(기본 — 바로 앞·뒤 청크) · section(적중을 품은 H2 절의 나머지 청크) · none
+        context_chars: 적중 하나에 붙는 context 의 최대 글자 수(기본 1200). 가까운 청크부터, 적중에서 먼 쪽을 자른다
+        rerank: True 면 상위 30개 후보를 교차 인코더(bge-reranker-v2-m3)로 다시 순위한다(기본 False). 재현율이 조금
+            오르는 대신 질의당 약 1초가 더 들고, 첫 호출은 모델 적재로 3~4초 걸린다. 모델이 없으면 원래 순서 그대로
+            두고 mode 에 'rerank skipped' 를 적는다
     """
     store = _store()
     try:
         return _dump(api.search(store, query, mode=mode, category=category, topic=topic, status=status, project=project,
-                                limit=limit, include_content=include_content, include_history=include_history))
+                                limit=limit, include_content=include_content, include_history=include_history,
+                                context=context, context_chars=context_chars, rerank=rerank))
     finally:
         store.close()
 

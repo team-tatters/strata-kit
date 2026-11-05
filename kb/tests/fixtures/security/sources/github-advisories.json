@@ -1,0 +1,121 @@
+[
+ {
+  "ghsa_id": "GHSA-j3mf-q9qf-5qf8",
+  "cve_id": null,
+  "url": "https://api.github.com/repos/portainer/portainer/security-advisories/GHSA-j3mf-q9qf-5qf8",
+  "html_url": "https://github.com/portainer/portainer/security/advisories/GHSA-j3mf-q9qf-5qf8",
+  "summary": "Non-administrator inherits host bind mounts via Compose volumes_from in stack deployment",
+  "description": "## Summary\n\nPortainer lets non-administrator users deploy Docker Compose stacks to an environment, and when the per-environment setting `Hide bind mounts for non-administrators` is enabled, the stack ",
+  "severity": "critical",
+  "identifiers": [
+   {
+    "value": "GHSA-j3mf-q9qf-5qf8",
+    "type": "GHSA"
+   }
+  ],
+  "state": "published",
+  "created_at": null,
+  "updated_at": "2026-10-22T17:38:08Z",
+  "published_at": "2026-10-22T17:38:08Z",
+  "closed_at": null,
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "go",
+     "name": "github.com/portainer/portainer"
+    },
+    "vulnerable_version_range": ">= 2.39.0, <= 2.39.8",
+    "patched_versions": "",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "go",
+     "name": "github.com/portainer/portainer"
+    },
+    "vulnerable_version_range": ">= 2.40.0, <= 2.45.2",
+    "patched_versions": "2.45.3",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H",
+    "score": 9.4
+   }
+  },
+  "cwe_ids": [
+   "CWE-284",
+   "CWE-863"
+  ],
+  "private_fork": null,
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  }
+ },
+ {
+  "ghsa_id": "GHSA-wc8m-r885-8pj3",
+  "cve_id": null,
+  "url": "https://api.github.com/repos/portainer/portainer/security-advisories/GHSA-wc8m-r885-8pj3",
+  "html_url": "https://github.com/portainer/portainer/security/advisories/GHSA-wc8m-r885-8pj3",
+  "summary": "Team Access Escalation via AuthorizedResourceControlUpdate Logic Flaw",
+  "description": "## Summary\r\n\r\nPortainer uses **resource controls** to restrict which users and teams can see and manage a given resource \u2014 a stack, container, volume, service, config, or secret. A logic flaw in the r",
+  "severity": "medium",
+  "identifiers": [
+   {
+    "value": "GHSA-wc8m-r885-8pj3",
+    "type": "GHSA"
+   }
+  ],
+  "state": "published",
+  "created_at": null,
+  "updated_at": "2026-10-22T05:29:22Z",
+  "published_at": "2026-10-22T05:29:22Z",
+  "closed_at": null,
+  "withdrawn_at": null,
+  "vulnerabilities": [
+   {
+    "package": {
+     "ecosystem": "go",
+     "name": "github.com/portainer/portainer"
+    },
+    "vulnerable_version_range": ">= 2.39.0, < 2.40.0",
+    "patched_versions": "",
+    "vulnerable_functions": []
+   },
+   {
+    "package": {
+     "ecosystem": "go",
+     "name": "github.com/portainer/portainer"
+    },
+    "vulnerable_version_range": ">= 2.40.0, < 2.45.2",
+    "patched_versions": "2.45.2",
+    "vulnerable_functions": []
+   }
+  ],
+  "cvss_severities": {
+   "cvss_v3": {
+    "vector_string": null,
+    "score": null
+   },
+   "cvss_v4": {
+    "vector_string": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N",
+    "score": 5.3
+   }
+  },
+  "cwe_ids": [
+   "CWE-284"
+  ],
+  "private_fork": null,
+  "cvss": {
+   "vector_string": null,
+   "score": null
+  }
+ }
+]

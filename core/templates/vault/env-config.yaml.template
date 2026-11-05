@@ -1,10 +1,13 @@
 # Strata Vault — environment registry
 # List of registered machine aliases. Holds no absolute paths.
 # Each machine's paths are managed in ~/.strata/config.yaml.
+# fingerprint is a short hash of the OS machine id, never the id itself; former_aliases / former_fingerprints keep
+# earlier names and ids. Session records and pending items name these aliases (python3 -m kb machine show · register).
 
 environments:
   {{MACHINE_ALIAS}}:
     description: "{{MACHINE_DESC}}"
     os: {{OS}}
     default_shell: {{SHELL}}
+    fingerprint: "{{FINGERPRINT}}"
     last_active: {{DATE}}

@@ -51,5 +51,29 @@ class CommitPushTest(unittest.TestCase):
         self.assertEqual(git(self.vault, "show", "--name-only", "--format=", "HEAD").split(), ["projects/p/nodes/n.md"])
 
 
+    def _session(self, machine: str) -> None:
+        (self.vault / "projects/p/sessions/s.md").write_text(f"---\ntype: session\nmachine: {machine}\n---\nx\n")
+
+    def _push_rc(self, extra: dict | None = None) -> int:
+        env = {**os.environ, "STRATA_VAULT": str(self.vault), "STRATA_ENV": "this-mac", **(extra or {})}
+        return subprocess.run(["sh", str(SCRIPT), "commit-push", "msg", "projects/p"], env=env, capture_output=True).returncode
+
+    def test_session_record_from_another_machine_is_refused(self):
+        # MB-strata-kit-2026-049: a handoff naming another machine is not published, and the run says so (exit 3)
+        self._session("other-mac")
+        self.assertEqual(self._push_rc(), 3)
+        self.assertEqual(git(self.vault, "log", "--format=%s", "-1").strip(), "init")
+        self.assertIn(" M projects/p/sessions/s.md", git(self.vault, "status", "--porcelain"))
+
+    def test_session_record_of_this_machine_and_warn_mode_go_through(self):
+        self._session("this-mac")
+        self.assertEqual(self._push_rc(), 0)
+        self.assertEqual(git(self.vault, "show", "--name-only", "--format=", "HEAD").split(), ["projects/p/sessions/s.md"])
+        self._session("other-mac")
+        self.assertEqual(self._push_rc({"STRATA_MACHINE_CHECK": "warn"}), 0)
+        self.assertIn("other-mac", (self.vault / "projects/p/sessions/s.md").read_text())
+        self.assertEqual(git(self.vault, "status", "--porcelain").strip(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

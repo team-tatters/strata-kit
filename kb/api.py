@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from kb.store import Node, SqliteStore, fts_query, has_operators
+from kb.store import Node, SqliteStore, fts_query_expanded, has_operators
 
 HISTORY_CATEGORIES = ("archive", "planning")
 
@@ -86,7 +86,7 @@ def _match(n: Node, *, category=None, topic=None, status=None, project=None) -> 
 def fts_rows(store: SqliteStore, query: str, any_terms: bool = False) -> list[dict]:
     """All FTS matches ordered by bm25 rank (ties in rowid order), joined with their document node.
     any_terms=True: tokens joined with OR (for sentence-shaped questions)."""
-    q = fts_query(query, any_terms) or '""'
+    q = fts_query_expanded(query, any_terms, store.query_aliases()) or '""'
     rows = store.conn.execute(
         "SELECT c.node_id, c.seq, c.heading, c.text, c.meta_json, bm25(chunks_fts) AS rank"
         " FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid WHERE chunks_fts MATCH ? ORDER BY rank, c.id", (q,)).fetchall()
@@ -106,7 +106,8 @@ def fts_rows(store: SqliteStore, query: str, any_terms: bool = False) -> list[di
 
 def search_fts(store: SqliteStore, query: str, *, category: str | None = None, topic: str | None = None,
                status: str | None = None, project: str | None = None, limit: int = 10,
-               include_content: bool = False, include_history: bool = False, any_terms: bool = False) -> list[dict[str, Any]]:
+               include_content: bool = False, include_history: bool = False, any_terms: bool = False,
+               _ids: list | None = None) -> list[dict[str, Any]]:
     results, seen_records = [], set()
     for r in fts_rows(store, query, any_terms):
         n = r["node"]
@@ -119,6 +120,8 @@ def search_fts(store: SqliteStore, query: str, *, category: str | None = None, t
                 continue
             seen_records.add(n.id)
         results.append(_entry(store, n, r["heading"], r["rank"], r["content"] if include_content else None))
+        if _ids is not None:
+            _ids.append((n.id, r["seq"]))
         if len(results) >= limit:
             break
     return results
@@ -159,22 +162,131 @@ def _embedder(store: SqliteStore):
     return _embedders[name]
 
 
+CONTEXT_MODES = ("none", "neighbors", "section")
+
+
 def search(store: SqliteStore, query: str, *, mode: str = "fts", category: str | None = None, topic: str | None = None,
            status: str | None = None, project: str | None = None, limit: int = 10, include_content: bool = False,
-           include_history: bool = False) -> list[dict[str, Any]]:
+           include_history: bool = False, context: str = "neighbors", context_chars: int = 1200,
+           rerank: bool = False, rerank_top_n: int | None = None, _scorer=None) -> list[dict[str, Any]]:
     """mode: fts (bm25) · dense (bge-m3 cosine) · hybrid (RRF of both). Same result shape as search_fts plus
-    'mode'; dense/hybrid fall back to fts when the store has no embeddings yet."""
+    'mode'; dense/hybrid fall back to fts when the store has no embeddings yet.
+
+    rerank=True (opt-in, default off — kb/rerank.py): the first rerank_top_n candidates (default 30) are rescored by
+    the bge-reranker-v2-m3 cross-encoder before the cut to `limit`; reranked hits carry 'rerank_score' and a mode
+    ending in '+rerank'. Without the model the order stays as it was and the mode says 'rerank skipped: …'.
+    _scorer replaces the model (tests).
+
+    With include_content, each hit also carries 'context' (MB-strata-kit-2026-056): the chunks around it —
+    neighbors (seq-1 and seq+1, the default) or section (the rest of the enclosing H2 section) — at most
+    context_chars characters in all, nearest first, cut on the side away from the hit. context='none' leaves it out."""
+    if context not in CONTEXT_MODES:
+        raise ValueError(f"context must be one of {', '.join(CONTEXT_MODES)}, got {context!r}")
+    ids: list[tuple[str, int]] = []
+    if rerank:
+        from kb import rerank as rr
+        top_n = rerank_top_n or rr.TOP_N
+        out = _search(store, query, mode=mode, category=category, topic=topic, status=status, project=project,
+                      limit=max(limit, top_n), include_content=True, include_history=include_history, _ids=ids)
+        out, ids = _rerank_entries(query, out, ids, mode, top_n, _scorer)
+        out, ids = out[:limit], ids[:limit]
+        if not include_content:
+            for e in out:
+                e.pop("content", None)
+    else:
+        out = _search(store, query, mode=mode, category=category, topic=topic, status=status, project=project, limit=limit,
+                      include_content=include_content, include_history=include_history, _ids=ids)
+    if include_content and context != "none" and len(ids) == len(out):
+        chunks: dict[str, list] = {}
+        for e, (nid, seq) in zip(out, ids):
+            if nid not in chunks:
+                chunks[nid] = store.chunks_of(nid)
+            e["context"] = hit_context(chunks[nid], seq, context, context_chars)
+    return out
+
+
+def _rerank_entries(query: str, out: list[dict[str, Any]], ids: list, mode: str, top_n: int, scorer) -> tuple[list, list]:
+    """Reorder search entries (with content) by cross-encoder score; on RerankUnavailable keep them and say so."""
+    from kb import rerank as rr
+    if not out:
+        return out, ids
+    pairs = list(zip(out, ids)) if len(ids) == len(out) else [(e, None) for e in out]
+    try:
+        pairs, scores = rr.rerank(query, pairs, lambda p: rr.chunk_text(p[0].get("heading"), p[0].get("content")),
+                                  top_n=top_n, scorer=scorer)
+    except rr.RerankUnavailable as e:
+        for entry, _ in pairs:
+            entry["mode"] = f"{entry.get('mode') or mode} (rerank skipped: {e})"
+        return [p[0] for p in pairs], [p[1] for p in pairs if p[1] is not None]
+    for (entry, _), sc in zip(pairs, scores):
+        entry["rerank_score"] = round(sc, 4)
+    for entry, _ in pairs:
+        entry["mode"] = f"{entry.get('mode') or mode}+rerank"
+    return [p[0] for p in pairs], [p[1] for p in pairs if p[1] is not None]
+
+
+def hit_context(chunks: list, seq: int, mode: str = "neighbors", budget: int = 1200) -> dict[str, Any]:
+    """The chunks around chunk `seq` of one document, within `budget` characters (see search)."""
+    pos = next((i for i, c in enumerate(chunks) if c.seq == seq), None)
+    res: dict[str, Any] = {"mode": mode, "chunks": [], "chars": 0, "truncated": False}
+    if pos is None:
+        return res
+    level = lambda c: int(c.meta.get("heading_level") or 0)   # noqa: E731
+    if mode == "section":
+        start = pos
+        while start > 0 and level(chunks[start]) > 2:
+            start -= 1
+        end = pos + 1
+        while end < len(chunks) and level(chunks[end]) > 2:
+            end += 1
+        res["section"] = chunks[start].heading
+        around = [i for i in range(start, end) if i != pos]
+    else:
+        around = [i for i in (pos - 1, pos + 1) if 0 <= i < len(chunks)]
+    left, picked = budget, {}
+    for dist in sorted({abs(i - pos) for i in around}):  # nearest first; chunks at the same distance share the budget
+        ring = [i for i in around if abs(i - pos) == dist]
+        if left <= 1:
+            res["truncated"] = True
+            break
+        share = left // len(ring)
+        for i in ring:
+            text = chunks[i].text
+            if len(text) > share:
+                keep = max(share - 1, 0)
+                text = ("…" + text[len(text) - keep:]) if i < pos else (text[:keep] + "…")
+                res["truncated"] = True
+            if text.strip("…"):
+                picked[i] = {"seq": chunks[i].seq, "heading": chunks[i].heading, "text": text}
+                left -= len(text)
+    res["chunks"] = [picked[i] for i in sorted(picked)]
+    res["chars"] = sum(len(c["text"]) for c in res["chunks"])
+    return res
+
+
+def _search(store: SqliteStore, query: str, *, mode: str = "fts", category: str | None = None, topic: str | None = None,
+            status: str | None = None, project: str | None = None, limit: int = 10, include_content: bool = False,
+            include_history: bool = False, _ids: list | None = None) -> list[dict[str, Any]]:
+    """search() without the context; _ids, when given, receives the (node id, seq) of every result in order."""
+    def found(ids: list) -> None:
+        if _ids is not None:
+            _ids[:] = ids
+
     if mode == "fts":
         kw = dict(category=category, topic=topic, status=status, project=project, limit=limit, include_content=include_content)
-        out = search_fts(store, query, include_history=include_history, **kw)
+        ids: list = []
+        out = search_fts(store, query, include_history=include_history, _ids=ids, **kw)
         note = None
         if not out and len(query.split()) > 1 and not has_operators(query):
-            out = search_fts(store, query, include_history=include_history, any_terms=True, **kw)
+            ids = []
+            out = search_fts(store, query, include_history=include_history, any_terms=True, _ids=ids, **kw)
             note = "fts-any (no chunk had every word)"
         if not out and not include_history and not category:
             # the term may live only in sessions · decisions · orders: show those hits with the documents they lead to
-            out = search_fts(store, query, include_history=True, any_terms=len(query.split()) > 1 and not has_operators(query), **kw)
+            ids = []
+            out = search_fts(store, query, include_history=True, any_terms=len(query.split()) > 1 and not has_operators(query), _ids=ids, **kw)
             note = "fts+history (nothing in knowledge documents — history hits with the documents they lead to)"
+        found(ids)
         for e in out if note else []:
             e["mode"] = note
         return out
@@ -183,8 +295,8 @@ def search(store: SqliteStore, query: str, *, mode: str = "fts", category: str |
     knowledge_only = not include_history and not category
 
     def fallback(reason: str):
-        out = search(store, query, mode="fts", category=category, topic=topic, status=status, project=project, limit=limit,
-                     include_content=include_content, include_history=include_history)
+        out = _search(store, query, mode="fts", category=category, topic=topic, status=status, project=project, limit=limit,
+                      include_content=include_content, include_history=include_history, _ids=_ids)
         for e in out:
             e["mode"] = f"fts ({reason})"
         return out
@@ -192,7 +304,7 @@ def search(store: SqliteStore, query: str, *, mode: str = "fts", category: str |
     if store.embedding_coverage()[0] == 0:
         return fallback("no embeddings yet — run: python3 -m kb embed")
     try:
-        qvec = _embedder(store).encode_query(query)
+        qvec = _embedder(store).encode_query(store.query_aliases().dense_text(query))   # glossary aliases named for the encoder
     except ImportError as e:                      # sentence-transformers/torch not installed in this environment
         return fallback(f"embedding model unavailable: {e.name or e}")
     try:
@@ -200,7 +312,7 @@ def search(store: SqliteStore, query: str, *, mode: str = "fts", category: str |
                 else store.search_hybrid(query, qvec, limit=pool, knowledge_only=knowledge_only))
     except VectorsUnavailable as e:
         return fallback(str(e))
-    results, seen_records = [], set()
+    results, seen_records, ids = [], set(), []
     for h in hits:
         n = h.node
         if n.id.startswith("doc:") and not n.payload.get("indexed"):
@@ -215,8 +327,10 @@ def search(store: SqliteStore, query: str, *, mode: str = "fts", category: str |
             seen_records.add(n.id)
         c = store.chunk(n.id, h.seq)
         results.append(_entry(store, n, c.heading if c else "", h.rank, (c.text if c else "") if include_content else None, mode))
+        ids.append((n.id, h.seq))
         if len(results) >= limit:
             break
+    found(ids)
     return results
 
 

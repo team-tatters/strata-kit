@@ -782,6 +782,25 @@ def handoff_next(project_id: str) -> str | None:
         return None
     return " ".join(str(nxt).split()) + f" [sessions/{f.resolve().name}]"
 
+def machine_lines(project_id: str) -> tuple[list[str], str | None]:
+    """'machine: <alias> (…)' and, when the latest handoff leaves work tied to other machines, one line naming it
+    (MB-strata-kit-2026-049). Never blocks; an error names itself."""
+    try:
+        from kb import machine as mc
+        alias, note = mc.current_alias()
+        v = vault_root()
+        out = [mc.header_line(mc.load_registry(v), alias, mc.current_fingerprint(), note)]
+        f = v / "projects" / project_id / "sessions" / "latest.md" if v else None
+        if f and f.is_file():
+            here, others = mc.pending_by_machine(f.read_text(encoding="utf-8"), alias)
+            if others:
+                out.append("latest handoff pending for other machines: " + " · ".join(
+                    f"{a} {len(d)} ({'; '.join(d[:2])}{' …' if len(d) > 2 else ''})" for a, d in others.items())
+                    + f" — not this machine's work ({here} here or any)")
+        return out, alias
+    except Exception as e:   # the header never dies on one source
+        return [f"machine: (error {type(e).__name__}: {e})"], None
+
 def resume_trace_line(project_id: str) -> str:
     """No active file and no handoff: where the handoff was looked for, and the in-repository traces to read before
     asking (MB-strata-kit-2026-043 — the guidance pointed only at the vault and blocked discovery)."""
@@ -916,6 +935,8 @@ def header(project: Path, kit: Path, locale: str, hook: dict | None = None) -> s
         f"next action: {nxt}",
     ]
     pid = str(m.get("project") or project.name)
+    mach, alias = machine_lines(pid)
+    lines.extend(mach)
     hn = handoff_next(pid)
     if hn:
         lines.append(f"latest handoff next: {hn}")

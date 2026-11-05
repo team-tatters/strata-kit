@@ -119,9 +119,9 @@ def ensure_fresh_store(store_path: Path | None = None, vault: Path | None = None
         else:
             from datetime import datetime
             built = datetime.fromisoformat(rev.built_at).timestamp()
-            # built_at is stored to the second (store.py now_iso drops microseconds): a source written in the same
-            # second before the build looked newer and forced a needless rebuild — allow that truncated second
-            stale = _source_mtime(vault, dirs) >= built + 1
+            # built_at is the build start to the microsecond (older stores: to the second, which costs at most one
+            # extra rebuild). A grace second here once hid edits made within a second of a build
+            stale = _source_mtime(vault, dirs) > built
     if stale:
         import contextlib, io
         with contextlib.redirect_stdout(io.StringIO() if quiet else sys.stdout):

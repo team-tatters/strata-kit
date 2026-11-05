@@ -49,6 +49,13 @@ class EnforceTest(unittest.TestCase):
         self.manifest({})
         self.assertEqual(enforce.grade_of(self.project, "stages"), "advisory")
 
+    def test_undeclared_boundaries_only_reports(self):
+        # DEC-2026-11-05-02: the three-boundary checks start advisory; a manifest can still promote them
+        self.manifest({})
+        self.assertEqual(enforce.grade_of(self.project, "boundaries"), "advisory")
+        self.manifest({"boundaries": "block"})
+        self.assertEqual(enforce.grade_of(self.project, "boundaries"), "block")
+
     def test_advisory_records_and_passes(self):
         self.manifest({"layers": "advisory"})
         rc, _ = enforce.run(self.project, "layers", FAIL, count_regex=r"(\d+) violations")
@@ -107,6 +114,34 @@ class EnforceTest(unittest.TestCase):
         e = self.ledger()
         self.assertEqual([(x["kind"], x.get("count")) for x in e], [("violation", 41), ("clean", None)])
         self.assertEqual(e[0]["exit_code"], 0)
+
+    def test_kit_archunit_warning_mode_lines(self):
+        # MB-strata-kit-2026-018: the kotlin profile's opt-in warning mode prints "[strata-arch] <family> …" lines. The README
+        # commands (user decision 2026-11-05: only a ratchet breach is a violation, so they hold at default and block) must
+        # read them as: above the baseline → violation with a count, warnings within the baseline → clean, nothing left →
+        # clean, any other failure → checker error. The debt-counting variant stays a reference, documented apart.
+        import re
+        enf = enforce.KIT / "profiles" / "backend.kotlin-spring-cqrs" / "enforcement"
+        readme = (enf / "README.md").read_text(encoding="utf-8")
+        engine = (enf / "opt-in" / "StrataWarnings.kt.template").read_text(encoding="utf-8")
+        self.assertIn('"[strata-arch] $family warnings ${warnings.size} (baseline', engine)
+        self.assertIn('"[strata-arch] $family ratchet exceeded: $detail"', engine)
+        cmds = re.findall(r"--family (\w+) --violation-exit (\S+) \\\n\s+--violation-pattern '([^']+)' \\\n\s+--count-regex '([^']+)'", readme)
+        self.assertEqual([(c[0], c[1]) for c in cmds], [("layers", "1"), ("boundaries", "1")])
+        self.assertIn("For reference only", readme)
+        self.manifest({"layers": "block", "boundaries": "block"})
+        out = lambda text, rc=0: [sys.executable, "-c", f"print({text!r}); raise SystemExit({rc})"]
+        for fam, codes, pattern, count in cmds:
+            run = lambda cmd: enforce.run(self.project, fam, cmd, count_regex=count, violation_exit=codes, violation_pattern=pattern)
+            left = out(f"    [strata-arch] {fam} warnings 12 (baseline 15) · excluded 101 (baseline 101)")
+            over = out(f"    [strata-arch] {fam} warnings 16 (baseline 15) · excluded 0 (baseline 0)\n"
+                       f"    [strata-arch] {fam} ratchet exceeded: x 16 > 15\nBUILD FAILED", 1)
+            done = out(f"    [strata-arch] {fam} warnings 0 (baseline 0) · excluded 0 (baseline 0)")
+            broken = out("e: Unresolved reference 'StrataWarnings'\nBUILD FAILED", 1)
+            self.assertEqual([run(c)[0] for c in (left, over, done, broken)], [0, 2, 0, 2])   # block: only the breach and the broken run stop
+        got = [(e["family"], e["kind"], e.get("count")) for e in self.ledger()]
+        self.assertEqual(got, [(f, k, n) for f in ("layers", "boundaries")
+                               for k, n in (("clean", None), ("violation", 16), ("clean", None), ("checker_error", None))])
 
     def test_exit_zero_as_violation_needs_a_pattern(self):
         self.manifest({"layers": "advisory"})

@@ -34,6 +34,7 @@ class VaultInitTest(unittest.TestCase):
         (alias,) = env["environments"]
         self.assertNotIn("{{", (self.root / "env-config.yaml").read_text())
         self.assertEqual(env["environments"][alias]["last_active"].isoformat(), "2026-11-02")
+        self.assertRegex(env["environments"][alias]["fingerprint"], r"^([0-9a-f]{12})?$")   # a hash, never the raw id
 
     def test_second_run_keeps_everything(self):
         vault_init.init(self.root, "demo")

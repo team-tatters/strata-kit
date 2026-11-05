@@ -111,6 +111,34 @@ class ProjectPublicTest(unittest.TestCase):
         self.assertEqual(self.run_main("build", "--out", str(self.out)), 0)
         self.assertTrue((self.out / "docs/guide.md").is_file())
 
+    def test_docs_images_project_with_their_locale(self):
+        # DEC-2026-11-02-10: files beside the pages (images/) go where their locale's pages go, drafts or not
+        for rel in ("public/docs/ko/images/loop-ko.svg", "public/docs/en/images/loop.svg"):
+            (self.repo / rel).parent.mkdir(parents=True, exist_ok=True); (self.repo / rel).write_text("<svg/>")
+        self.commit()
+        _, pairs = pp.plan(self.repo)
+        dst = {d for _, d in pairs}
+        self.assertIn("docs/ko/images/loop-ko.svg", dst); self.assertIn("docs/images/loop.svg", dst)
+
+    def test_a_map_entry_can_place_a_whole_folder(self):
+        (self.repo / "public/projection.yaml").write_text(MANIFEST.replace(
+            "map: {public/README.md: README.md}", "map: {public/README.md: README.md, 'public/site/**': site/}"))
+        for rel in ("public/site/package.json", "public/site/src/a.ts"):
+            (self.repo / rel).parent.mkdir(parents=True, exist_ok=True); (self.repo / rel).write_text("{}")
+        self.commit()
+        _, pairs = pp.plan(self.repo)
+        dst = {d for _, d in pairs}
+        self.assertTrue({"site/package.json", "site/src/a.ts"} <= dst)
+
+    def test_preview_writes_drafts_from_the_worktree_but_still_refuses_deny_hits(self):
+        self.page("public/docs/ko/draft.md", "draft")                          # untracked, draft, no translation
+        self.assertEqual(self.run_main("preview", "--out", str(self.out)), 0)
+        self.assertTrue((self.out / "docs/ko/draft.md").is_file())
+        self.assertTrue((self.out / "docs/draft.md").is_file())                # no en page yet: the ko draft stands in
+        self.assertIn("preview: true", (self.out / ".strata-projection.yaml").read_text())
+        (self.repo / "core" / "b.md").write_text("ask acme-internal\n")
+        self.assertEqual(self.run_main("preview", "--out", str(self.out)), 1)
+
     def test_output_inside_the_repository_is_refused(self):
         with self.assertRaises(SystemExit):
             self.run_main("build", "--out", str(self.repo / "dist" / "pub"))

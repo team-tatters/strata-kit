@@ -1,5 +1,8 @@
 """Search evaluation — recall@k of fts · dense · hybrid against a golden query set.
 
+A mode ending in '+rerank' (e.g. hybrid+rerank, added by --rerank) takes that mode's hits and reorders the first
+30 chunks with the cross-encoder (kb/rerank.py) before counting documents.
+
 Query set (YAML, lives in the vault because it names vault documents):
   queries:
     - q: "협업자 초대 메일을 다시 보내는 API"
@@ -46,27 +49,63 @@ def _docs_from_hits(store: SqliteStore, hits, k: int, include_history: bool, exp
     return out
 
 
+RERANK = "+rerank"
+
+
+def _row_hit(r: dict):
+    return type("H", (), {"node": r["node"], "seq": r["seq"], "heading": r["heading"], "content": r["content"]})
+
+
+def _reranked(store: SqliteStore, text: str, hits, include_history: bool, scorer, top_n: int) -> list:
+    """The base mode's hits in scope, the first top_n reordered by the cross-encoder."""
+    from kb import rerank as rr
+    kept = []
+    for h in hits:
+        n = h.node
+        if n is None or (n.id.startswith("doc:") and not n.payload.get("indexed")) or not api._in_scope(n, include_history, None):
+            continue
+        if not hasattr(h, "content"):
+            c = store.chunk(n.id, h.seq)
+            h = type("H", (), {"node": n, "seq": h.seq, "heading": c.heading if c else "", "content": c.text if c else ""})
+        kept.append(h)
+    out, _ = rr.rerank(text, kept, lambda h: rr.chunk_text(h.heading, h.content), top_n=top_n, scorer=scorer)
+    return out
+
+
 def run(store: SqliteStore, queries: list[dict], ks=(5, 10), modes=("fts", "fts-any", "dense", "hybrid"), embedder=None,
-        include_history: bool = False, expand: bool = False) -> dict:
-    pool = max(ks) * 6
+        include_history: bool = False, expand: bool = False, dense_aliases: bool = True, scorer=None,
+        rerank_top_n: int | None = None) -> dict:
+    from kb import rerank as rr
+    pool = max(max(ks) * 6, rerank_top_n or rr.TOP_N) if any(m.endswith(RERANK) for m in modes) else max(ks) * 6
     results = {m: {k: [] for k in ks} for m in modes}
     per_query = []
+    bases = {m[:-len(RERANK)] if m.endswith(RERANK) else m for m in modes}
     for q in queries:
         text, expect = str(q["q"]), [str(e) for e in q.get("expect") or []]
-        qvec = embedder.encode_query(text) if embedder is not None and ("dense" in modes or "hybrid" in modes) else None
+        qvec = embedder.encode_query(store.query_aliases().dense_text(text) if dense_aliases else text) if embedder is not None and ("dense" in bases or "hybrid" in bases) else None
         row = {"q": text}
+        base_hits: dict[str, list] = {}
+
+        def hits_of(mode: str) -> list:
+            if mode not in base_hits:
+                try:
+                    if mode == "fts":
+                        base_hits[mode] = [_row_hit(r) for r in api.fts_rows(store, text)[:pool]]
+                    elif mode == "fts-any":
+                        base_hits[mode] = [_row_hit(r) for r in api.fts_rows(store, text, any_terms=True)[:pool]]
+                    elif mode == "dense":
+                        base_hits[mode] = store.search_vector(qvec, limit=pool, knowledge_only=not include_history) if qvec is not None else []
+                    else:
+                        base_hits[mode] = store.search_hybrid(text, qvec, limit=pool, knowledge_only=not include_history) if qvec is not None else []
+                except VectorsUnavailable:
+                    base_hits[mode] = []
+            return base_hits[mode]
+
         for mode in modes:
-            try:
-                if mode == "fts":
-                    hits = [type("H", (), {"node": r["node"]}) for r in api.fts_rows(store, text)[:pool]]
-                elif mode == "fts-any":
-                    hits = [type("H", (), {"node": r["node"]}) for r in api.fts_rows(store, text, any_terms=True)[:pool]]
-                elif mode == "dense":
-                    hits = store.search_vector(qvec, limit=pool, knowledge_only=not include_history) if qvec is not None else []
-                else:
-                    hits = store.search_hybrid(text, qvec, limit=pool, knowledge_only=not include_history) if qvec is not None else []
-            except VectorsUnavailable:
-                hits = []
+            if mode.endswith(RERANK):
+                hits = _reranked(store, text, hits_of(mode[:-len(RERANK)]), include_history, scorer, rerank_top_n or rr.TOP_N)
+            else:
+                hits = hits_of(mode)
             for k in ks:
                 docs = _docs_from_hits(store, hits, k, include_history, expand)
                 found = [e for e in expect if any(e in d for d in docs)]
@@ -80,9 +119,10 @@ def run(store: SqliteStore, queries: list[dict], ks=(5, 10), modes=("fts", "fts-
 
 
 def format_report(res: dict, ks=(5, 10)) -> str:
-    L = [f"search-eval — {res['n']} queries", "  mode     " + "  ".join(f"recall@{k:<3}" for k in ks)]
+    w = max([8] + [len(m) for m in res["summary"]])
+    L = [f"search-eval — {res['n']} queries", "  " + "mode".ljust(w) + " " + "  ".join(f"recall@{k:<3}" for k in ks)]
     for m, kv in res["summary"].items():
-        L.append(f"  {m:8s} " + "  ".join(f"{kv[k]:.2f}      " for k in ks))
+        L.append(f"  {m:{w}s} " + "  ".join(f"{kv[k]:.2f}      " for k in ks))
     L.append("")
     L.append("  misses (recall@5 < 1 in any mode):")
     for row in res["per_query"]:
@@ -101,6 +141,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--k", default="5,10")
     ap.add_argument("--include-history", action="store_true", help="세션·태스크·기획·결정·오더 적중도 결과로")
     ap.add_argument("--expand", action="store_true", help="이력·레코드 적중이 이끄는 정본 문서도 찾은 것으로 센다")
+    ap.add_argument("--no-dense-aliases", action="store_true", help="dense 질의 문장에 용어 사전 별칭을 붙이지 않는다 (비교용)")
+    ap.add_argument("--rerank", action="store_true",
+                    help="hybrid+rerank 모드를 더한다 (상위 30개를 bge-reranker-v2-m3 로 재순위). 다른 모드는 --modes dense+rerank 처럼")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     vault = Path(args.vault) if args.vault else vault_root()
@@ -109,12 +152,23 @@ def main(argv: list[str]) -> int:
     from kb.engine import ensure_fresh_store
     store = ensure_fresh_store(Path(args.store) if args.store else None, vault)
     modes = tuple(m.strip() for m in args.modes.split(",") if m.strip())
+    if args.rerank and "hybrid" + RERANK not in modes:
+        modes += ("hybrid" + RERANK,)
     ks = tuple(int(k) for k in args.k.split(","))
+    scorer = None
+    if any(m.endswith(RERANK) for m in modes):
+        from kb import rerank as rr
+        scorer = rr.get_reranker()
+        try:
+            scorer.model
+        except rr.RerankUnavailable as e:
+            print(f"재순위 모드 생략 — {e}", file=sys.stderr)
+            modes = tuple(m for m in modes if not m.endswith(RERANK))
     embedder = None
-    if "dense" in modes or "hybrid" in modes:
+    if any(m.split("+")[0] in ("dense", "hybrid") for m in modes):
         from kb.embed import Embedder
         embedder = Embedder(args.model or store.embedding_model() or "BAAI/bge-m3")
-    res = run(store, queries, ks, modes, embedder, args.include_history, args.expand)
+    res = run(store, queries, ks, modes, embedder, args.include_history, args.expand, not args.no_dense_aliases, scorer)
     if args.json:
         import json
         print(json.dumps(res, ensure_ascii=False, indent=1))

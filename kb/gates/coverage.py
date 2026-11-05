@@ -451,6 +451,21 @@ def summary_line(unowned_count: int, cands: list[dict], exempt_count: int = 0, d
 
 # ---------------------------------------------------------------- coverage policy (오더 2026.10.29-03, DEC-2026-10-29-08)
 
+def _read_policy_file(tier_root: Path) -> dict:
+    import yaml
+    p = tier_root / "coverage-policy.yaml"
+    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.is_file() else {}
+
+
+def _exempt_entries(d: dict) -> list[dict]:
+    return [e for e in d.get("exempt") or [] if isinstance(e, dict) and e.get("path")]
+
+
+def load_exemptions(tier_root: Path | None) -> list[dict]:
+    """Only the exempt list [{path, reason}] of coverage-policy.yaml — for readers that do not grade (hygiene)."""
+    return _exempt_entries(_read_policy_file(tier_root)) if tier_root else []
+
+
 def load_coverage_policy(tier_root: Path | None) -> dict:
     """The grade comes from Tier P profile.yaml enforcement.coverage (DEC-2026-10-31-31); undeclared → advisory (report
     only), unlike the other enforcement families whose undeclared grade is block. coverage-policy.yaml holds the
@@ -463,9 +478,8 @@ def load_coverage_policy(tier_root: Path | None) -> dict:
     prof = tier_root / "profile.yaml"
     enf = ((yaml.safe_load(prof.read_text(encoding="utf-8")) or {}).get("enforcement") if prof.is_file() else None) or {}
     declared = enf.get("coverage") if isinstance(enf, dict) else None
-    p = tier_root / "coverage-policy.yaml"
-    d = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}) if p.is_file() else {}
-    pol["exempt"] = [e for e in d.get("exempt") or [] if isinstance(e, dict) and e.get("path")]
+    d = _read_policy_file(tier_root)
+    pol["exempt"] = _exempt_entries(d)
     old = d.get("grade")
     if declared is not None:
         if declared not in GRADES:

@@ -30,7 +30,7 @@ updated: YYYY-MM-DD           # Date de dernière modification
 updated_by: {git user}@{machine}  # Dernier auteur de la mise à jour — le hook d'écriture l'estampille avec l'identité git et l'alias de la machine (DEC-2026-09-09-05)
 page_order: 1                 # Ordre du document dans la catégorie (pour l'index du KB)
 author: builder | worker | manual  # Qui l'a rédigé
-machine: {alias}              # Machine qui l'a rédigé (alias dans env-config.yaml)
+machine: {alias}              # Machine qui l'a rédigé : l'alias de cette machine (STRATA_ENV) dans env-config.yaml — vault-git refuse un enregistrement de session nommant une autre machine
 superseded_by: "[[nouveau document]]"   # Quand status vaut superseded (côté remplacé → côté remplaçant)
 supersedes: ["[[décision précédente]]"]   # decision — les décisions précédentes que celle-ci remplace (sens inverse de superseded_by)
 covers: {paths, symbols, endpoints, tables}  # specification, concept — la surface de code dont ce document est la référence

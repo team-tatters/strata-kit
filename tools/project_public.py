@@ -12,6 +12,8 @@ file:line, which is the to-do list for neutralising the development sources; not
   python3 tools/project_public.py build --out DIR       # write the projection into DIR (its .git is kept)
   python3 tools/project_public.py build --out DIR --test   # and run the test suites inside DIR
   python3 tools/project_public.py fingerprint public/docs/ko/<page>.md   # translated_from for the en page
+  python3 tools/project_public.py preview --out DIR     # working tree, draft pages included — for building the site
+                                                        # locally (DEC-2026-11-02-10); never publish a preview
 
 `build` refuses to write when there are deny hits. DIR keeps its .git directory; everything else in it is replaced,
 and DIR/.strata-projection.yaml records the source revision and the file count.
@@ -56,16 +58,23 @@ def listed(repo: Path, rev: str) -> list[str]:
     return [p for p in git(repo, "ls-tree", "-r", "--name-only", rev).splitlines() if p]
 
 
-def plan(repo: Path, rev: str = "HEAD") -> tuple[dict, list[tuple[str, str]]]:
+def plan(repo: Path, rev: str = "HEAD", drafts: bool = False) -> tuple[dict, list[tuple[str, str]]]:
     """(manifest, [(source path, target path)]) for the tracked files at rev."""
     m = load_manifest(repo, rev)
     tracked = listed(repo, rev)
     inc, exc = m.get("include") or [], m.get("exclude") or []
     pairs = [(p, p) for p in tracked if matches(p, inc) and not matches(p, exc)]
     have = set(tracked)
-    dpairs, m["_docs_problems"] = docs_plan(repo, rev, tracked)
+    dpairs, m["_docs_problems"] = docs_plan(repo, rev, tracked, drafts)
     pairs += dpairs
     for src, dst in (m.get("map") or {}).items():
+        if src.endswith("/**"):   # a whole folder (DEC-2026-11-02-10): public/site/** -> site/
+            prefix = src[:-2]
+            under = [p for p in tracked if p.startswith(prefix)]
+            if not under:
+                raise SystemExit(f"map source {src} has no tracked files at {rev}")
+            pairs += [(p, dst.rstrip("/") + "/" + p[len(prefix):]) for p in under]
+            continue
         if src not in have:
             raise SystemExit(f"map source {src} is not tracked at {rev}")
         pairs.append((src, dst))
@@ -94,11 +103,24 @@ def fingerprint(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:12]
 
 
-def docs_plan(repo: Path, rev: str, tracked: list[str]) -> tuple[list[tuple[str, str]], list[str]]:
+def docs_plan(repo: Path, rev: str, tracked: list[str], drafts: bool = False) -> tuple[list[tuple[str, str]], list[str]]:
     """Public docs (DEC-2026-11-02-09): ready ko pages go to docs/ko/, ready en pages to docs/ (English is the default),
     drafts stay out. A ready ko page needs its en page, and the en page's translated_from must match the ko content —
-    otherwise the page is 'translation pending' and the build stops."""
+    otherwise the page is 'translation pending' and the build stops. Files that are not pages (images/) go with their
+    locale whatever the pages' status (DEC-2026-11-02-10). drafts=True (preview) takes every page and checks nothing."""
     pairs, problems = [], []
+    for p in tracked:
+        for loc, target in (("ko", "docs/ko/"), ("en", "docs/")):
+            if p.startswith(f"{DOCS}/{loc}/") and not p.endswith(".md"):
+                pairs.append((p, target + p[len(DOCS) + 4:]))
+    if drafts:
+        ko_pages = {p[len(DOCS) + 4:]: p for p in tracked if p.startswith(f"{DOCS}/ko/") and p.endswith(".md")}
+        en_pages = {p[len(DOCS) + 4:]: p for p in tracked if p.startswith(f"{DOCS}/en/") and p.endswith(".md")}
+        pairs += [(p, f"docs/ko/{rel}") for rel, p in ko_pages.items()]
+        # an English page not written yet: the Korean draft stands in, so the preview's links still resolve
+        pairs += [(en_pages.get(rel, p), f"docs/{rel}") for rel, p in ko_pages.items()]
+        pairs += [(p, f"docs/{rel}") for rel, p in en_pages.items() if rel not in ko_pages]
+        return pairs, problems
     ko = {p[len(DOCS) + 4:]: p for p in tracked if p.startswith(f"{DOCS}/ko/") and p.endswith(".md")}
     en = {p[len(DOCS) + 4:]: p for p in tracked if p.startswith(f"{DOCS}/en/") and p.endswith(".md")}
     for rel, src in sorted(ko.items()):
@@ -172,7 +194,7 @@ def summary(hits: list[dict]) -> list[str]:
     return L
 
 
-def build(repo: Path, rev: str, out: Path, pairs: list[tuple[str, str]]) -> int:
+def build(repo: Path, rev: str, out: Path, pairs: list[tuple[str, str]], preview: bool = False) -> int:
     out.mkdir(parents=True, exist_ok=True)
     for child in out.iterdir():
         if child.name == ".git":
@@ -182,8 +204,9 @@ def build(repo: Path, rev: str, out: Path, pairs: list[tuple[str, str]]) -> int:
         target = out / dst
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(read(repo, rev, src))
-        mode = git(repo, "ls-tree", rev, "--", src).split()[0]
-        if mode == "100755":
+        if rev == WORKTREE:
+            target.chmod((repo / src).stat().st_mode & 0o777)
+        elif git(repo, "ls-tree", rev, "--", src).split()[0] == "100755":
             target.chmod(0o755)
     # reference tables are generated from the projected sources themselves, so they match this revision exactly
     import importlib.util
@@ -197,10 +220,11 @@ def build(repo: Path, rev: str, out: Path, pairs: list[tuple[str, str]]) -> int:
         target = out / "docs" / (rest if locale == "en" else f"ko/{rest}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
-    full = git(repo, "rev-parse", rev).strip()
+    full = git(repo, "rev-parse", "HEAD" if rev == WORKTREE else rev).strip()
     (out / ".strata-projection.yaml").write_text(
         f"# generated by tools/project_public.py — do not edit; regenerate from the development repository\n"
-        f"source_revision: {full}\nfiles: {len(pairs)}\n", encoding="utf-8")
+        f"source_revision: {full}{' + working tree' if rev == WORKTREE else ''}\nfiles: {len(pairs)}\n"
+        + ("preview: true   # draft pages included — not for publishing\n" if preview else ""), encoding="utf-8")
     return len(pairs)
 
 
@@ -216,7 +240,7 @@ def run_tests(out: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("action", choices=["scan", "build", "fingerprint"])
+    ap.add_argument("action", choices=["scan", "build", "preview", "fingerprint"])
     ap.add_argument("path", nargs="?", help="fingerprint: a public/docs/ko page — prints the translated_from value for its en page")
     ap.add_argument("--repo", default=str(KIT))
     ap.add_argument("--rev", default="HEAD")
@@ -230,7 +254,9 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("fingerprint needs a public/docs/ko page")
         print(fingerprint((repo / a.path).read_bytes()))
         return 0
-    m, pairs = plan(repo, a.rev)
+    if a.action == "preview":
+        a.rev = WORKTREE
+    m, pairs = plan(repo, a.rev, drafts=a.action == "preview")
     hits = scan(repo, a.rev, m, pairs)
     label = "working tree" if a.rev == WORKTREE else git(repo, "rev-parse", "--short", a.rev).strip()
     print(f"projection of {repo.name}@{label}: {len(pairs)} files")
@@ -252,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if hits or problems else 0
     if not a.out:
         ap.error("build needs --out")
-    if a.rev == WORKTREE:
+    if a.rev == WORKTREE and a.action == "build":
         ap.error("build reads a commit, not the working tree — commit first (a projection must be reproducible)")
     if hits or problems:
         print("build refused: " + ("neutralise the deny hits" if hits else "") + (" and " if hits and problems else "")
@@ -261,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(a.out).resolve()
     if out == repo or repo in out.parents:
         ap.error("--out must be outside the development repository")
-    n = build(repo, a.rev, out, pairs)
+    n = build(repo, a.rev, out, pairs, preview=a.action == "preview")
     print(f"wrote {n} files to {out} (+ generated reference pages)")
     late = scan_tree(out, m)
     if late:

@@ -30,7 +30,7 @@ updated: YYYY-MM-DD           # 最后修改日期
 updated_by: {git user}@{machine}  # 最后更新者 — 写入钩子用 git identity 和机器 alias 盖章（DEC-2026-09-09-05）
 page_order: 1                 # 类别内的文档顺序（用于 KB 索引）
 author: builder | worker | manual  # 撰写主体
-machine: {alias}              # 撰写所用机器（env-config.yaml 中的 alias）
+machine: {alias}              # 撰写所用机器——本机 alias（STRATA_ENV，env-config.yaml）。写着其他机器的会话记录会被 vault-git 拒绝
 superseded_by: "[[新文档]]"   # status 为 superseded 时（被取代一方 → 取代一方）
 supersedes: ["[[之前的决策]]"]   # decision — 这条决策所取代的之前的决策（与 superseded_by 方向相反）
 covers: {paths, symbols, endpoints, tables}  # specification、concept — 以本文档为正本的代码面

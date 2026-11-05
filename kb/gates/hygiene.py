@@ -43,7 +43,7 @@ def proposed_status(value: str) -> str | None:
     key = v.replace(" ", "_")
     if key in STATUS_PROPOSAL:
         return STATUS_PROPOSAL[key]
-    head = re.split(r"[\s(]", v, 1)[0]          # "handoff (context clear 직전)" → handoff
+    head = re.split(r"[\s(]", v, maxsplit=1)[0]          # "handoff (context clear 직전)" → handoff
     return STATUS_PROPOSAL.get(head)
 
 
@@ -251,12 +251,37 @@ def repo_projects(vault: Path) -> set[str]:
 HUB_MIN_IN = 30   # same threshold as the coverage candidate filter (DEC-2026-10-29-03)
 
 
-def hub_covers(store: SqliteStore, project: str | None = None, min_in: int = HUB_MIN_IN) -> list[dict]:
+def coverage_exemptions(vault: Path) -> dict[str, list[dict]]:
+    """Each repo project's coverage-policy exempt list [{path, reason}] from its Tier P (DEC-2026-10-29-08)."""
+    from kb.engine import default_project_dirs
+    from kb.gates.coverage import load_exemptions
+    from kb.legacy.strata_paths import resolve_project_name, resolve_tier_p
+    out: dict[str, list[dict]] = {}
+    for d in default_project_dirs(vault):
+        try:
+            tier = resolve_tier_p(d)
+        except ValueError:
+            continue
+        ex = load_exemptions(tier.root if tier else None)
+        if ex:
+            out[resolve_project_name(d)] = ex
+    return out
+
+
+def _exempt_reason(rel: str, entries: list[dict]) -> str | None:
+    hit = next((e for e in entries if rel.startswith(e["path"])), None)
+    return (hit.get("reason") or hit["path"]) if hit else None
+
+
+def hub_covers(store: SqliteStore, project: str | None = None, min_in: int = HUB_MIN_IN,
+               exempt: dict[str, list[dict]] | None = None) -> list[dict]:
     """Covers patterns that name a shared hub (MB-strata-kit-2026-013): paths imported by at least `min_in` files of
     other modules. A review list, not a violation: a library's own specification rightly covers the library, but a
     document that only uses a shared package (several documents on the same hub — shared_by) blurs ownership and, before
-    DEC-2026-10-29-03, drew every importer's covers candidate; such covers should name the code the document implements."""
-    from kb.code import module_of
+    DEC-2026-10-29-03, drew every importer's covers candidate; such covers should name the code the document implements.
+    A row whose hub lies under a path the project's coverage policy exempts (`exempt`, per project) carries `exempt`
+    (the reason) and is not a review target: a path covers under an exempt path, a symbol whose every hub file is."""
+    from kb.code import module_of, symbol_files
     code = {n.id: n for n in store.query(kind="code", project=project)}
     rows = []
     for d in store.query(kind="doc", project=project):
@@ -272,16 +297,26 @@ def hub_covers(store: SqliteStore, project: str | None = None, min_in: int = HUB
                     rows.append({"project": d.project, "doc": d.id.split(":", 1)[1], "via": via, "pattern": rel, "importers_other_modules": len(other)})
             elif via == "symbols":
                 # a symbol defined in a hub file (a shared types file) is a hub too. Symbol nodes are keyed by simple
-                # name, so one name can join unrelated files: each defining file is judged on its own, never pooled
+                # name, so one name can join unrelated files: only the files the symbol resolves to for this document
+                # are judged (kb.code.symbol_files), each on its own, never pooled; an unresolved name is marked
+                res = symbol_files(store, e.dst, d.id)
                 hub_files = {}
-                for x in store.neighbors(e.dst, kind="member_of", direction="out"):
-                    frel = x.dst.split(":", 3)[3]
-                    other = {i.src for i in store.neighbors(x.dst, kind="imports", direction="in") if module_of(i.src.split(":", 3)[3]) != module_of(frel)}
+                for frel in res["files"]:
+                    fid = e.dst.rsplit(":symbols:", 1)[0] + ":paths:" + frel
+                    other = {i.src for i in store.neighbors(fid, kind="imports", direction="in") if module_of(i.src.split(":", 3)[3]) != module_of(frel)}
                     if len(other) >= min_in:
                         hub_files[frel] = len(other)
                 if hub_files:
-                    rows.append({"project": d.project, "doc": d.id.split(":", 1)[1], "via": via, "pattern": rel,
-                                 "importers_other_modules": max(hub_files.values()), "defined_in": sorted(hub_files)})
+                    row = {"project": d.project, "doc": d.id.split(":", 1)[1], "via": via, "pattern": rel,
+                           "importers_other_modules": max(hub_files.values()), "defined_in": sorted(hub_files)}
+                    if res["ambiguous"]:
+                        row["ambiguous"] = res["files"]
+                    rows.append(row)
+    for r in rows:
+        entries = (exempt or {}).get(r["project"]) or []
+        reasons = [_exempt_reason(f, entries) for f in (r["defined_in"] if r["via"] == "symbols" else [r["pattern"]])]
+        if entries and all(reasons):
+            r["exempt"] = reasons[0]
     shared = Counter((r["via"], r["pattern"]) for r in rows)
     for r in rows:
         r["shared_by"] = shared[(r["via"], r["pattern"])]   # several documents on one hub: ownership is blurred — review these first
@@ -376,7 +411,7 @@ def report(store: SqliteStore, vault: Path, project: str | None = None, top: int
                        "sample": rows[:top]}
 
     # 5. covers that name a shared hub (MB-strata-kit-2026-013)
-    hubs = hub_covers(store, project)
+    hubs = hub_covers(store, project, exempt=coverage_exemptions(vault))
 
     summary = {
         "documents": len(docs),
@@ -388,7 +423,8 @@ def report(store: SqliteStore, vault: Path, project: str | None = None, top: int
         "state_docs_without_covers_no_repo": dict(no_repo_state_docs),
         "broken": {k: v["count"] for k, v in broken.items()},
         "origin_references": origin_refs,
-        "hub_covers": len(hubs),
+        "hub_covers": sum(1 for h in hubs if not h.get("exempt")),
+        "hub_covers_exempt": sum(1 for h in hubs if h.get("exempt")),
     }
     return {"vault": str(vault), "project": project, "summary": summary, "history_status": history,
             "projects": toc_rows, "state_docs_without_covers": no_covers, "broken_references": broken,
@@ -430,9 +466,16 @@ def render(r: dict, top: int = 8) -> str:
             L.append(f"    {t['count']:3d} × {t['to']}")
     L += ["", f"## 5. 공용 허브를 covers 로 가진 문서 ({s.get('hub_covers', 0)}; 다른 모듈에서 {HUB_MIN_IN}개 이상 파일이 import 하는 경로, 또는 그런 파일에 정의된 심볼) — 검토 대상",
           "  그 라이브러리의 명세면 그대로 둔다. 쓰기만 하는 문서면 covers 를 자기 구현 지점으로 좁힌다. 같은 허브를 여러 문서가 가지면(공유 n) 먼저 본다."]
-    for row in r.get("hub_covers", [])[:top]:
-        target = f"심볼 {row['pattern']} ({', '.join(row['defined_in'])})" if row.get("via") == "symbols" else row["pattern"]
-        L.append(f"- {row['doc']}: {target} (다른 모듈 import {row['importers_other_modules']} · 공유 {row['shared_by']})")
+    target = lambda row: f"심볼 {row['pattern']} ({', '.join(row['defined_in'])})" if row.get("via") == "symbols" else row["pattern"]
+    rows = r.get("hub_covers", [])
+    for row in [x for x in rows if not x.get("exempt")][:top]:
+        amb = f" · 정의 모호 {len(row['ambiguous'])}곳 — covers.paths 로 정의 파일을 좁힌다" if row.get("ambiguous") else ""
+        L.append(f"- {row['doc']}: {target(row)} (다른 모듈 import {row['importers_other_modules']} · 공유 {row['shared_by']}{amb})")
+    exempt_rows = [x for x in rows if x.get("exempt")]
+    if exempt_rows:
+        L.append(f"  커버리지 정책 면제 {len(exempt_rows)} — coverage-policy.yaml 이 면제한 경로라 검토 대상이 아니다 (목록만)")
+        for row in exempt_rows[:top]:
+            L.append(f"    {row['doc']}: {target(row)} — {row['exempt']}")
     return "\n".join(L) + "\n"
 
 

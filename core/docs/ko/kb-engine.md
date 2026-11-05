@@ -15,7 +15,7 @@ edges(src, dst, kind, confidence, source_ref, created)
   kind ∈ {covers, supersedes, kb_updates, orders, decisions_made, relay, calls, imports, tests, member_of, links, implementation}
   confidence ∈ {declared, extracted, inferred}
 chunks(node_id, seq, heading, text, title, tags, locale, embedding?, meta_json)
-  전문 검색과 벡터 검색의 단위. heading·title·tags 를 함께 두어 FTS(unicode61, 네 열)가 legacy 색인과 같은 순위를 낸다. meta_json 은 heading_level·line_start·line_end·char_count. 문서·결정·오더가 FTS 테이블 하나, bm25 척도 하나를 쓴다. legacy 색인과 같은 순위는 목표가 아니다 (DEC-2026-10-28-08)
+  전문 검색과 벡터 검색의 단위. heading·title·tags 를 함께 두어 FTS(unicode61, 네 열)가 legacy 색인과 같은 순위를 낸다. meta_json 은 heading_level·line_start·line_end·char_count(나뉜 절은 part·own_chars 도). 청크는 H2–H4 절 하나이고, 임베딩 입력(title·heading·본문)이 인코더 창 2,048 토큰을 넘는 절만 문단 → 줄 → 글자 경계에서 약 1,500 토큰 조각으로 나눈다(조각마다 heading 반복, 앞 조각 끝 150자 겹침, `kb/chunking.py`). 토큰 수는 로컬 캐시의 bge-m3 토크나이저로, 없으면 보수적 글자 추정(글자×0.75)으로 센다 — 추정은 더 많이 나눌 뿐 덜 나누지 않는다. 문서·결정·오더가 FTS 테이블 하나, bm25 척도 하나를 쓴다. legacy 색인과 같은 순위는 목표가 아니다 (DEC-2026-10-28-08)
 baselines(gate, project, key, recorded)                링크·coverage 기준선
 revisions(store_rev, kit_rev, built_at, sources_hash)  저장소 전체의 출처 기록
 ```
@@ -47,7 +47,7 @@ revisions(store_rev, kit_rev, built_at, sources_hash)  저장소 전체의 출�
 - coverage gate: 바뀐 코드 노드 → covers 엣지 → 소유 문서. 소유자도 doc_change 선언도 없는 바뀐 노드가 새 위반입니다(rec.kb.covers-owner).
 - 링크 게이트: 본문의 위키링크·마크다운 링크는 `links` 엣지입니다(source_ref 에 해석 결과 file · id · alias · none · md 를 적습니다). 깨진 링크, id·별칭으로만 해석되는 링크, 지식 문서가 대체된 문서를 가리키는 것이 기준선 밖의 위반입니다(rec.kb.link-currency). 기준선의 정본은 `.kb/link-baseline.json` 이고 store 의 baselines 는 미러입니다. 비마크다운 대상과 `--code-root` 대조는 파일시스템·git 으로 확인합니다(DEC-2026-10-28-07).
 - 최신성: covers 가 맡은 코드의 revision 이 문서의 updated 보다 새로운 문서 노드.
-- 검색: heading·text·title·tags 위의 FTS 하나(bm25). 임베더 provider(BAAI/bge-m3, 로컬)의 밀집 벡터는 `embeddings(model, text_hash, dim, vector)` 캐시에 두고 청크에 붙이며, 코사인은 브루트포스(이 규모에 ANN 불필요), 하이브리드는 둘의 RRF 융합. `python3 -m kb search-eval` 이 vault 의 질의 세트로 recall@k 를 잰다(DEC-2026-10-28-09).
+- 검색: heading·text·title·tags 위의 FTS 하나(bm25). 임베더 provider(BAAI/bge-m3, 로컬)의 밀집 벡터는 `embeddings(model, text_hash, dim, vector)` 캐시에 두고 청크에 붙이며, 코사인은 브루트포스(이 규모에 ANN 불필요), 하이브리드는 둘의 RRF 융합. `python3 -m kb search-eval` 이 vault 의 질의 세트로 recall@k 를 잰다(DEC-2026-10-28-09). 교차 인코더 재순위(BAAI/bge-reranker-v2-m3, `kb/rerank.py`)는 기본으로 꺼져 있고, `kb search --rerank`·MCP `search_docs(rerank=true)`·`api.search(rerank=True)` 로 켭니다. 켜면 첫 30개 후보를 질의와 함께 다시 점수 매겨(쌍당 384 토큰까지) 순위를 바꾼 뒤 limit 으로 자릅니다. 2026-11-05 vault 질의 세트 실측에서 hybrid recall@5/@10 이 .887/.897 에서 .917/.926 으로 올랐고, 질의당 중앙값 1.25초, GPU 메모리 1.1~2.2GB, 첫 적재 3~4초가 더 들었습니다. 모델이나 sentence-transformers 가 없으면 원래 순서를 그대로 두고 결과의 mode 에 재순위를 생략했다고 적습니다. `search-eval --rerank` 는 hybrid+rerank 모드를 더해 같은 질의 세트로 비교합니다.
 - 수렴: 같은 주제의 바라는 명세 노드와 as-built 문서 노드의 대조(rec.spec.desired-vs-as-built).
 
 ## strata/scripts 에서의 이관

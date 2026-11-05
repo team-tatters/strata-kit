@@ -217,3 +217,61 @@ class HubCoversTest(unittest.TestCase):
         self.assertEqual([r for r in hygiene.hub_covers(self.store, min_in=5) if r["via"] == "symbols"], [])   # pooled would be 6
         rows = [r for r in hygiene.hub_covers(self.store, min_in=3) if r["via"] == "symbols"]
         self.assertEqual([(r["pattern"], r["defined_in"], r["importers_other_modules"]) for r in rows], [("Item", [a, b], 3)])
+
+
+class HubCoversExemptTest(unittest.TestCase):
+    """MB-strata-kit-2026-013 remainder: a hub path the project's coverage-policy.yaml exempts (a shared hub no
+    specification owns, a 2.0 cutover target) is not a review target — section 5 lists it apart with the reason."""
+
+    setUp = HubCoversTest.setUp
+    tearDown = HubCoversTest.tearDown
+
+    EXEMPT = {"demo": [{"path": "components/commons/", "reason": "공용 허브 — 명세가 맡지 않음"}]}
+
+    def test_exempt_path_row_is_marked_with_the_reason(self):
+        rows = hygiene.hub_covers(self.store, min_in=5, exempt=self.EXEMPT)
+        self.assertEqual([(r["pattern"], r.get("exempt")) for r in rows], [("components/commons/types/", "공용 허브 — 명세가 맡지 않음")])
+        self.assertEqual([r.get("exempt") for r in hygiene.hub_covers(self.store, min_in=5)], [None])   # no policy → unchanged
+
+    def test_symbol_is_exempt_only_when_every_hub_file_is_exempt(self):
+        from kb.store import Edge, Node
+        types_file = "code:demo:paths:components/commons/types/T.kt"
+        self.store.put_nodes([Node(id="code:demo:symbols:AppType", kind="code", project="demo", path="components/commons/types/T.kt", title="AppType", payload={"kind": "symbol"}),
+                              Node(id="doc:projects/demo/rbac.md", kind="doc", project="demo", path="projects/demo/rbac.md", title="rbac")])
+        self.store.put_edges([Edge("code:demo:symbols:AppType", types_file, "member_of", "extracted", "def"),
+                              Edge("doc:projects/demo/rbac.md", "code:demo:symbols:AppType", "covers", "declared", "covers.symbols")])
+        rows = {r["pattern"]: r for r in hygiene.hub_covers(self.store, min_in=5, exempt=self.EXEMPT)}
+        self.assertEqual(rows["AppType"]["exempt"], "공용 허브 — 명세가 맡지 않음")
+        other = {"demo": [{"path": "service/", "reason": "x"}]}
+        self.assertNotIn("exempt", {r["pattern"]: r for r in hygiene.hub_covers(self.store, min_in=5, exempt=other)}["AppType"])
+
+    def test_render_counts_only_review_targets_and_lists_exempt_apart(self):
+        rows = hygiene.hub_covers(self.store, min_in=5, exempt=self.EXEMPT)
+        r = {"vault": "v", "project": None, "history_status": {}, "projects": [], "state_docs_without_covers": [],
+             "broken_references": {}, "hub_covers": rows,
+             "summary": {"documents": 0, "history_status_values": 0, "history_status_values_outside_taxonomy": 0,
+                         "projects_without_toc": 0, "projects_without_toc_but_declaring_nodes": 0, "state_docs_without_covers": 0,
+                         "state_docs_without_covers_no_repo": {}, "broken": {}, "hub_covers": 0, "hub_covers_exempt": 1}}
+        text = hygiene.render(r)
+        section = text.split("## 5.", 1)[1]
+        self.assertIn("(0;", section)
+        self.assertNotIn("- projects/demo/gap.md:", section)
+        self.assertIn("커버리지 정책 면제 1", section)
+        self.assertIn("projects/demo/gap.md: components/commons/types/ — 공용 허브 — 명세가 맡지 않음", section)
+
+
+class CoverageExemptionsTest(unittest.TestCase):
+    """The report reads each repo project's exempt list from its Tier P coverage-policy.yaml."""
+
+    def test_exempt_list_per_project_from_tier_p(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp) / "vault"
+            w(vault / "projects" / "demo" / "overview.md", "---\ntitle: o\ntype: overview\ncreated: 2026-01-01\n---\n")
+            w(Path(tmp) / "demo" / ".strata" / "profile.yaml", "profile: embedded\nproject: demo\n")
+            w(Path(tmp) / "demo" / ".strata" / "coverage-policy.yaml", "exempt:\n- path: service/old/\n  reason: 2.0 컷오버 대상\n- {reason: no-path}\n")
+            old = os.environ.pop("STRATA_PROJECTS", None)
+            try:
+                self.assertEqual(hygiene.coverage_exemptions(vault), {"demo": [{"path": "service/old/", "reason": "2.0 컷오버 대상"}]})
+            finally:
+                if old is not None:
+                    os.environ["STRATA_PROJECTS"] = old

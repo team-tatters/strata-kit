@@ -2,6 +2,7 @@
 
 Same commands, filters and output as the legacy script: FTS search, --toc, --tags, --doc, --stats.
 --semantic (dense, bge-m3) and --hybrid (FTS + dense, RRF) use the store's cached embeddings (python3 -m kb embed).
+--rerank (opt-in) rescores the first 30 candidates with the bge-reranker-v2-m3 cross-encoder (kb/rerank.py).
 """
 from __future__ import annotations
 
@@ -57,7 +58,7 @@ def _vector_rows(store: SqliteStore, args, mode: str) -> list[dict]:
     """Dense or hybrid hits shaped like api.fts_rows rows (node · seq · heading · content · meta · rank)."""
     from kb.embed import Embedder
     model = store.embedding_model() or "BAAI/bge-m3"
-    qvec = Embedder(model).encode_query(args.query)
+    qvec = Embedder(model).encode_query(store.query_aliases().dense_text(args.query))
     pool = max(args.limit * 6, 30)
     ko = not getattr(args, "include_history", False) and not getattr(args, "category", None)
     hits = (store.search_vector(qvec, limit=pool, knowledge_only=ko) if mode == "semantic"
@@ -83,6 +84,12 @@ def cmd_search(store: SqliteStore, args) -> None:
         note = f"fts (embedding model unavailable: {e.name or e})"
         mode, source = "fts", api.fts_rows(store, args.query)
     include_history = getattr(args, "include_history", False)
+    want_rerank = bool(getattr(args, "rerank", False))
+    if want_rerank:
+        from kb import rerank as rr
+        pool = max(args.limit, rr.TOP_N)
+    else:
+        pool = args.limit
 
     def collect(src, with_history: bool):
         got, seen_records = [], set()
@@ -97,7 +104,7 @@ def cmd_search(store: SqliteStore, args) -> None:
                     continue
                 seen_records.add(n.id)
             got.append(r)
-            if len(got) >= args.limit:
+            if len(got) >= pool:
                 break
         return got
 
@@ -112,6 +119,14 @@ def cmd_search(store: SqliteStore, args) -> None:
             note = " (지식 문서에는 없음 — 세션·결정 적중과 그 연결 문서)"
             include_history = True
     args.include_history = include_history
+    if want_rerank and rows:
+        try:
+            rows, _ = rr.rerank(args.query, rows, lambda r: rr.chunk_text(r["heading"], r["content"]),
+                                scorer=getattr(args, "_scorer", None))
+            mode = f"{mode}+rerank"
+        except rr.RerankUnavailable as e:
+            note += f" (재순위 생략 — {e})"
+    rows = rows[:args.limit]
     if not rows:
         print(f"검색 결과 없음: {args.query}")
         return
@@ -123,7 +138,7 @@ def cmd_search(store: SqliteStore, args) -> None:
     if getattr(args, "status", None):
         filters.append(f"status={args.status}")
     filter_str = f" ({', '.join(filters)})" if filters else ""
-    mode_str = "" if mode == "fts" else f" [{mode}]"
+    mode_str = "" if mode == "fts" else f" [{mode}]"   # e.g. [hybrid+rerank]
     print(f'검색: "{args.query}"{filter_str}{mode_str} → {len(rows)}건{note}\n')
     for i, r in enumerate(rows):
         n, m = r["node"], r["meta"]
@@ -309,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--stats", action="store_true", help="색인 통계")
     mode.add_argument("--semantic", action="store_true", help="벡터(bge-m3) 유사도 검색 — 먼저 python3 -m kb embed")
     mode.add_argument("--hybrid", action="store_true", help="FTS + 벡터 RRF 융합 검색")
+    mode.add_argument("--rerank", action="store_true", help="상위 30개 후보를 교차 인코더(bge-reranker-v2-m3)로 다시 순위 — 기본 끔, 질의당 약 1초 더")
     filt = parser.add_argument_group("필터")
     filt.add_argument("--category", help="카테고리 필터 (domain, architecture, guides, references)")
     filt.add_argument("--topic", help="토픽 필터 (--category 와 함께)")

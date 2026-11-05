@@ -1,0 +1,75 @@
+
+
+<rss version="2.0">
+<channel>
+	<title>
+		<![CDATA[보호나라>알림마당>보안공지]]>
+	</title>
+	<description>
+		<![CDATA[보호나라>알림마당>보안공지]]>
+	</description>
+	<language>ko-kr</language>
+
+	<item>
+		<title><![CDATA[ Synology NAS 대상 랜섬웨어 공격 주의 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72267 ]]></link>
+		<pubDate><![CDATA[ 2026-11-03 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ Termix 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72266 ]]></link>
+		<pubDate><![CDATA[ 2026-11-03 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ TeamViewer 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72264 ]]></link>
+		<pubDate><![CDATA[ 2026-11-02 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ Ivanti 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72263 ]]></link>
+		<pubDate><![CDATA[ 2026-11-02 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ WordPress 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72262 ]]></link>
+		<pubDate><![CDATA[ 2026-11-02 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ 다우기술 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72261 ]]></link>
+		<pubDate><![CDATA[ 2026-10-30 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ Sophos 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72260 ]]></link>
+		<pubDate><![CDATA[ 2026-10-30 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ Atlassian 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72259 ]]></link>
+		<pubDate><![CDATA[ 2026-10-30 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ Oracle 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72258 ]]></link>
+		<pubDate><![CDATA[ 2026-10-30 ]]></pubDate>
+	</item>
+
+	<item>
+		<title><![CDATA[ VMware 제품 보안 업데이트 권고 ]]></title>
+		<link><![CDATA[ https://www.boho.or.kr/kr/bbs/view.do?searchCnd=&bbsId=B0000133&searchWrd=&menuNo=205020&pageIndex=1&categoryCode=&nttId=72257 ]]></link>
+		<pubDate><![CDATA[ 2026-10-30 ]]></pubDate>
+	</item>
+
+
+</channel>
+</rss>

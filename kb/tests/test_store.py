@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from kb.store import (Chunk, Edge, Node, ProviderOutput, SqliteStore, StoreError,  # noqa: E402
-                      VectorsUnavailable, fts_query)
+                      VectorsUnavailable, fts_query, SCHEMA_VERSION)
 
 
 class FakeProvider:
@@ -143,7 +143,7 @@ class StoreTest(unittest.TestCase):
             path = Path(d) / "store.sqlite"
             c = sqlite3.connect(path); c.executescript("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT); INSERT INTO meta VALUES ('schema_version','1'); CREATE TABLE nodes(x);"); c.close()
             s = SqliteStore(path)
-            self.assertEqual(s.conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "3")
+            self.assertEqual(s.conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], SCHEMA_VERSION)
             self.assertIn("payload_json", {r[1] for r in s.conn.execute("PRAGMA table_info(nodes)")})
             s.close()
 

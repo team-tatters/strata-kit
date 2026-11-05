@@ -1,0 +1,181 @@
+package {{BASE_PACKAGE}}.architecture
+
+import com.tngtech.archunit.base.DescribedPredicate
+import com.tngtech.archunit.core.domain.JavaCall
+import com.tngtech.archunit.core.domain.JavaClass
+import com.tngtech.archunit.core.domain.JavaClasses
+import com.tngtech.archunit.core.domain.JavaConstructorCall
+import com.tngtech.archunit.core.domain.JavaEnumConstant
+import com.tngtech.archunit.core.domain.JavaMethod
+import com.tngtech.archunit.core.domain.JavaMethodCall
+import com.tngtech.archunit.core.domain.PackageMatcher
+import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
+import com.tngtech.archunit.lang.ArchRule
+import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
+import org.junit.jupiter.api.Assumptions.assumeFalse
+import org.junit.jupiter.api.Test
+
+/**
+ * The three boundaries a layer cannot cover — the two checks that read bytecode (DEC-2026-11-05-02).
+ * Data ownership and FDW read windows are checked from the Liquibase changelogs: `python3 -m kb boundaries check`.
+ *
+ *   boundary.data_ownership.direct_datasource — classes in the `service` scope do not construct a database
+ *       connection of their own (HikariDataSource · JdbcTemplate · NamedParameterJdbcTemplate · DSL.using …).
+ *   boundary.cross_domain_write.feign_write — a POST·PUT·PATCH·DELETE method of a @FeignClient is called only from
+ *       the `listener` scope (an event consumer), never from a request path.
+ *
+ * Settings come from layer-rules.yaml `boundaries:` (SoT); scope overrides and exemptions from the project layer map
+ * `boundaries:` section. Nothing is hard-coded here.
+ *
+ * Neither rule allows an empty should: when the `service` scope (or every class outside `listener`) matches no class,
+ * ArchUnit's default archRule.failOnEmptyShould=true fails the rule with "failed to check any classes" — the scope
+ * declaration does not match the code, which must not read as clean (MB-strata-kit-2026-057). Warning mode reports
+ * the same case as `[strata-arch] boundaries indeterminate: …` (StrataWarnings).
+ *
+ * Classes under the layer map's `excluded:` (code being replaced, as for the layer rule) are left out of both checks;
+ * in warning mode they are counted per module instead. This is separate from `boundaries.exemptions`, which waive.
+ *
+ * Adoption is opt-in: copy this file only when the project starts on the boundaries. The checks start advisory —
+ * run them under `python3 -m kb enforce run --family boundaries -- ./gradlew test --tests '*StrataBoundaryRulesTest'`
+ * (the family is advisory until the project manifest says otherwise). The two tests below fail on any violation;
+ * with many existing violations, copy opt-in/StrataBoundaryWarningsTest next to this file and run with
+ * -Dstrata.warningMode=true: the same two rules are then written to warnings.yaml and ratcheted against a frozen
+ * baseline, and the failing tests here are skipped (README, warning mode).
+ */
+class StrataBoundaryRulesTest {
+
+    companion object {
+        private val boundaries: StrataBoundaries = StrataRules.loadBoundaries()
+        val classes: JavaClasses = ClassFileImporter()
+            .withImportOption(ImportOption.DoNotIncludeTests())
+            .importPackages("{{BASE_PACKAGE}}")
+
+        private val warningMode = System.getProperty("strata.warningMode") == "true"
+
+        const val DIRECT_DATASOURCE = "boundary.data_ownership.direct_datasource"
+        const val FEIGN_WRITE = "boundary.cross_domain_write.feign_write"
+        private const val REQUEST_MAPPING = "org.springframework.web.bind.annotation.RequestMapping"
+        private const val FEIGN_REQUEST_LINE = "feign.RequestLine"
+
+        private fun relPathOf(cls: JavaClass): String? {
+            val uri = cls.source.map { it.uri.toString() }.orElse(null) ?: return null
+            val rootPath = boundaries.projectRoot.absolutePath
+            val idx = uri.indexOf(rootPath)
+            return if (idx >= 0) uri.substring(idx + rootPath.length + 1) else null
+        }
+
+        /** The build module a class was compiled in (its path up to /build/classes/), for the warning-mode counts. */
+        fun moduleOf(cls: JavaClass): String? =
+            relPathOf(cls)?.substringBefore("/build/classes/", missingDelimiterValue = "")?.ifEmpty { null }
+
+        private fun inScope(cls: JavaClass, scope: String): Boolean {
+            val s = boundaries.scopes[scope] ?: return false
+            if (s.packages.any { PackageMatcher.of(it).matches(cls.packageName) }) return true
+            val rel = relPathOf(cls) ?: return false
+            return s.paths.any { rel.contains(it) }
+        }
+
+        /** A class under the layer map's `excluded:` — kept apart from exemptions: it is counted, not waived (warning mode). */
+        fun isExcluded(cls: JavaClass): Boolean {
+            val rel = relPathOf(cls) ?: return false
+            return boundaries.excluded.any { StrataRules.matchesMapPath(rel, it) }
+        }
+
+        /** An exemption names a path (substring of the class path or of the class name as a path) or a module directory. */
+        private fun exempted(cls: JavaClass, check: String): Boolean {
+            val rel = relPathOf(cls).orEmpty()
+            val asPath = cls.name.replace('.', '/')
+            return boundaries.exemptions.any { e ->
+                e.covers(check) &&
+                    (e.path == null || rel.contains(e.path) || asPath.contains(e.path)) &&
+                    (e.module == null || rel.startsWith(e.module.trimEnd('/') + "/"))
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        private fun listSetting(check: String, key: String): List<String> =
+            (boundaries.checks[check]?.get(key) as? List<String>).orEmpty()
+
+        private fun scopeOf(check: String, fallback: String): String =
+            boundaries.checks[check]?.get("scope") as? String ?: fallback
+
+        /** includeExcluded = false (the failing gate) leaves `excluded:` classes out; warning mode keeps them in to count them. */
+        fun directDatasourceRule(includeExcluded: Boolean = false): ArchRule {
+            val scope = scopeOf(DIRECT_DATASOURCE, "service")
+            val constructors = listSetting(DIRECT_DATASOURCE, "forbidden_constructors").toSet()
+            val calls = listSetting(DIRECT_DATASOURCE, "forbidden_calls").toSet()
+            val inService = object : DescribedPredicate<JavaClass>("are in the $scope scope and not exempted") {
+                override fun test(input: JavaClass): Boolean =
+                    inScope(input, scope) && !exempted(input, DIRECT_DATASOURCE) && (includeExcluded || !isExcluded(input))
+            }
+            val opensConnection = object : DescribedPredicate<JavaCall<*>>("construction of ${(constructors + calls).joinToString()}") {
+                override fun test(call: JavaCall<*>): Boolean =
+                    if (call is JavaConstructorCall) call.targetOwner.name in constructors
+                    else "${call.targetOwner.name}.${call.name}" in calls
+            }
+            return noClasses().that(inService)
+                .should().callCodeUnitWhere(opensConnection)
+                .because("a service that opens its own connection reads or writes tables another module owns " +
+                    "($DIRECT_DATASOURCE, layer-rules.yaml boundaries)")
+        }
+
+        private fun isWrite(method: JavaMethod, annotations: List<String>, verbs: Set<String>): Boolean {
+            if (annotations.any { method.isAnnotatedWith(it) }) return true
+            for (a in method.annotations) {
+                when (a.rawType.name) {
+                    REQUEST_MAPPING -> {
+                        val declared = a.get("method").orElse(null) as? Array<*> ?: continue
+                        if (declared.any { c -> (c as? JavaEnumConstant)?.name()?.let { it in verbs } == true }) return true
+                    }
+                    FEIGN_REQUEST_LINE -> {
+                        val line = (a.get("value").orElse(null) as? String).orEmpty().trim()
+                        if (verbs.any { line.startsWith("$it ") }) return true
+                    }
+                }
+            }
+            return false
+        }
+
+        fun feignWriteRule(includeExcluded: Boolean = false): ArchRule {
+            val scope = scopeOf(FEIGN_WRITE, "listener")
+            val feign = boundaries.checks[FEIGN_WRITE]?.get("feign_client_annotation") as? String
+                ?: "org.springframework.cloud.openfeign.FeignClient"
+            val annotations = listSetting(FEIGN_WRITE, "write_annotations")
+            val verbs = listSetting(FEIGN_WRITE, "write_request_methods").toSet()
+            val outsideListeners = object : DescribedPredicate<JavaClass>("are outside the $scope scope and not exempted") {
+                override fun test(input: JavaClass): Boolean =
+                    !inScope(input, scope) && !exempted(input, FEIGN_WRITE) && (includeExcluded || !isExcluded(input))
+            }
+            val feignWrite = object : DescribedPredicate<JavaMethodCall>("a ${verbs.joinToString("·")} method of a @FeignClient") {
+                override fun test(call: JavaMethodCall): Boolean {
+                    if (!call.targetOwner.isAnnotatedWith(feign)) return false
+                    val method = call.target.resolveMember().orElse(null) ?: return false
+                    return isWrite(method, annotations, verbs)
+                }
+            }
+            return noClasses().that(outsideListeners)
+                .should().callMethodWhere(feignWrite)
+                .because("another domain's write follows an event; calling it from a request path joins two domains' writes " +
+                    "($FEIGN_WRITE, layer-rules.yaml boundaries)")
+        }
+    }
+
+    @Test
+    fun `boundary exemptions - every exemption names its reason and a decision or sunset`() {
+        // an exemption that does not qualify is not honoured; it is listed so the map can be fixed
+        boundaries.ignoredExemptions.forEach { println("   boundary exemption not honoured: $it") }
+    }
+
+    @Test
+    fun `data ownership - no direct DataSource or JdbcTemplate construction in the service scope`() {
+        assumeFalse(warningMode, "warning mode: StrataBoundaryWarningsTest ratchets this rule")
+        directDatasourceRule().check(classes)
+    }
+
+    @Test
+    fun `cross-domain write - Feign write calls only from the listener scope`() {
+        assumeFalse(warningMode, "warning mode: StrataBoundaryWarningsTest ratchets this rule")
+        feignWriteRule().check(classes)
+    }
+}

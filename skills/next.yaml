@@ -319,3 +319,22 @@ next:
       zh: 已处理答复 — 关闭
       es: la respuesta está atendida — cerrar
       fr: la réponse est traitée — clore
+  strata.security:
+  - skill: strata.order
+    area: operations
+    why:
+      en: an urgent item or a promoted advisory needs its order split into tasks when the patch is not the core's to run
+      ko: 긴급 항목이나 올린 권고의 패치가 코어가 실행할 조건 밖이면 오더를 태스크로 나눈다
+      ja: 緊急項目や昇格した勧告のパッチがコアの実行条件外なら、オーダーをタスクに分ける
+      zh: 紧急项或升级的建议需要补丁却不在核心可执行的条件内时，把工单拆成任务
+      es: un ítem urgente o un aviso promovido necesita dividir su orden en tareas cuando el parche no es del núcleo
+      fr: un élément urgent ou un avis promu doit voir son ordre divisé en tâches quand le correctif n'est pas du noyau
+  - skill: strata.decision
+    area: architecture
+    why:
+      en: a threshold, a fourth patch condition or a new source layer changes a recorded rule
+      ko: 문턱·네 번째 패치 조건·새 원천 층은 기록된 규칙을 바꾸는 결정이다
+      ja: しきい値・第四のパッチ条件・新しい源の層は記録された規則を変える決定である
+      zh: 阈值、第四种补丁条件或新的来源层改变了已记录的规则
+      es: un umbral, una cuarta condición de parcheo o una nueva capa de fuentes cambia una regla registrada
+      fr: un seuil, une quatrième condition de correctif ou une nouvelle couche de sources change une règle enregistrée

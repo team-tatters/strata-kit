@@ -12,6 +12,8 @@ A family the manifest does not name is `block`: an existing checker keeps stoppi
 otherwise. `coverage` is the exception (DEC-2026-10-31-31): undeclared, it only reports, because the gate counts every
 gap that predates the project's baseline. `stages` — the checks of the newer stages (kb planning · design · taste · ideas ·
 signals check) — is advisory when undeclared too (DEC-2026-11-01-18): run them as `kb enforce run --family stages -- …`.
+`boundaries` — the three-boundary checks (kb boundaries check, the ArchUnit StrataBoundaryRulesTest) — starts advisory too
+(DEC-2026-11-05-02).
 
 `run` wraps any existing checker (hook, CI step, a project's run.sh) without changing it: the checker's non-zero
 exit means violations; the grade decides what the wrapper returns, and every run — clean ones too (DEC-2026-10-31-23)
@@ -27,6 +29,20 @@ A warning-mode checker prints its violations and exits 0 (an ArchUnit `./gradlew
 and give --violation-pattern: an exit-0 run whose output matches is a violation, one that does not is clean. 0 without
 a pattern is refused — every clean run would count (MB-strata-kit-2026-046).
 
+A run that evaluated nothing is not clean either (MB-strata-kit-2026-057). Two signs mark it: the checker prints a
+line `[strata] indeterminate: …` (kb boundaries check, kb check-layer --audit) or `[strata-arch] <family>
+indeterminate: …` (the ArchUnit warning mode), or --expect-pattern is given and the output does not match it — a
+Gradle run with -q hides the test output, exits 0 and would otherwise be recorded as clean. Such a run is recorded as
+kind checker_error with `indeterminate: true` and its reason ('judgement impossible — the declaration does not match
+the code'); the grade decides what it returns, like a violation (advisory passes with a warning, default and block
+fail), because the checker itself did not break. A violation run that also printed indeterminate lines stays a
+violation and carries them.
+
+A checker that prints a coverage line — `[strata] coverage: … 82% (미대응 41파일 …)` (kb check-layer --audit, kb
+boundaries check) or `[strata-arch] layers coverage: 82% of classes mapped (unmapped 41 of …)` (the ArchUnit layer
+tests) — has it kept on the entry as `coverage: {percent, unmapped}`, so the ledger shows how much of the code the rule
+saw next to what it found (MB-strata-kit-2026-057 step 2).
+
 The ledger is append-only. A wrong entry is not rewritten: `correct` appends a correction that names it by time and
 family and says what it was (violation with a count, clean, or void); readers use effective(), which applies them.
 
@@ -34,7 +50,7 @@ The grade binds the harness only. The agent rule (must card rec.architecture.no-
 grade: write no new violation, and report one that was written.
 
   python3 -m kb enforce run --family layers [--project DIR] [--count-regex RE] [--violation-exit 1|1-255|1,3]
-                           [--violation-pattern RE] -- <checker> [args…]
+                           [--violation-pattern RE] [--expect-pattern RE] -- <checker> [args…]
   python3 -m kb enforce correct --family F --at <entry time> --as violation|clean|void [--count N] --reason R [--project DIR]
   python3 -m kb enforce show [--project DIR]
 """
@@ -52,8 +68,11 @@ from kb.gates.grades import GRADES, Finding, evaluate, load_overrides, render
 
 KIT = Path(__file__).resolve().parents[2]
 DEFAULT_GRADE = "block"
-FAMILY_DEFAULTS = {"coverage": "advisory", "stages": "advisory"}   # DEC-2026-10-31-31; stages (planning·design·taste·ideas·signals checks): DEC-2026-11-01-18
+FAMILY_DEFAULTS = {"coverage": "advisory", "stages": "advisory",   # DEC-2026-10-31-31; stages (planning·design·taste·ideas·signals checks): DEC-2026-11-01-18
+                   "boundaries": "advisory"}   # the three boundaries (kb boundaries check, StrataBoundaryRulesTest) start advisory: DEC-2026-11-05-02
 TAIL = 15
+COVERAGE_RE = re.compile(r"\[strata(?:-arch)?\]\s+(?:[\w.-]+\s+)?coverage:\D*?(\d+(?:\.\d+)?)%[^\n]*?(?:미대응|unmapped)\s*(\d+)")
+INDETERMINATE_RE = re.compile(r"\[strata(?:-arch)?\]\s+(?:[\w.-]+\s+)?indeterminate:\s*(.*)")
 
 
 def _tier(project: Path):
@@ -152,8 +171,34 @@ def exit_codes(spec: str) -> set[int]:
     return out
 
 
+def coverage_of(output: str) -> dict | None:
+    """The coverage line a checker printed (MB-strata-kit-2026-057 step 2) — '[strata] coverage: … 82% (미대응 41파일 …)'
+    or '[strata-arch] layers coverage: 82% of classes mapped (unmapped 41 of …)'; the last one wins."""
+    found = COVERAGE_RE.findall(output)
+    if not found:
+        return None
+    pct, unmapped = found[-1]
+    return {"percent": float(pct), "unmapped": int(unmapped)}
+
+
+def _indeterminate(project: Path, family: str, grade: str, lp: Path | None, cmd: list[str], rc: int, output: str,
+                   reason: str, today: str | None) -> tuple[int, list[str]]:
+    """Record a run that evaluated nothing as a checker_error marked indeterminate; the grade decides the return."""
+    if lp:
+        record(lp, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "family": family, "kind": "checker_error",
+                    "indeterminate": True, "reason": reason, "grade": grade, "kit_revision": _kit_rev(),
+                    **({"coverage": coverage_of(output)} if coverage_of(output) else {}),
+                    "command": " ".join(cmd), "exit_code": rc, "tail": "\n".join(output.rstrip("\n").splitlines()[-TAIL:])})
+    _, root = manifest(project)
+    finding = Finding("enforce", family, grade, f"{family} 판정 불가 — 선언이 코드와 맞지 않음 (깨끗함이 아님): {reason}"
+                      + (f" — 기록: {lp}" if lp else " — STRATA_VAULT 없음, 기록 안 함"))
+    r = evaluate([finding], load_overrides(root / "gate-overrides.yaml") if root else [], today)
+    return r["rc"], render(r)
+
+
 def run(project: Path, family: str, cmd: list[str], count_regex: str | None = None, today: str | None = None,
-        violation_exit: str = "1", violation_pattern: str | None = None) -> tuple[int, list[str]]:
+        violation_exit: str = "1", violation_pattern: str | None = None,
+        expect_pattern: str | None = None) -> tuple[int, list[str]]:
     codes = exit_codes(violation_exit)
     if 0 in codes and not violation_pattern:
         raise ValueError("--violation-exit 에 0 을 넣으면 --violation-pattern 이 필요하다 — 없으면 모든 정상 실행이 위반이 된다 (MB-strata-kit-2026-046)")
@@ -166,14 +211,21 @@ def run(project: Path, family: str, cmd: list[str], count_regex: str | None = No
     grade = grade_of(project, family)
     lp = ledger_path(project)
     hit = violation_pattern is not None and re.search(violation_pattern, output) is not None
+    said = [m.group(1).strip() for m in INDETERMINATE_RE.finditer(output)]
+    violation = rc in codes and (violation_pattern is None or hit)   # 0 in codes always comes with a pattern
+    if not violation and said:
+        return _indeterminate(project, family, grade, lp, cmd, rc, output, "; ".join(said), today)
+    if not violation and rc == 0 and expect_pattern and re.search(expect_pattern, output) is None:
+        return _indeterminate(project, family, grade, lp, cmd, rc, output,
+                              f"출력에 기대한 표식 {expect_pattern!r} 이 없음 — 검사가 아무것도 평가하지 않았거나 출력이 숨겨짐(-q 등)", today)
     if rc == 0 and not (0 in codes and hit):
         # a clean run is evidence too: without it a checker that runs daily and finds nothing looks like one that never
         # ran (DEC-2026-10-31-23, doctor's run evidence)
         if lp:
             record(lp, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "family": family, "kind": "clean",
-                        "grade": grade, "kit_revision": _kit_rev(), "command": " ".join(cmd), "exit_code": 0})
+                        "grade": grade, "kit_revision": _kit_rev(), "command": " ".join(cmd), "exit_code": 0,
+                        **({"coverage": coverage_of(output)} if coverage_of(output) else {})})
         return 0, [f"enforce {family}: clean ({grade})"]
-    violation = rc in codes and (violation_pattern is None or hit)
     if not violation:
         if lp:
             record(lp, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "family": family, "kind": "checker_error",
@@ -190,6 +242,8 @@ def run(project: Path, family: str, cmd: list[str], count_regex: str | None = No
         record(lp, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "family": family, "kind": "violation", "grade": grade,
                     "kit_revision": _kit_rev(), "command": " ".join(cmd), "exit_code": rc,
                     **({"count": count} if count is not None else {}),
+                    **({"indeterminate": said} if said else {}),
+                    **({"coverage": coverage_of(output)} if coverage_of(output) else {}),
                     "tail": "\n".join(proc_stdout.rstrip("\n").splitlines()[-TAIL:])})
     _, root = manifest(project)
     finding = Finding("enforce", family, grade, f"{family} 위반 (exit {rc}" + (f", {count}건" if count is not None else "") + ")"
@@ -209,6 +263,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--family")
     ap.add_argument("--violation-exit", default="1", help="exit codes that mean violations were found: 1 · 1-255 · 1,3 (default 1)")
     ap.add_argument("--violation-pattern", help="regex the output must match for a failing run to count as violations")
+    ap.add_argument("--expect-pattern", help="regex every completed run prints (e.g. the checker's summary line); a run "
+                    "that exits 0 without it is indeterminate, not clean (MB-strata-kit-2026-057)")
     ap.add_argument("--count-regex", help="regex over the checker output: its first group is the count, or the number of matches")
     ap.add_argument("--at", help="correct: the time of the entry to correct, as the ledger shows it")
     ap.add_argument("--as", dest="as_kind", choices=["violation", "clean", "void"], help="correct: what the entry really was")
@@ -231,7 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("run needs --family and -- <checker command>")
     if 0 in exit_codes(a.violation_exit) and not a.violation_pattern:
         ap.error("--violation-exit 에 0 을 넣으면 --violation-pattern 이 필요하다")
-    rc, lines = run(project, a.family, cmd, a.count_regex, violation_exit=a.violation_exit, violation_pattern=a.violation_pattern)
+    rc, lines = run(project, a.family, cmd, a.count_regex, violation_exit=a.violation_exit, violation_pattern=a.violation_pattern,
+                    expect_pattern=a.expect_pattern)
     for l in lines:
         print(l, file=sys.stderr)
     return rc

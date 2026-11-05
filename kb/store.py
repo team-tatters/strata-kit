@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,8 +32,9 @@ EDGE_KINDS = frozenset({"covers", "supersedes", "kb_updates", "orders", "decisio
                         "calls", "imports", "tests", "member_of", "links",   # links: body wikilink/markdown link (DEC-2026-10-28-07)
                         "implementation"})   # planning → as-built spec, from implementation.spec (DEC-2026-10-29-09)
 CONFIDENCE = frozenset({"declared", "extracted", "inferred"})
-SCHEMA_VERSION = "3"   # v2: chunks carry heading·title·tags·meta_json, FTS over four columns (DEC-2026-10-28-08)
+SCHEMA_VERSION = "4"   # v2: chunks carry heading·title·tags·meta_json, FTS over four columns (DEC-2026-10-28-08)
                        # v3: chunks.text_hash + embeddings cache, vector/hybrid search (DEC-2026-10-28-09)
+                       # v4: FTS over particle-stripped copies fts_heading·fts_text·fts_title, Korean 조사 (MB-strata-kit-2026-056)
 
 
 class StoreError(ValueError):
@@ -191,6 +193,9 @@ CREATE TABLE IF NOT EXISTS chunks (
     embedding BLOB,
     meta_json TEXT NOT NULL DEFAULT '{{}}',
     text_hash TEXT NOT NULL DEFAULT '',
+    fts_heading TEXT NOT NULL DEFAULT '',
+    fts_text    TEXT NOT NULL DEFAULT '',
+    fts_title   TEXT NOT NULL DEFAULT '',
     UNIQUE (node_id, seq)
 );
 CREATE INDEX IF NOT EXISTS chunks_node ON chunks(node_id, seq);
@@ -203,17 +208,18 @@ CREATE TABLE IF NOT EXISTS embeddings (
     vector    BLOB NOT NULL,
     PRIMARY KEY (model, text_hash)
 );
+-- the index reads the particle-stripped copies (fts_normalize); search results read the original columns
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-    heading, text, title, tags, content='chunks', content_rowid='id', tokenize='unicode61');
+    fts_heading, fts_text, fts_title, tags, content='chunks', content_rowid='id', tokenize='unicode61');
 CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
-  INSERT INTO chunks_fts(rowid, heading, text, title, tags) VALUES (new.id, new.heading, new.text, new.title, new.tags);
+  INSERT INTO chunks_fts(rowid, fts_heading, fts_text, fts_title, tags) VALUES (new.id, new.fts_heading, new.fts_text, new.fts_title, new.tags);
 END;
 CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, heading, text, title, tags) VALUES ('delete', old.id, old.heading, old.text, old.title, old.tags);
+  INSERT INTO chunks_fts(chunks_fts, rowid, fts_heading, fts_text, fts_title, tags) VALUES ('delete', old.id, old.fts_heading, old.fts_text, old.fts_title, old.tags);
 END;
 CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
-  INSERT INTO chunks_fts(chunks_fts, rowid, heading, text, title, tags) VALUES ('delete', old.id, old.heading, old.text, old.title, old.tags);
-  INSERT INTO chunks_fts(rowid, heading, text, title, tags) VALUES (new.id, new.heading, new.text, new.title, new.tags);
+  INSERT INTO chunks_fts(chunks_fts, rowid, fts_heading, fts_text, fts_title, tags) VALUES ('delete', old.id, old.fts_heading, old.fts_text, old.fts_title, old.tags);
+  INSERT INTO chunks_fts(rowid, fts_heading, fts_text, fts_title, tags) VALUES (new.id, new.fts_heading, new.fts_text, new.fts_title, new.tags);
 END;
 
 CREATE TABLE IF NOT EXISTS baselines (
@@ -233,6 +239,46 @@ CREATE TABLE IF NOT EXISTS revisions (
 """
 
 
+# Korean particles (조사) and the commonest 하다·되다 endings, longest first. unicode61 splits on spaces only, so
+# '결정을' and '결정' are different tokens; both the index and the query drop one trailing ending so they meet.
+# Measured on the vault's 34-query set (2026-11-05): fts-any recall@10 0.70 → 0.86, hybrid @5 0.81 → 0.84; a
+# trigram index and a query-only prefix variant both scored lower (MB-strata-kit-2026-056).
+_KO_ENDINGS = tuple(sorted(set("""
+에서부터 으로부터 에서는 에서도 에서의 으로는 으로도 으로의 으로서 으로써 에게서 에게는 이라는 이라고 이라면 이든지
+에서 으로 까지 부터 에게 까지는 까지의 부터는 부터의 처럼 보다 마다 조차 마저 밖에 이나 이란 이며 이고 이다 이면 이랑
+에는 에도 에의 한테 께서 와의 과의 로의 로는 로도 로서 로써 와는 과는 와도 과도 만의 만은
+은 는 이 가 을 를 의 에 와 과 로 도 만 랑
+하는 하고 하여 해서 하면 한다 했다 하기 하지 하며 하던 하도록 하려면 되는 되고 되어 돼서 된다 됐다 되면 되지
+시키는 시키고 한 할 함 된 됨 됩니다 합니다
+""".split()), key=len, reverse=True))
+_WORD = re.compile(r"\w+")
+
+
+def _is_hangul(ch: str) -> bool:
+    return "\uac00" <= ch <= "\ud7a3"
+
+
+def _strip_ending(word: str) -> str:
+    """Drop one trailing particle/ending from a word that ends in Hangul. The stem must keep two syllables
+    (회의 · 정의 · 경로 stay whole) or be a latin token (JWT로 → JWT, S3에 → S3); a bare number keeps its ending (1만)."""
+    if not word or not _is_hangul(word[-1]):
+        return word
+    for e in _KO_ENDINGS:
+        if word.endswith(e) and len(word) > len(e):
+            stem = word[:-len(e)]
+            last = stem[-1]
+            if (_is_hangul(last) and len(stem) >= 2) or (not _is_hangul(last) and any(ch.isalpha() for ch in stem)):
+                return stem
+            return word
+    return word
+
+
+def fts_normalize(text: str) -> str:
+    """What the FTS index (and every FTS query) sees: the text with one trailing Korean ending dropped per word.
+    Latin identifiers, snake_case and dotted keys are untouched."""
+    return _WORD.sub(lambda m: _strip_ending(m.group(0)), text or "")
+
+
 def has_operators(q: str) -> bool:
     return any(tok in ("AND", "OR", "NOT") for tok in q.split())
 
@@ -248,12 +294,48 @@ def fts_query(q: str, any_terms: bool = False) -> str:
             out.append(tok)
             continue
         prefix = tok.endswith("*")
-        core = tok.rstrip("*").replace('"', "")
+        core = fts_normalize(tok.rstrip("*").replace('"', ""))
         if core:
             out.append(f'"{core}"*' if prefix else f'"{core}"')
     if any_terms and out and not has_operators(q):
         return " OR ".join(out)
     return " ".join(out)
+
+
+def _phrase(term: str) -> str:
+    """One FTS5 phrase for a (possibly multi-word) term, each word quoted the way fts_query quotes it."""
+    words = [fts_query(w).strip('"') for w in term.split()]
+    return '"' + " ".join(w for w in words if w) + '"'
+
+
+def fts_query_expanded(q: str, any_terms: bool = False, aliases=None) -> str:
+    """fts_query plus glossary aliases (kb.glossary.AliasIndex, MB-strata-kit-2026-056). With any_terms the aliases
+    of every term the query names are OR'ed on; otherwise (or when the user wrote operators) each word that starts
+    with a single-word member becomes (word OR its aliases) in place, so an all-terms query still needs every
+    concept but accepts either name."""
+    base = fts_query(q, any_terms)
+    if not aliases or not base:
+        return base
+    if any_terms and not has_operators(q):
+        extra = [_phrase(t) for t in aliases.expand(q)]
+        return " OR ".join([base] + extra) if extra else base
+    out, grouped = [], False
+    for tok in q.split():
+        part = fts_query(tok)
+        alts = aliases.alternatives(tok.rstrip("*").replace('"', "")) if tok not in ("AND", "OR", "NOT") else []
+        if part and alts:
+            part, grouped = "(" + " OR ".join([part] + [_phrase(a) for a in alts]) + ")", True
+        if part:
+            out.append(part)
+    if not grouped:
+        return base
+    # FTS5 has no implicit AND next to a parenthesized group: spell it out between two operands
+    joined = [out[0]]
+    for prev, cur in zip(out, out[1:]):
+        if prev not in ("AND", "OR", "NOT") and cur not in ("AND", "OR", "NOT"):
+            joined.append("AND")
+        joined.append(cur)
+    return " ".join(joined)
 
 
 def embed_text(title: str, heading: str, text: str) -> str:
@@ -277,15 +359,23 @@ class SqliteStore:
 
     def __init__(self, path: str | Path = ":memory:"):
         self.path = Path(path) if path != ":memory:" else None
+        carried = None
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             if self.path.is_file() and self._file_schema_version(self.path) != SCHEMA_VERSION:
-                # a store is a regenerable cache: an older schema is simply discarded (baselines live in files of record)
+                # a store is a regenerable cache: an older schema is simply discarded (baselines live in files of record),
+                # except the embedding cache — vectors are keyed by text hash and cost an hour of GPU to recompute
+                carried = self._read_embeddings(self.path)
                 for suffix in ("", "-wal", "-shm"):
                     Path(str(self.path) + suffix).unlink(missing_ok=True)
         self.conn = sqlite3.connect(str(self.path) if self.path else ":memory:")
         self.conn.row_factory = sqlite3.Row
+        # INSERT OR REPLACE on chunks (two providers emitting the same node_id·seq) deletes the old row; without
+        # recursive triggers its FTS row stayed behind and later matched whatever chunk reused the rowid
+        self.conn.execute("PRAGMA recursive_triggers = ON")
         self.conn.executescript(_SCHEMA)
+        if carried:
+            self._restore_embeddings(carried)
 
     @staticmethod
     def _file_schema_version(path: Path) -> str | None:
@@ -298,6 +388,26 @@ class SqliteStore:
                 c.close()
         except sqlite3.Error:
             return None
+
+    @staticmethod
+    def _read_embeddings(path: Path) -> tuple[str | None, list[tuple]] | None:
+        try:
+            c = sqlite3.connect(str(path))
+            try:
+                rows = c.execute("SELECT model, text_hash, dim, vector FROM embeddings").fetchall()
+                m = c.execute("SELECT value FROM meta WHERE key = 'embedding_model'").fetchone()
+                return (m[0] if m else None), rows
+            finally:
+                c.close()
+        except sqlite3.Error:
+            return None
+
+    def _restore_embeddings(self, carried: tuple[str | None, list[tuple]]) -> None:
+        model, rows = carried
+        with self.conn:
+            self.conn.executemany("INSERT OR REPLACE INTO embeddings(model, text_hash, dim, vector) VALUES (?,?,?,?)", rows)
+            if model:
+                self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('embedding_model', ?)", (model,))
 
     def close(self) -> None:
         self.conn.close()
@@ -330,14 +440,16 @@ class SqliteStore:
         with self.conn:
             self.conn.executemany("DELETE FROM chunks WHERE node_id = ? AND seq = ?", [(r[0], r[1]) for r in rows])
             self.conn.executemany(
-                "INSERT INTO chunks(node_id, seq, heading, text, title, tags, locale, embedding, meta_json, text_hash) VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+                "INSERT INTO chunks(node_id, seq, heading, text, title, tags, locale, embedding, meta_json, text_hash,"
+                " fts_heading, fts_text, fts_title) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
         return len(rows)
 
     @staticmethod
     def _chunk_row(c: Chunk) -> tuple:
         c.validate()
         return (c.node_id, c.seq, c.heading, c.text, c.title, c.tags, c.locale, c.embedding,
-                json.dumps(c.meta, ensure_ascii=False, sort_keys=True), text_hash(c))
+                json.dumps(c.meta, ensure_ascii=False, sort_keys=True), text_hash(c),
+                fts_normalize(c.heading), fts_normalize(c.text), fts_normalize(c.title))
 
     @staticmethod
     def _chunk(row: sqlite3.Row) -> Chunk:
@@ -388,9 +500,19 @@ class SqliteStore:
         rows = self.conn.execute("SELECT * FROM chunks WHERE node_id = ? ORDER BY seq", (node_id,))
         return [self._chunk(r) for r in rows]
 
+    def query_aliases(self):
+        """Alias groups of the store's glossary documents (payload type glossary), parsed once per build."""
+        if getattr(self, "_aliases", None) is None:
+            from kb.glossary import AliasIndex, parse_alias_groups
+            rows = self.conn.execute(
+                "SELECT c.text FROM chunks c JOIN nodes n ON n.id = c.node_id"
+                " WHERE json_extract(n.payload_json, '$.type') = 'glossary' ORDER BY n.id, c.seq").fetchall()
+            self._aliases = AliasIndex(parse_alias_groups("\n\n".join(r[0] for r in rows)))
+        return self._aliases
+
     def search_text(self, text: str, *, limit: int = 20, kind: str | None = None,
                     project: str | None = None) -> list[Hit]:
-        q = fts_query(text)
+        q = fts_query_expanded(text, False, self.query_aliases())
         if not q:
             return []
         where, args = ["chunks_fts MATCH ?"], [q]
@@ -492,7 +614,7 @@ class SqliteStore:
 
     def _fts_ranked(self, text: str, limit: int, kind: str | None, project: str | None,
                     any_terms: bool = False, knowledge_only: bool = False) -> list[tuple[int, str, int, float, str]]:
-        q = fts_query(text, any_terms)
+        q = fts_query_expanded(text, any_terms, self.query_aliases())
         if not q:
             return []
         where, args = ["chunks_fts MATCH ?"], [q]
@@ -555,7 +677,10 @@ class SqliteStore:
     # -- rebuild -----------------------------------------------------------
     def rebuild(self, providers: Sequence[Provider], *, kit_rev: str = "") -> Revision:
         """Replace all generated rows with the providers' output in one transaction.
-        Baselines are kept. The revision row records what the store was built from."""
+        Baselines are kept. The revision row records what the store was built from.
+        built_at is the moment the providers began reading, to the microsecond: a source written after it may be
+        missing from the rows, so freshness checks compare against this instant."""
+        started = datetime.now(timezone.utc).isoformat()
         outputs = [(p.name, p.collect()) for p in providers]
         for _, out in outputs:
             for n in out.nodes:
@@ -573,7 +698,7 @@ class SqliteStore:
                 h.update(f"{e.src}\0{e.dst}\0{e.kind}\0{e.source_ref}\n".encode())
         sources_hash = h.hexdigest()
         store_rev = hashlib.sha256(f"{sources_hash}\0{kit_rev}".encode()).hexdigest()[:16]
-        rev = Revision(store_rev, kit_rev, _now(), sources_hash)
+        rev = Revision(store_rev, kit_rev, started, sources_hash)
         cur = self.conn.cursor()
         try:
             cur.execute("BEGIN")
@@ -591,10 +716,12 @@ class SqliteStore:
                     "INSERT OR REPLACE INTO edges(src, dst, kind, confidence, source_ref, created) VALUES (?,?,?,?,?,?)",
                     [(e.src, e.dst, e.kind, e.confidence, e.source_ref, e.created) for e in out.edges])
                 cur.executemany(
-                    "INSERT OR REPLACE INTO chunks(node_id, seq, heading, text, title, tags, locale, embedding, meta_json, text_hash) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT OR REPLACE INTO chunks(node_id, seq, heading, text, title, tags, locale, embedding, meta_json, text_hash,"
+                    " fts_heading, fts_text, fts_title) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [self._chunk_row(c) for c in out.chunks])
             cur.execute("INSERT INTO revisions(store_rev, kit_rev, built_at, sources_hash) VALUES (?,?,?,?)",
                         (rev.store_rev, rev.kit_rev, rev.built_at, rev.sources_hash))
+            self._aliases = None
             model = cur.execute("SELECT value FROM meta WHERE key = 'embedding_model'").fetchone()
             if model:
                 cur.execute("UPDATE chunks SET embedding = (SELECT vector FROM embeddings e WHERE e.model = ? AND e.text_hash = chunks.text_hash)"

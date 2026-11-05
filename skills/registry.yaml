@@ -374,3 +374,32 @@ routes:
     - traduire
     - paramètres régionaux
 # packs: (없음) — qa 팩은 2026-10-28 그 팩이 묶인 웹 프로젝트의 Tier P(vault/projects/<p>/strata/skills)로 이관 (DEC-2026-10-28-06 대체)
+- intent: security-watch
+  skill: strata.security
+  triggers:
+    en:
+    - security note
+    - vulnerability
+    - CVE
+    - what versions are we running
+    ko:
+    - 보안 노트
+    - 취약점
+    - CVE
+    - 우리가 쓰는 버전
+    ja:
+    - セキュリティノート
+    - 脆弱性
+    - CVE
+    zh:
+    - 安全笔记
+    - 漏洞
+    - CVE
+    es:
+    - nota de seguridad
+    - vulnerabilidad
+    - CVE
+    fr:
+    - note de sécurité
+    - vulnérabilité
+    - CVE

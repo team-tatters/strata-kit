@@ -50,7 +50,7 @@ vault/
 ├── .local/              按机器的设置（.gitignore）
 │   └── resolved-paths.yaml
 ├── .gitignore
-├── env-config.yaml      已注册的机器 alias 列表（不含路径）
+├── env-config.yaml      已注册的机器 alias 及指纹（OS 机器标识的哈希，不含路径）
 │
 ├── _index/              MOC (Map of Content)
 │   ├── projects.md      项目列表 + 链接

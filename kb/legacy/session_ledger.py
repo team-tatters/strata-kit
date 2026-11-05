@@ -325,7 +325,8 @@ def cmd_close(args) -> int:
         # 생성물(.kb/manifest.json·_index/·노드 페이지)은 세션이 커밋하지 않는다 — 노드 페이지는 librarian 몫 (DEC-2026-10-29-04)
         _paths = [f"projects/{_proj}", f":(exclude)projects/{_proj}/nodes"] if _proj else []
         from kb.legacy._kit import VAULT_GIT
-        _sp.run(["sh", str(VAULT_GIT), "commit-push", msg, *_paths])
+        if _sp.run(["sh", str(VAULT_GIT), "commit-push", msg, *_paths]).returncode == 3:
+            return 5   # 세션 기록의 machine 이 이 기계와 다름 — vault-git 이 거부 (MB-strata-kit-2026-049)
     return 0
 
 

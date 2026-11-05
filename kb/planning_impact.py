@@ -41,7 +41,8 @@ def _covered_files(store, doc_path: str) -> list[str]:
     for e in store.neighbors(f"doc:{doc_path}", kind="covers", direction="out"):
         t = e.dst
         if ":symbols:" in t:
-            files += [x.dst for x in store.neighbors(t, kind="member_of", direction="out")]
+            from kb.code import symbol_files
+            files += [t.rsplit(":symbols:", 1)[0] + ":paths:" + f for f in symbol_files(store, t, f"doc:{doc_path}")["files"]]
         elif t.endswith("/"):
             rows = store.conn.execute("SELECT id FROM nodes WHERE kind = 'code' AND id LIKE ? AND json_extract(payload_json, '$.kind') = 'file'",
                                       (t.replace("%", r"\%") + "%",)).fetchall()

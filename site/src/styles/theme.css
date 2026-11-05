@@ -1,0 +1,13 @@
+/* Starlight 테마 토큰: 랜딩(landing.css)과 같은 팔레트를 공유한다. */
+:root {
+  --sl-font: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --sl-color-accent-low: #1d3329;
+  --sl-color-accent: #4f9a77;
+  --sl-color-accent-high: #bfe3d0;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d3e6dc;
+  --sl-color-accent: #2f6b50;
+  --sl-color-accent-high: #173a2a;
+}
+.sl-markdown-content :is(p, li) { word-break: keep-all; }

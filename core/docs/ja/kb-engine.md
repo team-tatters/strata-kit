@@ -15,7 +15,7 @@ edges(src, dst, kind, confidence, source_ref, created)
   kind ∈ {covers, supersedes, kb_updates, orders, decisions_made, relay, calls, imports, tests, member_of, links, implementation}
   confidence ∈ {declared, extracted, inferred}
 chunks(node_id, seq, heading, text, title, tags, locale, embedding?, meta_json)
-  全文検索とベクトル検索の単位。heading・title・tags を本文の隣に置くので、FTS 索引（unicode61、4 列）は legacy 索引と同じ順位付けになる。meta_json は heading_level・line_start・line_end・char_count を保持する。文書・決定・オーダーは 1 つの FTS テーブルと 1 つの bm25 尺度を共有する。legacy 索引の順位との一致は目標ではない (DEC-2026-10-28-08)
+  全文検索とベクトル検索の単位。heading・title・tags を本文の隣に置くので、FTS 索引（unicode61、4 列）は legacy 索引と同じ順位付けになる。meta_json は heading_level・line_start・line_end・char_count（分割した節は part・own_chars も）を保持する。チャンクは H2–H4 の節 1 つで、埋め込み入力（title・heading・本文）がエンコーダー窓 2,048 トークンを超える節だけを段落 → 行 → 文字の境界で約 1,500 トークンの断片に分ける（断片ごとに heading を繰り返し、前の断片末尾 150 文字を重ねる、`kb/chunking.py`）。トークン数はローカルキャッシュの bge-m3 トークナイザーで数え、なければ保守的な文字推定（文字数×0.75）を使う — 推定は多めに分けるだけで、少なく分けることはない。文書・決定・オーダーは 1 つの FTS テーブルと 1 つの bm25 尺度を共有する。legacy 索引の順位との一致は目標ではない (DEC-2026-10-28-08)
 baselines(gate, project, key, recorded)                リンクと coverage のベースライン
 revisions(store_rev, kit_rev, built_at, sources_hash)  ストア全体の出自
 ```
@@ -47,7 +47,7 @@ revisions(store_rev, kit_rev, built_at, sources_hash)  ストア全体の出自
 - coverage ゲート: 変更されたコードノード → covers エッジ → 所有する文書。所有者も doc_change 宣言もない変更ノードは新たな違反です（rec.kb.covers-owner）。
 - リンクゲート: 本文の wikilink と markdown リンクは `links` エッジです（source_ref に対象の解決方法 file · id · alias · none · md を記録する）。壊れたリンク、id だけ・別名だけで解決されるリンク、知識文書が置き換え済みの対象を指しているものは、ベースラインを超えた違反です（rec.kb.link-currency）。記録上のベースラインの正本は `.kb/link-baseline.json` のままで、ストアの baselines テーブルはそのミラーです。markdown 以外のリンク対象と `--code-root` の検査は、ファイルシステムと git で確認します (DEC-2026-10-28-07)。
 - 鮮度: covers が担うコードの revision が updated フィールドより新しい文書ノード。
-- 検索: heading・text・title・tags に対する 1 つの FTS テーブル (bm25)。埋め込み器 provider（BAAI/bge-m3、ローカル）による密ベクトルは `embeddings(model, text_hash, dim, vector)` にキャッシュしてチャンクに付与し、コサインは総当たりで計算する（この規模では ANN は不要）。ハイブリッド = 両者の reciprocal-rank fusion。`python3 -m kb search-eval` は vault のクエリセットに対して recall@k を測定する (DEC-2026-10-28-09)。
+- 検索: heading・text・title・tags に対する 1 つの FTS テーブル (bm25)。埋め込み器 provider（BAAI/bge-m3、ローカル）による密ベクトルは `embeddings(model, text_hash, dim, vector)` にキャッシュしてチャンクに付与し、コサインは総当たりで計算する（この規模では ANN は不要）。ハイブリッド = 両者の reciprocal-rank fusion。`python3 -m kb search-eval` は vault のクエリセットに対して recall@k を測定する (DEC-2026-10-28-09)。 クロスエンコーダ再順位付け（BAAI/bge-reranker-v2-m3、`kb/rerank.py`）は既定でオフで、`kb search --rerank`・MCP `search_docs(rerank=true)`・`api.search(rerank=True)` で有効にする。上位 30 候補をクエリと組で採点し直し（1 組 384 トークンまで）、並べ替えてから limit で切る。2026-11-05 の vault クエリセット実測で hybrid recall@5/@10 は .887/.897 から .917/.926 に上がり、クエリあたり中央値 +1.25 秒、GPU メモリ +1.1〜2.2GB、初回ロード 3〜4 秒かかった。モデルや sentence-transformers がなければ元の順序のままにし、結果の mode に再順位付けを省いたと記す。`search-eval --rerank` は hybrid+rerank モードを加えて同じクエリセットで比較する。
 - 収束: 同じ主題についての目標仕様ノードと as-built 文書ノードの対比（rec.spec.desired-vs-as-built）。
 
 ## strata/scripts からの移行

@@ -1,0 +1,11 @@
+services:
+  traefik:
+    image: traefik:v3.7.17
+  portainer:
+    image: portainer/portainer-ce:2.45.3
+  onyx:
+    image: onyxdotapp/onyx-backend:v5.0.1
+  redis:
+    image: redis@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  dashboard:
+    image: grafana/grafana

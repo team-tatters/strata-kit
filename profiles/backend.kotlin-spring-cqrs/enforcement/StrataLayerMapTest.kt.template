@@ -4,24 +4,30 @@ import com.tngtech.archunit.base.DescribedPredicate
 import com.tngtech.archunit.core.domain.JavaClass
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.lang.ArchRule
 import com.tngtech.archunit.library.Architectures.layeredArchitecture
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.yaml.snakeyaml.Yaml
 import java.io.File
+import java.util.Locale
 
 /**
  * Brownfield (existing project) layer check — layer-map mode.
  *
  * An existing project whose packages do not follow the Strata standard segments (..data.. and so on)
- * identifies layers by .strata/layer-map.yaml (path → layer) instead of package_identifier.
+ * identifies layers by its layer map (path → layer) instead of package_identifier.
  * The can_reference rules are loaded from layer-rules.yaml (SoT) just the same.
+ * The map is looked up like the edit hooks do: -Dstrata.layerMap, .strata/layer-map.yaml, archunit/layer-map.yaml.
  *
- * layer-map semantics match check-layer-violation.py: substring match from the top down.
+ * layer-map semantics match check-layer-violation.py: substring match from the top down, and `excluded:` paths are
+ * not direction-checked (the hook treats them as zones.legacy).
  * Source-path mappings (containing src/main/kotlin/) differ from compiled paths, so they are matched piece by piece in order.
  *
- * When introducing this into existing code with many violations, freezing the existing violations with
- * ArchUnit FreezingArchRule and failing only new ones is recommended (see README).
+ * The direction test fails on any violation (the default gate). A brownfield project with many violations can run
+ * the same rule in warning mode instead — opt-in/StrataLayerWarningsTest with -Dstrata.warningMode=true, which skips
+ * the failing test below and ratchets the counts against a frozen baseline (see README).
  */
 class StrataLayerMapTest {
 
@@ -31,34 +37,30 @@ class StrataLayerMapTest {
     data class Waiver(val id: String, val fromPath: String, val toLayer: String)
 
     companion object {
-        private val projectRoot: File = resolveProjectRoot()
+        private val layerMapFile: File = StrataRules.resolveLayerMapFile()
+            ?: error("no layer map: .strata/layer-map.yaml or archunit/layer-map.yaml (or set -Dstrata.layerMap)")
+        val projectRoot: File = System.getProperty("strata.classesRoot")?.let { File(it) }
+            ?: layerMapFile.absoluteFile.parentFile.parentFile
         private val rules: List<StrataLayer> = StrataRules.load()
-        private val mappings: List<Mapping> = loadLayerMap()
+        private val layerMap: Map<String, Any> = loadYaml()
+        private val mappings: List<Mapping> = loadMappings()
         private val waivers: List<Waiver> = loadWaivers()
-        private val classes: JavaClasses = importCompiledClasses()
+        @Suppress("UNCHECKED_CAST")
+        private val excluded: List<String> = (layerMap["excluded"] as? List<String>).orEmpty()
+        val classes: JavaClasses = importCompiledClasses()
 
-        private fun resolveProjectRoot(): File {
-            System.getProperty("strata.classesRoot")?.let { return File(it) }
-            return generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
-                .firstOrNull { File(it, ".strata/layer-map.yaml").isFile }
-                ?: error(".strata/layer-map.yaml not found (or set -Dstrata.classesRoot)")
-        }
+        private fun loadYaml(): Map<String, Any> =
+            Yaml().load<Map<String, Any>>(layerMapFile.readText()) ?: error("empty layer map: $layerMapFile")
 
-        private fun layerMapFile(): File =
-            System.getProperty("strata.layerMap")?.let { File(it) }
-                ?: File(projectRoot, ".strata/layer-map.yaml")
-
-        private fun loadLayerMap(): List<Mapping> {
+        private fun loadMappings(): List<Mapping> {
             @Suppress("UNCHECKED_CAST")
-            val root = Yaml().load<Map<String, Any>>(layerMapFile().readText())
-            val raw = root["mappings"] as List<Map<String, String>>
+            val raw = layerMap["mappings"] as List<Map<String, String>>
             return raw.map { Mapping(it.getValue("path"), it.getValue("layer")) }
         }
 
         private fun loadWaivers(): List<Waiver> {
             @Suppress("UNCHECKED_CAST")
-            val root = Yaml().load<Map<String, Any>>(layerMapFile().readText())
-            val raw = root["exceptions"] as? List<Map<String, String>> ?: return emptyList()
+            val raw = layerMap["exceptions"] as? List<Map<String, String>> ?: return emptyList()
             return raw.filter { it["status"] != "retired" }
                 .map { Waiver(it.getValue("id"), it.getValue("from_path"), it.getValue("to_layer")) }
         }
@@ -89,30 +91,84 @@ class StrataLayerMapTest {
             return if (idx >= 0) uri.substring(idx + rootPath.length + 1) else null
         }
 
-        private fun moduleOf(cls: JavaClass): String? =
+        fun moduleOf(cls: JavaClass): String? =
             relPathOf(cls)?.substringBefore("/build/classes/", missingDelimiterValue = "")
                 ?.ifEmpty { null }
 
         private fun layerOf(cls: JavaClass): String? {
             val rel = relPathOf(cls) ?: return null
-            for (m in mappings) {
-                val frags = m.path.split("src/main/kotlin/").filter { it.isNotEmpty() }
-                var cursor = 0
-                var ok = frags.isNotEmpty()
-                for (f in frags) {
-                    val i = rel.indexOf(f, cursor)
-                    if (i < 0) { ok = false; break }
-                    cursor = i + f.length
-                }
-                if (ok) return m.layer
-            }
-            return null
+            return mappings.firstOrNull { StrataRules.matchesMapPath(rel, it.path) }?.layer
+        }
+
+        /**
+         * Mappings no compiled class falls under. The direction rule uses withOptionalLayers(true), so an empty layer is
+         * not an error there; a mapping that matches nothing is a declaration that does not match the code, and the
+         * rule says nothing about it — judgement impossible, not clean (MB-strata-kit-2026-057).
+         */
+        fun unmatchedMappings(): List<Mapping> {
+            val rels = classes.mapNotNull { relPathOf(it) }
+            return mappings.filter { m -> rels.none { StrataRules.matchesMapPath(it, m.path) } }
+        }
+
+        /**
+         * Share of the compiled classes outside `excluded:` that a mapping places (MB-strata-kit-2026-057 step 2). An
+         * unmapped class is not direction-checked at all, so a low share means the rule sees little of the code.
+         * Printed by the classification summary and the warning test; `kb enforce run` keeps it on the ledger entry.
+         */
+        fun coverageLine(): String {
+            val inScope = classes.filter { !isExcluded(it) }
+            val mapped = inScope.count { layerOf(it) != null }
+            val pct = if (inScope.isEmpty()) 0.0 else 100.0 * mapped / inScope.size
+            return "[strata-arch] layers coverage: %.1f%% of classes mapped (unmapped %d of %d, excluded %d)"
+                .format(Locale.ROOT, pct, inScope.size - mapped, inScope.size, classes.size - inScope.size)
+        }
+
+        /** A class under an `excluded:` path — its dependencies are not direction-checked. */
+        fun isExcluded(cls: JavaClass): Boolean {
+            val rel = relPathOf(cls) ?: return false
+            return excluded.any { StrataRules.matchesMapPath(rel, it) }
         }
 
         private fun layerPredicate(name: String) =
             object : DescribedPredicate<JavaClass>("layer-map layer $name") {
                 override fun test(input: JavaClass): Boolean = layerOf(input) == name
             }
+
+        /**
+         * The layer direction rule both modes evaluate. The failing gate leaves `excluded:` origins out; warning mode
+         * keeps them in (includeExcluded = true) so their violations can be counted against the frozen baseline.
+         */
+        fun layerDirectionRule(includeExcluded: Boolean = false): ArchRule {
+            var arch = layeredArchitecture()
+                .consideringOnlyDependenciesInLayers()
+                .withOptionalLayers(true)
+            rules.forEach { arch = arch.layer(it.name).definedBy(layerPredicate(it.name)) }
+            rules.forEach { layer ->
+                arch = if (layer.canReference.isEmpty()) {
+                    arch.whereLayer(layer.name).mayNotAccessAnyLayer()
+                } else {
+                    arch.whereLayer(layer.name).mayOnlyAccessLayers(*layer.canReference.toTypedArray())
+                }
+            }
+            waivers.forEach { w ->
+                arch = arch.ignoreDependency(
+                    object : DescribedPredicate<JavaClass>("waived origin ${w.id} (${w.fromPath})") {
+                        override fun test(input: JavaClass): Boolean =
+                            relPathOf(input)?.contains(w.fromPath) == true
+                    },
+                    layerPredicate(w.toLayer),
+                )
+            }
+            if (!includeExcluded && excluded.isNotEmpty()) {
+                arch = arch.ignoreDependency(
+                    object : DescribedPredicate<JavaClass>("excluded origin (layer map excluded:)") {
+                        override fun test(input: JavaClass): Boolean = isExcluded(input)
+                    },
+                    DescribedPredicate.alwaysTrue(),
+                )
+            }
+            return arch
+        }
     }
 
     @Test
@@ -122,7 +178,17 @@ class StrataLayerMapTest {
         byLayer.entries.sortedBy { it.key }.forEach { (layer, list) ->
             println("   %-18s %d".format(layer, list.size))
         }
+        println(coverageLine())
         assertTrue(byLayer.keys.any { it != "(unmapped)" }, "no class is mapped to any layer")
+    }
+
+    @Test
+    fun `layer map mappings - every mapping matches a compiled class`() {
+        val unmatched = unmatchedMappings()
+        unmatched.forEach { println("[strata-arch] layers indeterminate: mapping '${it.path}' (${it.layer}) matches no class") }
+        assumeFalse(System.getProperty("strata.warningMode") == "true", "warning mode: StrataLayerWarningsTest reports these")
+        assertTrue(unmatched.isEmpty(), "layer map mappings that match no class (fix the path or drop the mapping): " +
+            unmatched.joinToString { "${it.path} → ${it.layer}" })
     }
 
     @Test
@@ -133,6 +199,7 @@ class StrataLayerMapTest {
         for (cls in classes) {
             val from = layerOf(cls) ?: continue
             if (from.startsWith("_") || from !in allowed) continue
+            if (isExcluded(cls)) continue
             for (dep in cls.directDependenciesFromSelf) {
                 val to = layerOf(dep.targetClass) ?: continue
                 if (to.startsWith("_") || to in allowed.getValue(from)) continue
@@ -151,26 +218,7 @@ class StrataLayerMapTest {
 
     @Test
     fun `layer dependency direction - no can_reference violations`() {
-        var arch = layeredArchitecture()
-            .consideringOnlyDependenciesInLayers()
-            .withOptionalLayers(true)
-        rules.forEach { arch = arch.layer(it.name).definedBy(layerPredicate(it.name)) }
-        rules.forEach { layer ->
-            arch = if (layer.canReference.isEmpty()) {
-                arch.whereLayer(layer.name).mayNotAccessAnyLayer()
-            } else {
-                arch.whereLayer(layer.name).mayOnlyAccessLayers(*layer.canReference.toTypedArray())
-            }
-        }
-        waivers.forEach { w ->
-            arch = arch.ignoreDependency(
-                object : DescribedPredicate<JavaClass>("waived origin ${w.id} (${w.fromPath})") {
-                    override fun test(input: JavaClass): Boolean =
-                        relPathOf(input)?.contains(w.fromPath) == true
-                },
-                layerPredicate(w.toLayer),
-            )
-        }
-        arch.check(classes)
+        assumeFalse(System.getProperty("strata.warningMode") == "true", "warning mode: StrataLayerWarningsTest ratchets this rule")
+        layerDirectionRule().check(classes)
     }
 }

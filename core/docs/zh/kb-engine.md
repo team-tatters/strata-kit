@@ -15,7 +15,7 @@ edges(src, dst, kind, confidence, source_ref, created)
   kind ∈ {covers, supersedes, kb_updates, orders, decisions_made, relay, calls, imports, tests, member_of, links, implementation}
   confidence ∈ {declared, extracted, inferred}
 chunks(node_id, seq, heading, text, title, tags, locale, embedding?, meta_json)
-  全文检索和向量检索的单位；heading·title·tags 与正文放在一起，使 FTS 索引（unicode61，四列）的排序与 legacy 索引一致；meta_json 保存 heading_level·line_start·line_end·char_count。文档、决策和 order 共用一张 FTS 表和同一个 bm25 尺度；与 legacy 索引的排序一致并不是目标 (DEC-2026-10-28-08)
+  全文检索和向量检索的单位；heading·title·tags 与正文放在一起，使 FTS 索引（unicode61，四列）的排序与 legacy 索引一致；meta_json 保存 heading_level·line_start·line_end·char_count（被切分的节还有 part·own_chars）。一个 chunk 是一个 H2–H4 节，只有嵌入输入（title·heading·正文）超过编码器 2,048 token 窗口的节才按段落 → 行 → 字符边界切成约 1,500 token 的片段（每片重复 heading，与前一片末尾重叠 150 字符，`kb/chunking.py`）。token 数用本地缓存的 bge-m3 分词器计算，没有时用保守的字符估计（字符数×0.75），估计只会多切，不会少切。文档、决策和 order 共用一张 FTS 表和同一个 bm25 尺度；与 legacy 索引的排序一致并不是目标 (DEC-2026-10-28-08)
 baselines(gate, project, key, recorded)                链接与 coverage 基线
 revisions(store_rev, kit_rev, built_at, sources_hash)  整个存储的来源记录
 ```
@@ -47,7 +47,7 @@ revisions(store_rev, kit_rev, built_at, sources_hash)  整个存储的来源记�
 - coverage 门禁：被修改的 code 节点 → covers 边 → 所属文档。没有所有者、也没有 doc_change 声明的被修改节点是新增违规（rec.kb.covers-owner）。
 - 链接门禁：正文中的 wikilink 和 markdown 链接都是 `links` 边（source_ref 记录目标是如何解析的：file · id · alias · none · md）。断开的链接、仅靠 id 或仅靠别名解析的链接，以及指向已被取代目标的知识文档，属于超出基线的违规（rec.kb.link-currency）。记录在案的基线仍是 `.kb/link-baseline.json`；存储的 baselines 表是它的镜像。非 markdown 的链接目标和 `--code-root` 检查通过文件系统和 git 确认 (DEC-2026-10-28-07)。
 - 新鲜度：所覆盖代码的 revision 比其 updated 字段更新的 doc 节点。
-- 搜索：针对 heading·text·title·tags 的一张 FTS 表 (bm25)；来自嵌入器 provider（BAAI/bge-m3，本地）的稠密向量缓存在 `embeddings(model, text_hash, dim, vector)` 中并附加到 chunk，余弦相似度用暴力计算（这个规模不需要 ANN）；混合 = 两者的 reciprocal-rank fusion。`python3 -m kb search-eval` 针对 vault 的查询集测量 recall@k (DEC-2026-10-28-09)。
+- 搜索：针对 heading·text·title·tags 的一张 FTS 表 (bm25)；来自嵌入器 provider（BAAI/bge-m3，本地）的稠密向量缓存在 `embeddings(model, text_hash, dim, vector)` 中并附加到 chunk，余弦相似度用暴力计算（这个规模不需要 ANN）；混合 = 两者的 reciprocal-rank fusion。`python3 -m kb search-eval` 针对 vault 的查询集测量 recall@k (DEC-2026-10-28-09)。 交叉编码器重排序（BAAI/bge-reranker-v2-m3，`kb/rerank.py`）默认关闭，可用 `kb search --rerank`、MCP `search_docs(rerank=true)` 或 `api.search(rerank=True)` 开启。开启后对前 30 个候选与查询重新打分（每对最多 384 个 token），重排后再按 limit 截断。2026-11-05 在 vault 查询集上实测：hybrid recall@5/@10 从 .887/.897 升至 .917/.926，代价是每次查询中位数多 1.25 秒、GPU 内存多 1.1–2.2GB、冷启动 3–4 秒。缺少模型或 sentence-transformers 时保持原顺序，并在结果的 mode 中注明跳过了重排序。`search-eval --rerank` 增加 hybrid+rerank 模式，在同一查询集上比较。
 - 收敛：同一主题的目标规格节点与 as-built 文档节点的对照（rec.spec.desired-vs-as-built）。
 
 ## 从 strata/scripts 迁移

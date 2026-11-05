@@ -50,7 +50,7 @@ vault/
 ├── .local/              머신별 설정 (.gitignore)
 │   └── resolved-paths.yaml
 ├── .gitignore
-├── env-config.yaml      등록된 머신 alias 목록 (경로 없음)
+├── env-config.yaml      등록된 머신 alias 와 지문 (OS 기계 식별값의 해시, 경로 없음)
 │
 ├── _index/              MOC (Map of Content)
 │   ├── projects.md      프로젝트 목록 + 링크

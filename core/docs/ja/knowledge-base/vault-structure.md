@@ -50,7 +50,7 @@ vault/
 ├── .local/              マシンごとの設定（.gitignore）
 │   └── resolved-paths.yaml
 ├── .gitignore
-├── env-config.yaml      登録済みマシン alias の一覧（パスなし）
+├── env-config.yaml      登録済みマシン alias とフィンガープリント（OS のマシン ID のハッシュ、パスなし）
 │
 ├── _index/              MOC (Map of Content)
 │   ├── projects.md      プロジェクト一覧 + リンク
