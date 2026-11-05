@@ -25,13 +25,21 @@ files without writing a script: it prints one number, or exits 2 when nothing co
 
 The history is $STRATA_VAULT/projects/<p>/measurements/indicators.yaml (generated; the last HISTORY_MAX collections).
 `kb signals candidates` reads it and offers a candidate when an indicator moved the worse way past its threshold.
-A command that fails or prints no number is recorded as an error for that collection, never as zero.
+A command that fails or prints no number is recorded as an error for that collection, never as zero, and `collect`
+then exits 1 (after writing the history) so the librarian's run counts it in `failed N`.
+
+Commands run with STRATA_KIT and STRATA_PYTHON in their environment (STRATA_PYTHON defaults to the python running the
+collector). A kit command — one that names `$STRATA_KIT` or `-m kb` — written with a bare `python3` runs with
+STRATA_PYTHON instead: under launchd a bare python3 is /usr/bin/python3 without PyYAML. Write new commands as
+`"$STRATA_PYTHON" "$STRATA_KIT/kb" indicators read …`.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
+import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -96,11 +104,33 @@ def parse_value(stdout: str) -> float | None:
     return None
 
 
+KIT_ROOT = Path(__file__).resolve().parents[1]
+_KIT_CMD = re.compile(r"\$\{?STRATA_KIT\}?|(?:^|\s)-m\s+kb\b")
+_BARE_PY = re.compile(r"(^|[;&|(]\s*|&&\s*|\|\|\s*)python3?(?=\s)")
+
+
+def resolve_kit_python(command: str, python: str) -> str:
+    """A kit command's bare python3 (in command position) becomes `python`; other commands are left alone."""
+    if not _KIT_CMD.search(command):
+        return command
+    return _BARE_PY.sub(lambda m: m.group(1) + shlex.quote(python), command)
+
+
+def command_env() -> tuple[dict, str]:
+    env = dict(os.environ)
+    py = env.get("STRATA_PYTHON") or sys.executable
+    env["STRATA_PYTHON"] = py
+    env.setdefault("STRATA_KIT", str(KIT_ROOT))
+    return env, py
+
+
 def collect(indicators: list[dict], repo: Path, now: str | None = None) -> dict:
     values, errors = {}, {}
+    env, py = command_env()
     for it in indicators:
         try:
-            r = subprocess.run(it["command"], shell=True, cwd=repo, capture_output=True, text=True, timeout=TIMEOUT)
+            r = subprocess.run(resolve_kit_python(it["command"], py), shell=True, cwd=repo, capture_output=True,
+                               text=True, timeout=TIMEOUT, env=env)
         except subprocess.TimeoutExpired:
             errors[it["id"]] = f"{TIMEOUT}초 넘음"
             continue
@@ -242,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         hp.write_text("# product-flow indicators (kb indicators, DEC-2026-11-01-17) — generated, do not edit by hand\n"
                       + yaml.safe_dump(merge(old, row, indicators, a.project), allow_unicode=True, sort_keys=False, width=1000), encoding="utf-8")
         print(f"  씀: {hp.relative_to(vault)}")
-    return 0
+    return 1 if row.get("errors") else 0
 
 
 if __name__ == "__main__":

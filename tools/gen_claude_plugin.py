@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Generate the Claude Code plugin (adapter, Layer 2) from the kit.
 
-  python3 tools/gen_claude_plugin.py [--locale ko] [--out dist/claude/strata-kit]
+  python3 tools/gen_claude_plugin.py [--locale ko] [--out dist/claude/strata-kit] [--allow-dirty]
+
+Refuses a dirty kit working tree unless --allow-dirty, so the stamped core_revision is a commit.
 
 Produces:
   .claude-plugin/plugin.json      plugin manifest (name, version, description)
@@ -23,24 +25,33 @@ LOCALES = ["en", "ko", "ja", "zh", "es", "fr"]
 
 HEADER_HOOK = ('K="${STRATA_KIT:-$HOME/workspace/strata-kit}"; '
                '[ -f "$K/tools/wizard.py" ] || { echo "strata: wizard not found at $K (set STRATA_KIT)"; exit 0; }; '
-               'out=$(python3 "$K/tools/wizard.py" header "$PWD" 2>&1) && printf "%s\\n" "$out" '
+               'out=$("${STRATA_PYTHON:-python3}" "$K/tools/wizard.py" header "$PWD" 2>&1) && printf "%s\\n" "$out" '
                '|| printf "strata: wizard header failed — %s\\n" "$(printf "%s" "$out" | tail -1)"')
 # PreCompact: snapshot this session's active file (planning/active-file-and-compact-hooks). Never blocks compaction —
 # a missing kit or a failing snapshot is one line and exit 0; outside a strata project it writes nothing.
 PRECOMPACT_HOOK = ('K="${STRATA_KIT:-$HOME/workspace/strata-kit}"; '
                    '[ -f "$K/kb/__main__.py" ] || { echo "strata: kb not found at $K (set STRATA_KIT)"; exit 0; }; '
-                   'python3 "$K/kb" pre-compact || echo "strata: pre-compact snapshot failed"; exit 0')
+                   '"${STRATA_PYTHON:-python3}" "$K/kb" pre-compact || echo "strata: pre-compact snapshot failed"; exit 0')
+# Both hooks run the kit with STRATA_PYTHON (Claude Code settings env) when it is set — the one python the wizard's
+# runtime step chose for every execution path (MB-strata-kit-2026-058) — and fall back to python3 otherwise.
 # what the plugin registers, for the generated guidance's harness event table (tools/wizard.py _claude_hooks_section)
 PLUGIN_HOOKS = {"SessionStart": "plugin: wizard header", "PreCompact": "plugin: kb pre-compact"}
 
 
-def rev() -> str:
+def stamp_revision(allow_dirty: bool, kit: Path | None = None) -> str:
+    """The core_revision to stamp: the HEAD commit of a clean tree. A dirty tree is refused unless allow_dirty — then
+    the stamp says `+dirty`, because an adapter built from uncommitted files names no commit anyone can check out
+    (audit 2026-11-05: the installed plugin carried 0a49bd1fba0e+dirty)."""
+    kit = kit or KIT
     try:
-        r = subprocess.run(["git", "-C", str(KIT), "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True).stdout.strip() or "unborn"
-        dirty = subprocess.run(["git", "-C", str(KIT), "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
-        return r + ("+dirty" if dirty else "")
+        r = subprocess.run(["git", "-C", str(kit), "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True).stdout.strip() or "unborn"
+        dirty = [l[3:] for l in subprocess.run(["git", "-C", str(kit), "status", "--porcelain"], capture_output=True, text=True).stdout.splitlines() if l.strip()]
     except Exception:
         return "unknown"
+    if dirty and not allow_dirty:
+        raise SystemExit(f"refused: the kit working tree is dirty ({len(dirty)} paths: {', '.join(dirty[:5])}{' …' if len(dirty) > 5 else ''}) — "
+                         "commit or stash first, or pass --allow-dirty for a local trial (stamped +dirty)")
+    return r + ("+dirty" if dirty else "")
 
 def plugin_version() -> str:
     """0.1.<kit commit count>, plus -dev.<UTC stamp> on a dirty tree. A fixed version made `claude plugin update`
@@ -80,8 +91,9 @@ def write_marketplace(root: Path, core_rev: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(); ap.add_argument("--locale", default="en", choices=LOCALES)
+    ap.add_argument("--allow-dirty", action="store_true", help="generate from a dirty working tree (stamped +dirty; local trials only)")
     ap.add_argument("--out", default=str(KIT / "dist" / "claude" / "strata-kit")); a = ap.parse_args()
-    out = Path(a.out); core_rev = rev(); stamp = f"<!-- strata-kit adapter | core_revision: {core_rev} | locale: {a.locale} | {date.today()} -->"
+    out = Path(a.out); core_rev = stamp_revision(a.allow_dirty); stamp = f"<!-- strata-kit adapter | core_revision: {core_rev} | locale: {a.locale} | {date.today()} -->"
     if out.exists(): shutil.rmtree(out)
     (out / ".claude-plugin").mkdir(parents=True)
     (out / ".claude-plugin" / "plugin.json").write_text(json.dumps({

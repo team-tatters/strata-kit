@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" role="img" aria-labelledby="title desc">
+<title id="title">Strata Kit — stitched strata</title><desc id="desc">Geological layers joined across a fault by a continuous thread.</desc>
+<g stroke="#263D3A" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M40 73L69 65H110M146 56H183L216 48"/><path d="M40 112L69 104H110M146 95H183L216 87"/><path d="M40 151L69 143H110M146 134H183L216 126"/><path d="M40 190L69 182H110M146 173H183L216 165"/></g><path d="M110 65L146 95M146 56L110 104M110 104L146 134M146 95L110 143M110 143L146 173M146 134L110 182" stroke="#C86646" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

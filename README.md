@@ -1,4 +1,25 @@
-# strata-kit
+<div align="center">
+    <img src="./media/strata-kit-symbol.svg" alt="strata-kit symbol: layers stitched across a fault" width="160" height="160"/>
+    <h1>strata-kit</h1>
+    <h3><em>Work in layers. Keep the thread.</em></h3>
+</div>
+
+<p align="center">
+    <a href="https://github.com/team-tatters/strata-kit/stargazers"><img src="https://img.shields.io/github/stars/team-tatters/strata-kit?style=social" alt="GitHub stars"/></a>
+    <a href="https://github.com/team-tatters/strata-kit/blob/main/LICENSE"><img src="https://img.shields.io/github/license/team-tatters/strata-kit" alt="License: MIT"/></a>
+    <img src="https://img.shields.io/badge/python-3.11%2B-3776AB" alt="Python 3.11+"/>
+    <img src="https://img.shields.io/badge/agents-Claude_Code_%C2%B7_Codex_%C2%B7_AGENTS.md-263D3A" alt="Agents: Claude Code, Codex, AGENTS.md"/>
+    <img src="https://img.shields.io/badge/locales-6-C86646" alt="6 locales"/>
+</p>
+
+<p align="center">
+    <strong>English</strong> ·
+    <a href="./README.ko.md">한국어</a> ·
+    <a href="./README.ja.md">日本語</a> ·
+    <a href="./README.zh-CN.md">简体中文</a> ·
+    <a href="./README.es.md">Español</a> ·
+    <a href="./README.fr.md">Français</a>
+</p>
 
 strata-kit is a methodology for working with AI coding agents, packaged as a kit. Its centre is the record: every
 step of the work is written to a plain Markdown folder (the vault), each topic keeps one document that is updated
@@ -9,6 +30,16 @@ It runs on Claude Code first, and on Codex and any other agent that reads `AGENT
 agents you run yourself with an API key.
 
 Author: n0roo · License: [MIT](LICENSE)
+
+## Choose where to start
+
+| You want to | Start with | You get |
+|---|---|---|
+| Try it on one project | [Quick start](#quick-start) | a vault, the plugin, generated guidance and a first session |
+| Understand the idea | [What it gives you](#what-it-gives-you) | records, specifications, cards, skills and checks in one page |
+| Pick the rules for your stack | [Profiles](#profiles) | which profiles are proven on a real project and which are drafts |
+| Look something up | [Documentation](#documentation) | generated tables of cards, skills, commands and profiles |
+| Know the limits first | [Status and limits](#status-and-limits) | what has and has not been measured |
 
 ## Who it is for
 
@@ -33,9 +64,9 @@ those roles, and it has not yet been used by a whole team.
 - **Cards, not prose rules.** Each card has a claim, a strength (`must` · `should` · `may`), when it applies and when
   it does not, evidence, counter-examples and how to verify it. `must` is not negotiated; `should` can be switched
   off with a recorded reason. Eight base rules apply to every project.
-- **Skills that end in evidence.** 15 core skills (entry and routing, init wizard, planning, specification, order,
+- **Skills that end in evidence.** 16 core skills (entry and routing, init wizard, planning, specification, order,
   build task, verify, review, decision, knowledge update, handoff, distil, translate, retrospective, operations
-  signal), in six locales, plus optional packs (ideation, design). Each skill says when to use it, what evidence
+  signal, security), in six locales, plus optional packs (ideation, design). Each skill says when to use it, what evidence
   ends it, and the excuses an agent reaches for when it wants to skip a step, with the answer to each. Six roles
   (builder, worker, reviewer, supporter, operator, librarian) each have what they may and may not do.
 - **Hooks where the app has them, plain files where it does not.** In Claude Code, hooks and cards steer the flow:
@@ -84,7 +115,7 @@ Requirements: Python 3.11+, git, [uv](https://docs.astral.sh/uv/) for the MCP se
    `core/templates/vault/`; it never overwrites a file.
 
    ```sh
-   git clone <this repository> ~/workspace/strata-kit
+   git clone https://github.com/team-tatters/strata-kit.git ~/workspace/strata-kit
    export STRATA_KIT=~/workspace/strata-kit
    cd "$STRATA_KIT" && uv sync
    python3 "$STRATA_KIT/kb" vault-init ~/workspace/vault --project my-app   # add --detached to keep Tier P in the vault

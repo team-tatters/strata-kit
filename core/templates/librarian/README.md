@@ -23,3 +23,9 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.$USER.strata-librari
 
 `STRATA_PYTHON` must be a python with PyYAML: launchd's shell does not load asdf or pyenv, and the first run on
 2026-10-31 picked a python without it.
+
+Indicator commands in a project's `indicators.yaml` run with `STRATA_PYTHON` and `STRATA_KIT` exported. Write kit
+commands as `"$STRATA_PYTHON" "$STRATA_KIT/kb" indicators read …`; an older bare `python3 "$STRATA_KIT/kb" …` is run
+with `STRATA_PYTHON` too (until 2026-11-05 it ran /usr/bin/python3 and failed every day with ModuleNotFoundError while
+the run still ended `failed 0`). An indicator that errors now fails the `indicators:<project>` step, so it shows in
+`failed N` and in `tools/doctor.py`.

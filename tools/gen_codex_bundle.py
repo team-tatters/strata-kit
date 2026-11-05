@@ -19,13 +19,8 @@ import yaml
 KIT = Path(__file__).resolve().parents[1]
 LOCALES = ["en", "ko", "ja", "zh", "es", "fr"]
 
-def rev() -> str:
-    try:
-        r = subprocess.run(["git", "-C", str(KIT), "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True).stdout.strip() or "unborn"
-        dirty = subprocess.run(["git", "-C", str(KIT), "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
-        return r + ("+dirty" if dirty else "")
-    except Exception:
-        return "unknown"
+sys.path.insert(0, str(KIT / "tools"))
+from gen_claude_plugin import stamp_revision  # noqa: E402  — one rule for both adapters: a dirty tree is refused unless --allow-dirty
 
 def t(m, locale):
     if isinstance(m, str): return m
@@ -38,8 +33,9 @@ def split_skill(md: str):
 
 def main() -> int:
     ap = argparse.ArgumentParser(); ap.add_argument("--locale", default="en", choices=LOCALES)
+    ap.add_argument("--allow-dirty", action="store_true", help="generate from a dirty working tree (stamped +dirty; local trials only)")
     ap.add_argument("--out", default=str(KIT / "dist" / "codex" / "strata-kit")); a = ap.parse_args()
-    out = Path(a.out); core_rev = rev(); stamp = f"<!-- strata-kit adapter | core_revision: {core_rev} | locale: {a.locale} | {date.today()} -->"
+    out = Path(a.out); core_rev = stamp_revision(a.allow_dirty); stamp = f"<!-- strata-kit adapter | core_revision: {core_rev} | locale: {a.locale} | {date.today()} -->"
     if out.exists(): shutil.rmtree(out)
     n = 0
     # core skills only: packs reach a person through the user layer (`kb skills install`), never the bundle (DEC-2026-10-31-36)

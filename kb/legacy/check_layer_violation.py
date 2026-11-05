@@ -28,15 +28,38 @@ import re
 import json
 import subprocess
 
+def _unchecked_without_yaml():
+    """PyYAML 없는 python 으로 불렸다 — 검사하지 못한 사실을 에이전트에게 알린다(exit 0 의 stderr 는 에이전트에게
+    가지 않는다). 훅 JSON 의 이벤트 이름으로 additionalContext 를 내고, 코드 파일이 아니면 조용히 끝낸다."""
+    event, file_path = "PostToolUse", None
+    if len(sys.argv) >= 2 and sys.argv[1] not in ("-", "", "--audit"):
+        file_path = sys.argv[1]
+    elif len(sys.argv) < 2 and not sys.stdin.isatty():
+        try:
+            payload = json.loads(sys.stdin.read() or "{}")
+        except ValueError:
+            payload = {}
+        ti = payload.get("tool_input") or {} if isinstance(payload, dict) else {}
+        file_path = ti.get("file_path") or ti.get("path") or ti.get("notebook_path")
+        if payload.get("hook_event_name") in ("PreToolUse", "PostToolUse"):
+            event = payload["hook_event_name"]
+    message = (f"⚠ Strata 레이어 검사 안 함: PyYAML 없음 — STRATA_PYTHON 확인 (훅을 실행한 python: {sys.executable}). "
+               "이 편집은 레이어 검증 없이 통과했습니다. 훅 명령의 python 을 PyYAML 이 있는 STRATA_PYTHON 으로 바꾸거나 "
+               "그 python 에 pyyaml 을 설치하세요. CI 의 아키텍처 테스트가 정본 판정입니다.")
+    sys.stderr.write(message + "\n")
+    if len(sys.argv) >= 2 and sys.argv[1] == "--audit":
+        sys.exit(2)
+    if file_path and str(file_path).endswith(CODE_EXT):
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": message}}, ensure_ascii=False))
+    sys.exit(0)
+
+
+CODE_EXT = (".kt", ".kts", ".java", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".py", ".swift")
+
 try:
     import yaml
 except ImportError:
-    sys.stderr.write(
-        "⚠ Strata: PyYAML(yaml) 모듈이 없어 검증을 건너뜁니다.\n"
-        "   설치: python3 -m pip install pyyaml\n"
-        f"   현재 python: {sys.executable}\n"
-    )
-    sys.exit(0)
+    _unchecked_without_yaml()
 
 
 HOOK = {"event": "PostToolUse"}   # 실제로 호출된 이벤트 — additionalContext 는 그 이름으로 적어야 전달된다
@@ -555,7 +578,6 @@ def _content_before(file_path):
     return r.stdout if r.returncode == 0 else ""
 
 
-CODE_EXT = (".kt", ".kts", ".java", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".py", ".swift")
 AUDIT_SKIP_DIRS = {".git", "build", "out", "target", "node_modules", ".gradle", ".idea", "dist", ".next", "vendor",
                    "__pycache__", ".venv", "venv", "coverage", ".strata", ".claude", ".codex"}
 _TEST_PARTS = ("/src/test/", "/src/testFixtures/", "/src/androidTest/", "/src/integrationTest/", "/src/intTest/",
@@ -716,11 +738,10 @@ def main():
     project_type = resolve_project_type(project_type, project_root)
 
     rules = load_layer_rules(strata_root, project_root)
-    code_ext = (".kt", ".kts", ".java", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".py", ".swift")
-    if not rules and file_path.endswith(code_ext):
+    if not rules and file_path.endswith(CODE_EXT):
         # 조용히 통과하지 않는다 — 검사를 실행하지 못했다는 사실을 알린다 (DEC-2026-09-30-03)
         notify_agent(
-            "⚠ Strata 레이어 검사를 실행하지 못했습니다 — layer-rules.yaml 을 찾지 못함 "
+            "⚠ Strata 레이어 검사 안 함: 규칙 없음 — layer-rules.yaml 을 찾지 못함 "
             f"(rules={strata_root or 'strata-kit core/rules 없음'}, project={project_root}). "
             "이 편집은 레이어 검증 없이 통과했습니다. CI 의 아키텍처 테스트가 정본 판정입니다."
         )

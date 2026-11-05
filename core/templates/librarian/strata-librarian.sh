@@ -12,7 +12,7 @@
 #   LIBRARIAN_PROJECTS   space-separated "<vault project id>=<repo path>" pairs to measure
 emulate -L zsh
 : "${STRATA_PYTHON:?set STRATA_PYTHON}" "${STRATA_KIT:?set STRATA_KIT}" "${STRATA_VAULT:?set STRATA_VAULT}"
-export STRATA_KIT STRATA_VAULT
+export STRATA_PYTHON STRATA_KIT STRATA_VAULT   # indicator commands read these (kb indicators runs a kit command's python3 as STRATA_PYTHON)
 cd "$STRATA_KIT" || exit 1
 rev=$(git -C "$STRATA_KIT" rev-parse --short HEAD 2>/dev/null || echo '?')
 echo "=== strata-librarian start $(date -u +%Y-%m-%dT%H:%M:%SZ) kit $rev ==="
@@ -27,7 +27,7 @@ for pair in ${=LIBRARIAN_PROJECTS}; do
   id=${pair%%=*}; repo=${pair#*=}
   step "metrics:$id" "$STRATA_PYTHON" tools/metrics.py --write collect "$repo"
   paths+=("projects/$id/measurements")
-  step "indicators:$id" "$STRATA_PYTHON" kb indicators collect --project "$id" --repo "$repo" --write   # product-flow indicators, read-only (DEC-2026-11-01-17)
+  step "indicators:$id" "$STRATA_PYTHON" kb indicators collect --project "$id" --repo "$repo" --write   # product-flow indicators, read-only (DEC-2026-11-01-17); any indicator error fails the step
   step "signals:$id" "$STRATA_PYTHON" kb signals candidates --project "$id" --write
   [[ -d "$STRATA_VAULT/projects/$id/signals" ]] && paths+=("projects/$id/signals")   # a missing path fails the whole add
   "$STRATA_PYTHON" kb signals list --project "$id" | sed "s/^/librarian signals $id: /"

@@ -301,6 +301,66 @@ def check_guidance_lag(project: Path, **_) -> list[Item]:
     return out
 
 
+def check_runtime(project: Path, rt: dict | None = None, **_) -> list[Item]:
+    """Each execution path's python (interactive shell, Claude Code hooks, MCP, launchd, non-interactive sh) and its
+    kit dependencies, as machine items: a python that does not run, a missing dependency, pythons that differ
+    (MB-strata-kit-2026-058). The fix is the wizard's runtime step."""
+    import runtime_env
+    rt = rt or runtime_env.detect(project, KIT)
+    fix = "strata.init-wizard 실행 환경 단계: wizard.py recommend --answer runtime=<선택> --apply → generate --apply → .strata/kit/runtime/README 대로 적용"
+    out = []
+    for i, line in enumerate(runtime_env.findings(rt)):
+        name = line.split(":", 1)[0] if not line.startswith("실행 경로마다") else "mismatch"
+        p = rt["paths"].get(name) or {}
+        out.append(Item("runtime", f"runtime:{name}:{i}", "advisory", line,
+                        f"{p.get('source')} → {p.get('python')}" if p else "; ".join(f"{n} {q.get('executable')}" for n, q in rt["paths"].items()),
+                        fix, machine=True))
+    return out
+
+
+PLUGIN_PATHS = ("skills", "core/roles", "tools/gen_claude_plugin.py", "tools/wizard.py", "kb")   # what the plugin carries or runs
+
+
+def installed_plugin_registry() -> Path:
+    return Path(os.environ.get("STRATA_CLAUDE_PLUGINS_FILE") or Path.home() / ".claude" / "plugins" / "installed_plugins.json")
+
+
+def check_plugin_lag(registry: Path, **_) -> list[Item]:
+    """The installed Claude Code plugin against the kit HEAD (a machine item): its README stamp names the core revision
+    it was generated from. A +dirty stamp, a revision outside the kit history or commits since then that touch what
+    the plugin carries are reported; no installed plugin is quiet."""
+    if not registry.is_file():
+        return []
+    try:
+        plugins = (json.loads(registry.read_text(encoding="utf-8")) or {}).get("plugins") or {}
+    except ValueError:
+        return []
+    fix = "python3 tools/gen_claude_plugin.py --locale <loc> (깨끗한 트리에서) 후 claude plugin marketplace update strata-kit · claude plugin update strata-kit@strata-kit"
+    out = []
+    for key, entries in plugins.items():
+        if not key.startswith("strata-kit@"):
+            continue
+        for e in entries or []:
+            readme = Path(e.get("installPath") or "") / "README.md"
+            m = re.search(r"core_revision:\s*([0-9a-f]+|unborn|unknown)(\+dirty)?", readme.read_text(encoding="utf-8").splitlines()[0]) if readme.is_file() else None
+            if not m:
+                out.append(Item("plugin", f"lag:{key}", "advisory", f"설치된 플러그인 {key} 의 core_revision 을 읽지 못함", str(readme), fix, machine=True))
+                continue
+            rev, dirty = m.group(1), bool(m.group(2))
+            head = _git(KIT, "rev-parse", "--short=12", "HEAD").stdout.strip()
+            ev = f"{readme} core_revision {rev}{'+dirty' if dirty else ''}, kit HEAD {head}, 버전 {e.get('version')}"
+            if _git(KIT, "cat-file", "-e", f"{rev}^{{commit}}").returncode != 0:
+                out.append(Item("plugin", f"lag:{key}", "advisory", f"설치된 플러그인 {key} 의 리비전 {rev} 이 kit 이력에 없어 비교 불가", ev, fix, machine=True))
+                continue
+            total = int(_git(KIT, "rev-list", "--count", f"{rev}..HEAD").stdout.strip() or 0)
+            impact = int(_git(KIT, "rev-list", "--count", f"{rev}..HEAD", "--", *PLUGIN_PATHS).stdout.strip() or 0)
+            if impact or dirty:
+                out.append(Item("plugin", f"lag:{key}", "advisory",
+                                f"설치된 플러그인 {key} 이 kit 보다 {total}커밋 뒤, 그중 플러그인에 영향 주는 커밋 {impact}"
+                                + (" (더러운 작업 트리에서 생성됨)" if dirty else ""), ev, fix, machine=True))
+    return out
+
+
 def check_librarian(log: Path, label: str, launchctl: str = "launchctl", **_) -> list[Item]:
     fix = "core/templates/librarian/README.md 대로 다시 설치하고 로그의 마지막 실행 구간을 본다"
     out = []
@@ -364,6 +424,16 @@ def run(project: Path, since: str | None = None, librarian_log: Path | None = No
     except Exception as e:  # noqa: BLE001
         items.append(Item("librarian", "check_failed:librarian", "advisory", f"점검 실패: {type(e).__name__}: {e}", "기계 상태라 종료 코드에 넣지 않음",
                           "tools/doctor.py 의 librarian 점검을 고친다", machine=True))
+    try:
+        items += check_runtime(project)
+    except Exception as e:  # noqa: BLE001
+        items.append(Item("runtime", "check_failed:runtime", "advisory", f"점검 실패: {type(e).__name__}: {e}", "기계 상태라 종료 코드에 넣지 않음",
+                          "tools/doctor.py 의 runtime 점검을 고친다", machine=True))
+    try:
+        items += check_plugin_lag(installed_plugin_registry())
+    except Exception as e:  # noqa: BLE001
+        items.append(Item("plugin", "check_failed:plugin", "advisory", f"점검 실패: {type(e).__name__}: {e}", "기계 상태라 종료 코드에 넣지 않음",
+                          "tools/doctor.py 의 plugin 점검을 고친다", machine=True))
     t = tier_of(project)
     ov = (t.root if t else project / ".strata") / "gate-overrides.yaml"
     graded = [i for i in items if not i.machine]

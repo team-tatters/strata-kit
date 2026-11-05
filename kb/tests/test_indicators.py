@@ -65,7 +65,8 @@ class IndicatorsTest(unittest.TestCase):
         run = lambda *a: (lambda buf: (I.main(list(a)), buf.getvalue())[1])(StringIO())
         buf = StringIO()
         with redirect_stdout(buf):
-            self.assertEqual(I.main(["collect", "--project", "shop", "--repo", str(self.repo), "--write"]), 0)
+            # broken and silent fail: the history is still written, and the exit code says so (librarian counts it)
+            self.assertEqual(I.main(["collect", "--project", "shop", "--repo", str(self.repo), "--write"]), 1)
         (self.repo / "counts.txt").write_text("9\n", encoding="utf-8")
         with redirect_stdout(StringIO()):
             I.main(["collect", "--project", "shop", "--repo", str(self.repo), "--write"])
@@ -75,6 +76,33 @@ class IndicatorsTest(unittest.TestCase):
         lines = I.show(data)
         self.assertTrue(any(l.strip().startswith("qa.recheck") and "7 → 9 — 나빠짐" in l for l in lines), lines)
         self.assertTrue(any("broken" in l and "오류" in l for l in lines))
+
+    def test_all_values_exit_zero(self):
+        p = self.repo / ".strata" / "indicators.yaml"
+        p.write_text("indicators:\n  - {id: x, command: 'echo 1'}\n", encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(I.main(["collect", "--project", "shop", "--repo", str(self.repo), "--write"]), 0)
+
+    def test_kit_commands_run_with_strata_python_and_kit(self):
+        """Under launchd bare python3 is /usr/bin/python3 without PyYAML: a kit command's python3 becomes
+        STRATA_PYTHON (default: the python running the collector), and STRATA_KIT/STRATA_PYTHON reach the command."""
+        fake = Path(self.tmp.name) / "fakepy"
+        fake.write_text("#!/bin/sh\necho 42\n", encoding="utf-8"); fake.chmod(0o755)
+        saved = {k: os.environ.get(k) for k in ("STRATA_PYTHON", "STRATA_KIT")}
+        try:
+            os.environ["STRATA_PYTHON"] = str(fake)
+            os.environ.pop("STRATA_KIT", None)
+            its = [{"id": "kit", "command": 'python3 "$STRATA_KIT/kb" indicators read junit "*.xml"'},
+                   {"id": "kitm", "command": "cd . && python3 -m kb indicators read junit x"},
+                   {"id": "env", "command": 'test -d "$STRATA_KIT/kb" && echo "$STRATA_PYTHON" | grep -q fakepy && echo 1'},
+                   {"id": "own", "command": "python3 -c 'print(5)'"}]
+            row = I.collect(its, self.repo, now="t")
+            self.assertEqual(row["values"], {"kit": 42, "kitm": 42, "env": 1, "own": 5}, row)
+            self.assertEqual(I.resolve_kit_python('python3 "$STRATA_KIT/kb" x', "/p y/py"), "'/p y/py' \"$STRATA_KIT/kb\" x")
+            self.assertEqual(I.resolve_kit_python("python3 scripts/own.py", "/py"), "python3 scripts/own.py")
+        finally:
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
     def test_project_without_config_is_not_an_error(self):
         (self.repo / ".strata" / "indicators.yaml").unlink()

@@ -1,5 +1,5 @@
 # Documents not yet translated, per locale. tools/i18n_check.py treats a listed file as known-pending.
-ja: [work-flow.md]
-zh: [work-flow.md]
-es: [work-flow.md]
-fr: [work-flow.md]
+ja: [work-flow.md, environment/hooks.md]
+zh: [work-flow.md, environment/hooks.md]
+es: [work-flow.md, environment/hooks.md]
+fr: [work-flow.md, environment/hooks.md]

@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """strata-kit guidance wizard — the deterministic half of skills/strata.init-wizard.
 
-Subcommands (all read-only unless --apply):
-  diagnose  <project>                      detect profiles from files, measure budget, list open questions
+Subcommands — each prints its result and writes nothing unless --apply (into <project>/.strata/kit/) or --out DIR:
+  diagnose  <project> [--apply|--out DIR]  detect profiles from files, measure budget, list open questions
+                                           (writes diagnosis.yaml)
   recommend <project> --profile <id>       build a proposal: must cards + profile should cards (+ waivers)
-            [--waive card=reason ...] [--locale xx] [--domain work|personal]
-  generate  <project> [--apply]            write adapters listed in .strata/kit/proposal.yaml (dry-run default)
-  verify    <project>                      budget, revision headers, registry, trigger samples
+            [--waive card=reason ...] [--locale xx] [--domain work|personal] [--apply|--out DIR]
+                                           (writes proposal.yaml; an approved proposal.yaml is never replaced —
+                                           the new one goes to proposal.next.yaml for the person to review)
+  generate  <project> [--apply|--out DIR]  write adapters listed in the approved .strata/kit/proposal.yaml
+  verify    <project>                      budget, revision headers, registry, trigger samples (read-only)
 
-Outputs under <project>/.strata/kit/. The kit root is this file's grandparent unless --kit is given.
+Previous answers (opt-in adoption, facts) are read from the last proposal: for a detached project the vault's Tier P
+kit/proposal.yaml first (the repo copy can be stale), then <project>/.strata/kit/proposal.yaml. An answer given on the
+command line wins. The kit root is this file's grandparent unless --kit is given.
 """
 from __future__ import annotations
 import argparse, fnmatch, hashlib, json, os, re, subprocess, sys, time
@@ -31,6 +36,13 @@ try:
     from kb.legacy.strata_paths import resolve_tier_p   # placement: embedded (.strata in the repo) or detached (vault/projects/<n>/strata)
 except Exception:  # pragma: no cover
     resolve_tier_p = None
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import runtime_env  # noqa: E402  — the runtime environment step (MB-strata-kit-2026-058)
+
+# interview answers recommend keeps in the proposal (--answer key=value, --because key=reason) and carries to the next
+INTERVIEW_KEYS = ("team_size", "lifetime", "cross_domain_writes", "shared_envs", "runtime", "strata_python")
+RUNTIME_FILES = ("env.sh", "claude-settings.json", "mcp.json", "launchd-environment.plist.xml")
 
 def tier_of(project: Path):
     """TierP for the project (profile 'embedded' | 'detached', root with decisions/ · layer-map · registry) or None."""
@@ -126,7 +138,14 @@ def diagnose(project: Path, kit: Path) -> dict:
         {"key": "cross_domain_writes", "en": "How many domains write into each other's data?", "ko": "서로의 데이터를 쓰는 도메인 경계가 몇 개입니까?"},
         {"key": "shared_envs", "en": "Which shared environments exist (dev, stage, prod)?", "ko": "공유 환경(dev·stage·prod)은 무엇이 있습니까?"},
         {"key": "harnesses", "en": "Which harnesses run here (Claude Code, Codex, Quilt)?", "ko": "어떤 하네스를 씁니까(Claude Code, Codex, Quilt)?"},
+        {"key": "runtime", "en": "Which python should the kit run on, the same in every execution path? Options: " + ", ".join(runtime_env.OPTIONS) + f" (default {runtime_env.DEFAULT_CHOICE}: {runtime_env.DEFAULT_REASON['en']}).",
+         "ko": "kit 이 모든 실행 경로에서 같은 python 으로 돌게 무엇을 쓸까요? 선택지: " + ", ".join(runtime_env.OPTIONS) + f" (기본 {runtime_env.DEFAULT_CHOICE}: {runtime_env.DEFAULT_REASON['ko']})."},
     ]
+    try:
+        runtime = runtime_env.detect(project, kit)
+        runtime["findings"] = runtime_env.findings(runtime)
+    except Exception as e:  # noqa: BLE001 — a failed measurement is reported, never a silent pass
+        runtime = {"error": f"{type(e).__name__}: {e}"}
     if len(matched) > 1:
         questions.insert(0, {"key": "profile_choice", "en": f"Several profiles match ({', '.join(matched)}). Which one is primary?", "ko": f"프로필이 여럿 맞습니다({', '.join(matched)}). 어느 것이 주 프로필입니까?"})
     return {
@@ -136,6 +155,7 @@ def diagnose(project: Path, kit: Path) -> dict:
         "matched_profiles": matched,
         "always_loaded_bytes": always, "always_loaded_total": sum(always.values()), "budget_bytes": BUDGET_BYTES,
         "budget_ok": sum(always.values()) <= BUDGET_BYTES,
+        "runtime": runtime,
         "open_questions": questions, "answers": {},
     }
 
@@ -178,10 +198,73 @@ ENFORCE_FAMILIES = ("layers", "naming", "rules", "coverage", "links", "stages") 
 ENFORCE_GRADES = ("advisory", "default", "block")
 
 
+def previous_proposal(project: Path) -> tuple[Path | None, dict]:
+    """The last proposal a person answered: a detached project's vault copy (Tier P kit/proposal.yaml) first — the repo
+    copy can be stale — then the repo's .strata/kit/proposal.yaml. (None, {}) when there is none."""
+    tier = tier_of(project)
+    cands = ([tier.root / "kit" / "proposal.yaml"] if tier and tier.profile == "detached" else []) + [project / ".strata" / "kit" / "proposal.yaml"]
+    for c in cands:
+        if c.is_file():
+            try:
+                return c, load_yaml(c) or {}
+            except Exception:
+                continue
+    return None, {}
+
+
+def previous_answers(project: Path) -> tuple[dict, str | None]:
+    """Opt-in adoption answers a person gave in the last proposal: {card id: True | (False, reason)}, and where from."""
+    path, prev = previous_proposal(project)
+    out = {}
+    for a in prev.get("adoption") or []:
+        if isinstance(a, dict) and a.get("id") and a.get("answered"):
+            out[a["id"]] = True if a.get("adopted") else (False, a.get("declined_reason"))
+    return out, (show_path(path) if path else None)
+
+
+def interview_answers(project: Path, given: dict | None = None) -> dict:
+    """{key: {value, reason}}: the last proposal's answers, then the ones given now (which win). Unknown keys refuse."""
+    prev = previous_proposal(project)[1].get("answers") or {}
+    out = {k: v for k, v in prev.items() if k in INTERVIEW_KEYS and isinstance(v, dict) and "value" in v}
+    for k, v in (given or {}).items():
+        if k not in INTERVIEW_KEYS:
+            raise SystemExit(f"unknown answer {k!r} (one of {', '.join(INTERVIEW_KEYS)})")
+        out[k] = {"value": v.get("value"), "reason": v.get("reason")}
+    return out
+
+
+def runtime_section(project: Path, kit: Path, answers: dict, locale: str) -> dict:
+    """The runtime step's proposal part: the options with pros and cons and the default; once answered, the choice,
+    the one STRATA_PYTHON it means here (an explicit strata_python answer wins) and the setup steps."""
+    lang = "ko" if locale == "ko" else "en"
+    sec = {"choice": None, "default": runtime_env.DEFAULT_CHOICE, "default_reason": runtime_env.DEFAULT_REASON[lang],
+           "options": {k: v[lang] for k, v in runtime_env.OPTIONS.items()},
+           **runtime_env.layers_advice(runtime_env.managers(Path.home(), os.environ.get("PATH")),
+                                       runtime_env.version_files([project, kit, Path.home()]), lang)}
+    ans = (answers.get("runtime") or {}).get("value")
+    if not ans:
+        return sec
+    if ans not in runtime_env.OPTIONS:
+        raise SystemExit(f"runtime: unknown choice {ans!r} (one of {', '.join(runtime_env.OPTIONS)})")
+    home = Path.home()
+    explicit = (answers.get("strata_python") or {}).get("value")
+    if explicit:
+        py = os.path.expanduser(str(explicit))
+    else:
+        try:
+            py = runtime_env.python_for(ans, kit, {"version_files": runtime_env.version_files([project, kit, home])}, home)
+        except ValueError as e:
+            raise SystemExit(str(e))
+    shown = "~/" + Path(py).relative_to(home).as_posix() if Path(py).is_relative_to(home) else py
+    sec.update({"choice": ans, "reason": (answers.get("runtime") or {}).get("reason"), "strata_python": shown,
+                "setup": runtime_env.setup_steps(ans, py)})
+    return sec
+
+
 def project_facts(project: Path, domain: str, given: dict | None = None) -> dict:
     """Facts that decide conditional must cards and opt-in defaults (DEC-2026-10-30-01): the answers given now, else
     what the last proposal recorded, else what the environment shows. domain_work always follows the domain answer."""
-    prev = (load_yaml(project / ".strata" / "kit" / "proposal.yaml") or {}).get("facts") or {} if (project / ".strata" / "kit" / "proposal.yaml").is_file() else {}
+    prev = previous_proposal(project)[1].get("facts") or {}
     v = vault_root()
     facts = {"uses_vault": prev.get("uses_vault", bool(v and v.is_dir())), "uses_quilt": prev.get("uses_quilt", False)}
     facts.update({k: bool(x) for k, x in (given or {}).items() if x is not None})
@@ -190,11 +273,15 @@ def project_facts(project: Path, domain: str, given: dict | None = None) -> dict
 
 
 def recommend(project: Path, kit: Path, profile_id: str, waivers: dict, locale: str, domain: str,
-              answers: dict | None = None, enforcement: dict | None = None, facts: dict | None = None) -> dict:
+              answers: dict | None = None, enforcement: dict | None = None, facts: dict | None = None,
+              interview: dict | None = None) -> dict:
     """answers: {card id: True | False | (False, reason)} for opt-in must cards (--adopt / --decline id=reason);
     unanswered ones default to the user's adopt list, then the profile's cards_default, then the card's default_when
     fact, else off. Conditional must cards load whenever their condition fact holds, without a question."""
     answers = answers or {}
+    carried, carried_from = previous_answers(project)
+    given_ids = set(answers)
+    answers = {**{k: v for k, v in carried.items() if k not in given_ids}, **answers}
     facts = project_facts(project, domain, facts)
     cs, prs = cards(kit), profiles(kit)
     if profile_id not in prs: raise SystemExit(f"unknown profile: {profile_id} (have {', '.join(prs)})")
@@ -231,6 +318,8 @@ def recommend(project: Path, kit: Path, profile_id: str, waivers: dict, locale: 
         on, reason = (ans if isinstance(ans, tuple) else (ans, None)) if cid in answers else (default_from is not None, None)
         entry = {"id": cid, "adopted": bool(on), "answered": cid in answers, "default_from": default_from,
                  "question": (ADOPT_Q.get(locale) or ADOPT_Q["en"]).format(title=t(c.get("title"), locale), claim=t(c.get("short_claim") or c.get("claim"), locale))}
+        if cid in answers and cid not in given_ids:
+            entry["answer_from"] = f"previous proposal {carried_from}"
         if cid in answers and not on:
             entry["declined_reason"] = reason
             if not reason: warnings.append(f"{cid}: declined without a reason (--decline {cid}=<reason>)")
@@ -243,13 +332,16 @@ def recommend(project: Path, kit: Path, profile_id: str, waivers: dict, locale: 
     for fam, g in grades.items():
         if g not in ENFORCE_GRADES: problems.append(f"enforcement {fam}: unknown grade {g} (one of {', '.join(ENFORCE_GRADES)})")
     pushback = [{"card": cid, "note": reason} for cid, reason in waivers.items() if cid in const.get("articles", [])]
+    said = interview_answers(project, interview)
+    runtime = runtime_section(project, kit, said, locale)
     return {
         "project": project.name, "domain": domain, "profile": profile_id, "locale": locale,
         "kit_revision": kit_revision(kit), "constitution_version": const.get("version"),
-        "facts": facts, "cards": chosen, "conditional": conditional, "adoption": adoption, "warnings": warnings, "enforcement": grades, "waived": waived, "counter_example_candidates": pushback, "problems": problems,
+        "facts": facts, "answers": said, "runtime": runtime, "cards": chosen, "conditional": conditional, "adoption": adoption, "warnings": warnings, "enforcement": grades, "waived": waived, "counter_example_candidates": pushback, "problems": problems,
         "placement": (tier_of(project).profile if tier_of(project) else "embedded"),
         "write_paths": ([] if (tier_of(project) and tier_of(project).profile == "detached") else [".strata/profile.yaml"])
-                       + ["AGENTS.md", "CLAUDE.md", ".strata/kit/registry.yaml", f".strata/kit/quilt-charter.{locale}.md", f".strata/kit/quilt-piece.{locale}.md"],
+                       + ["AGENTS.md", "CLAUDE.md", ".strata/kit/registry.yaml", f".strata/kit/quilt-charter.{locale}.md", f".strata/kit/quilt-piece.{locale}.md"]
+                       + ([f".strata/kit/runtime/{n}" for n in (*RUNTIME_FILES, f"README.{locale}.md")] if runtime.get("choice") else []),
         "approved": False,
     }
 
@@ -321,6 +413,8 @@ def generate(project: Path, kit: Path, apply: bool, out: Path | None = None) -> 
                 "conditional": [c["id"] for c in prop.get("conditional", []) if c.get("on")],
                 "declined": [{"id": a["id"], "reason": a.get("declined_reason")} for a in prop.get("adoption", []) if a.get("answered") and not a.get("adopted")],
                 "facts": prop.get("facts", {}),
+                "answers": prop.get("answers") or {},
+                **({"runtime": {k: prop["runtime"].get(k) for k in ("choice", "reason", "strata_python")}} if (prop.get("runtime") or {}).get("choice") else {}),
                 "waivers": prop.get("waived", []), "routes": []}
     # Quilt texts: hub charter paragraph and piece instructions (Quilt reads these; roles come from core/roles)
     roles = load_yaml(kit / "core" / "roles" / "agent-roles.yaml").get("roles", [])
@@ -340,6 +434,12 @@ def generate(project: Path, kit: Path, apply: bool, out: Path | None = None) -> 
     files = {"AGENTS.md": "\n".join(agents), "CLAUDE.md": "\n".join(claude), ".strata/profile.yaml": manifest,
              ".strata/kit/registry.yaml": "# project skill registry layer — routes added here override the profile and core layers\n" + yaml.safe_dump(registry, allow_unicode=True, sort_keys=False),
              f".strata/kit/quilt-charter.{locale}.md": "\n".join(charter), f".strata/kit/quilt-piece.{locale}.md": "\n".join(piece)}
+    rt = prop.get("runtime") or {}
+    if rt.get("choice") and rt.get("strata_python"):
+        # one STRATA_PYTHON for every execution path, as snippets the person applies — home files are never edited here
+        v = vault_root()
+        for n, body in runtime_env.snippets(os.path.expanduser(rt["strata_python"]), str(kit), str(v) if v else None, str(project), locale).items():
+            files[f".strata/kit/runtime/{n}"] = body
     allowed = set(prop.get("write_paths", []))
     # MB-strata-kit-2026-010: a hand-written file is never replaced unless the proposal names it here
     # (move its text to .strata/kit/notes.<locale>.md first, so the generated file carries it as project notes)
@@ -959,28 +1059,65 @@ def main() -> int:
     ap.add_argument("--uses-vault", choices=["yes", "no"], help="the project keeps knowledge in the vault (conditional cards)")
     ap.add_argument("--harness", help="harnesses here, comma separated (claude,codex,quilt); quilt turns on uses_quilt")
     ap.add_argument("--locale", default="en", choices=LOCALES); ap.add_argument("--domain", default="work", choices=["work", "personal"])
-    ap.add_argument("--apply", action="store_true"); ap.add_argument("--out", help="generate: write a review copy into this directory instead of the project")
+    ap.add_argument("--answer", action="append", default=[], help="interview answer key=value (" + ", ".join(INTERVIEW_KEYS) + "); runtime=" + "|".join(runtime_env.OPTIONS))
+    ap.add_argument("--because", action="append", default=[], help="the reason for an answer: key=reason")
+    ap.add_argument("--apply", action="store_true", help="diagnose·recommend·generate: write into the project (.strata/kit/, adapters)")
+    ap.add_argument("--out", help="diagnose·recommend·generate: write into this directory instead of the project (review copy)")
     a = ap.parse_args()
     project, kit = Path(a.project).resolve(), Path(a.kit).resolve()
-    outdir = project / ".strata" / "kit"
+    outdir = Path(a.out).resolve() if a.out else project / ".strata" / "kit"
+    writes = bool(a.apply or a.out)
     if a.cmd == "diagnose":
-        d = diagnose(project, kit); outdir.mkdir(parents=True, exist_ok=True)
-        (outdir / "diagnosis.yaml").write_text(yaml.safe_dump(d, allow_unicode=True, sort_keys=False), encoding="utf-8")
-        print(yaml.safe_dump({k: d[k] for k in ("matched_profiles", "always_loaded_total", "budget_ok", "open_questions")}, allow_unicode=True, sort_keys=False)); return 0
+        d = diagnose(project, kit)
+        print(yaml.safe_dump({k: d[k] for k in ("matched_profiles", "always_loaded_total", "budget_ok", "open_questions")}, allow_unicode=True, sort_keys=False))
+        if writes:
+            outdir.mkdir(parents=True, exist_ok=True)
+            (outdir / "diagnosis.yaml").write_text(yaml.safe_dump(d, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            print(f"wrote {outdir / 'diagnosis.yaml'}")
+        else:
+            print("not written (read-only): --apply writes .strata/kit/diagnosis.yaml, --out DIR writes a copy there")
+        return 0
     if a.cmd == "recommend":
         if not a.profile: raise SystemExit("--profile required")
         waivers = dict(w.split("=", 1) for w in a.waive)
         answers = {**{c: True for c in a.adopt}, **{d.split("=", 1)[0]: (False, d.split("=", 1)[1] if "=" in d else None) for d in a.decline}}
         given = {"uses_vault": None if a.uses_vault is None else a.uses_vault == "yes",
                  "uses_quilt": None if a.harness is None else "quilt" in [h.strip() for h in a.harness.split(",")]}
-        p = recommend(project, kit, a.profile, waivers, a.locale, a.domain, answers, dict(e.split("=", 1) for e in a.enforce), given); outdir.mkdir(parents=True, exist_ok=True)
-        (outdir / "proposal.yaml").write_text(yaml.safe_dump(p, allow_unicode=True, sort_keys=False, width=1000), encoding="utf-8")
-        print(f"proposal: {len(p['cards'])} cards ({sum(c['strength']=='must' for c in p['cards'])} must), {len(p['waived'])} waived, {len(p['problems'])} problems → {outdir/'proposal.yaml'}")
+        bad = [x for x in a.answer + a.because if "=" not in x]
+        if bad: raise SystemExit(f"--answer/--because need key=value: {', '.join(bad)}")
+        reasons = dict(x.split("=", 1) for x in a.because)
+        interview = {k: {"value": v, "reason": reasons.get(k)} for k, v in (x.split("=", 1) for x in a.answer)}
+        for k in set(reasons) - set(interview):
+            raise SystemExit(f"--because {k}: no --answer {k}=… given with it")
+        p = recommend(project, kit, a.profile, waivers, a.locale, a.domain, answers, dict(e.split("=", 1) for e in a.enforce), given, interview)
+        target = outdir / "proposal.yaml"
+        note = ""
+        if writes and target.is_file() and (load_yaml(target) or {}).get("approved"):
+            target, note = outdir / "proposal.next.yaml", f" — {outdir / 'proposal.yaml'} is approved and kept; review proposal.next.yaml, then replace it and set approved: true"
+        if writes:
+            outdir.mkdir(parents=True, exist_ok=True)
+            target.write_text(yaml.safe_dump(p, allow_unicode=True, sort_keys=False, width=1000), encoding="utf-8")
+        print(f"proposal: {len(p['cards'])} cards ({sum(c['strength']=='must' for c in p['cards'])} must), {len(p['waived'])} waived, {len(p['problems'])} problems → "
+              + (f"{target}{note}" if writes else "not written (read-only): --apply writes .strata/kit/proposal.yaml, --out DIR writes a copy there"))
         print("  facts: " + ", ".join(f"{k} {v}" for k, v in p["facts"].items()))
         for c in p["conditional"]: print(f"  = {c['id']}: {'loaded' if c['on'] else 'not loaded'} (condition {c['condition']})")
         for w in p["warnings"]: print("  !", w)
-        for ad in p["adoption"]: print(f"  ? {ad['id']}: {'adopted' if ad['adopted'] else 'not adopted'}" + (f" (default from {ad['default_from']})" if ad["default_from"] and not ad["answered"] else "") + f" — {ad['question']}")
+        for ad in p["adoption"]: print(f"  ? {ad['id']}: {'adopted' if ad['adopted'] else 'not adopted'}" + (f" (default from {ad['default_from']})" if ad["default_from"] and not ad["answered"] else "") + (f" (answer from {ad['answer_from']})" if ad.get("answer_from") else "") + f" — {ad['question']}")
         print("  ? enforcement: " + (", ".join(f"{k} {v}" for k, v in p["enforcement"].items()) or "none declared") + f" — undeclared families are block (coverage, stages: advisory); --enforce family=advisory|default|block ({', '.join(ENFORCE_FAMILIES)})")
+        for k, v in p["answers"].items(): print(f"  = answer {k}: {v['value']}" + (f" ({v['reason']})" if v.get("reason") else " (no reason given: --because)"))
+        rt = p["runtime"]
+        if rt.get("choice"):
+            print(f"  = runtime: {rt['choice']} → STRATA_PYTHON {rt['strata_python']}; setup: " + " ; ".join(rt["setup"]))
+        else:
+            print(f"  ? runtime: which python should the kit run on in every path? --answer runtime=<choice> --because runtime=<reason> (default {rt['default']}: {rt['default_reason']})")
+            for k, o in rt["options"].items(): print(f"      {k}: {o['label']} — + {o['pros']} / - {o['cons']}")
+            ko = getattr(a, "locale", "en") == "ko"
+            print("    " + ("권장 — 언어 런타임과 kit 실행 환경을 나눠서:" if ko else "recommended — split language runtimes from the kit env:"))
+            names = {"languages": "언어 런타임" if ko else "language runtimes", "uv": "uv 자체" if ko else "uv itself", "kit": "kit 실행 환경" if ko else "kit env"}
+            for x in rt.get("layers", []): print(f"      {names[x['layer']]}: {x['tool']} — {x['why']}")
+            if rt.get("asdf_python_fits_when"): print("      " + ("예외: " if ko else "exception: ") + rt["asdf_python_fits_when"])
+        for k in INTERVIEW_KEYS[:4]:
+            if k not in p["answers"]: print(f"  ? {k}: not answered (--answer {k}=…)")
         for pr in p["problems"]: print("  !", pr)
         return 0
     if a.cmd == "generate":

@@ -56,8 +56,8 @@ if not __package__:   # run as a directory (`python3 "$STRATA_KIT/kb" …`): mak
 
 def _run_legacy(module_name: str, argv: list[str]) -> int:
     import importlib
+    sys.argv = [module_name, *argv]   # before the import: a module that cannot load (no PyYAML) still reads its own argv
     mod = importlib.import_module(f"kb.legacy.{module_name}")
-    sys.argv = [module_name, *argv]
     rc = mod.main()
     return int(rc or 0)
 

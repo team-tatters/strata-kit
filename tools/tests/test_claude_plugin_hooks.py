@@ -20,7 +20,7 @@ class PluginHooksTest(unittest.TestCase):
     def test_generated_hooks_json_has_precompact(self):
         with tempfile.TemporaryDirectory() as d:
             out = Path(d) / "strata-kit"
-            subprocess.run([sys.executable, str(KIT / "tools" / "gen_claude_plugin.py"), "--out", str(out)],
+            subprocess.run([sys.executable, str(KIT / "tools" / "gen_claude_plugin.py"), "--allow-dirty", "--out", str(out)],
                            check=True, capture_output=True, text=True)
             hooks = json.loads((out / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
         self.assertEqual(hooks["PreCompact"][0]["hooks"][0]["command"], gen_claude_plugin.PRECOMPACT_HOOK)
